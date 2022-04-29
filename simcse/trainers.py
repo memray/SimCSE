@@ -10,8 +10,11 @@ import time
 import warnings
 from pathlib import Path
 import importlib.util
+
+from numpy import float64
 from packaging import version
 from transformers import Trainer
+from transformers.integrations import hp_params
 from transformers.modeling_utils import PreTrainedModel
 from transformers.training_args import ParallelMode, TrainingArguments
 from transformers.utils import logging
@@ -48,7 +51,6 @@ from transformers.trainer_pt_utils import (
 )
 
 from transformers.utils import logging
-from transformers.data.data_collator import DataCollator, DataCollatorWithPadding, default_data_collator
 import torch
 import torch.nn as nn
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
@@ -56,6 +58,9 @@ from torch.utils.data.dataloader import DataLoader
 from torch.utils.data.dataset import Dataset
 from torch.utils.data.distributed import DistributedSampler
 from torch.utils.data.sampler import RandomSampler, SequentialSampler
+
+from SentEval import senteval
+from beir_eval import beir_utils, dist_utils
 
 if is_torch_tpu_available():
     import torch_xla.core.xla_model as xm
@@ -72,30 +77,188 @@ if version.parse(torch.__version__) >= version.parse("1.6"):
 if is_datasets_available():
     import datasets
 
-from transformers.trainer import _model_unwrap
+def _model_unwrap(model: nn.Module) -> nn.Module:
+    # since there could be multiple levels of wrapping, unwrap recursively
+    if hasattr(model, "module"):
+        return _model_unwrap(model.module)
+    else:
+        return model
+
 from transformers.optimization import Adafactor, AdamW, get_scheduler
 import copy
 # Set path to SentEval
-PATH_TO_SENTEVAL = './SentEval'
-PATH_TO_DATA = './SentEval/data'
+PATH_TO_DATA = '/export/share/ruimeng/project/search/simcse/SentEval/data/'
 
-# Import SentEval
-sys.path.insert(0, PATH_TO_SENTEVAL)
-import senteval
 import numpy as np
-from datetime import datetime
-from filelock import FileLock
 
 logger = logging.get_logger(__name__)
 
+
 class CLTrainer(Trainer):
 
-    def evaluate(
-        self,
-        eval_dataset: Optional[Dataset] = None,
-        ignore_keys: Optional[List[str]] = None,
-        metric_key_prefix: str = "eval",
-        eval_senteval_transfer: bool = False,
+    def _get_train_sampler(self) -> Optional[torch.utils.data.Sampler]:
+        if not has_length(self.train_dataset):
+            return None
+
+        generator = None
+        if self.args.world_size <= 1 and _is_torch_generator_available:
+            generator = torch.Generator()
+            generator.manual_seed(int(torch.empty((), dtype=torch.int64).random_().item()))
+
+        # Build the sampler.
+        if self.args.group_by_length:
+            if is_datasets_available() and isinstance(self.train_dataset, datasets.Dataset):
+                lengths = (
+                    self.train_dataset[self.args.length_column_name]
+                    if self.args.length_column_name in self.train_dataset.column_names
+                    else None
+                )
+            else:
+                lengths = None
+            model_input_name = self.tokenizer.model_input_names[0] if self.tokenizer is not None else None
+            if self.args.world_size <= 1:
+                return LengthGroupedSampler(
+                    self.args.train_batch_size * self.args.gradient_accumulation_steps,
+                    dataset=self.train_dataset,
+                    lengths=lengths,
+                    model_input_name=model_input_name,
+                    generator=generator,
+                )
+            else:
+                return DistributedLengthGroupedSampler(
+                    self.args.train_batch_size * self.args.gradient_accumulation_steps,
+                    dataset=self.train_dataset,
+                    num_replicas=self.args.world_size,
+                    rank=self.args.process_index,
+                    lengths=lengths,
+                    model_input_name=model_input_name,
+                    seed=self.args.seed,
+                )
+
+        else:
+            if self.args.world_size <= 1:
+                if _is_torch_generator_available:
+                    return RandomSampler(self.train_dataset, generator=generator)
+                return RandomSampler(self.train_dataset)
+            elif (
+                self.args.parallel_mode in [ParallelMode.TPU, ParallelMode.SAGEMAKER_MODEL_PARALLEL]
+                and not self.args.dataloader_drop_last
+            ):
+                # Use a loop for TPUs when drop_last is False to have all batches have the same size.
+                return DistributedSamplerWithLoop(
+                    self.train_dataset,
+                    batch_size=self.args.per_device_train_batch_size,
+                    num_replicas=self.args.world_size,
+                    rank=self.args.process_index,
+                    seed=self.args.seed,
+                )
+            else:
+                return DistributedSampler(
+                    self.train_dataset,
+                    num_replicas=self.args.world_size,
+                    rank=self.args.process_index,
+                    seed=self.args.seed,
+                )
+
+    def get_train_dataloader(self) -> DataLoader:
+        """
+        Returns the training [`~torch.utils.data.DataLoader`].
+
+        Will use no sampler if `self.train_dataset` does not implement `__len__`, a random sampler (adapted to
+        distributed training if necessary) otherwise.
+
+        Subclass and override this method if you want to inject some custom behavior.
+        """
+        if self.train_dataset is None:
+            raise ValueError("Trainer: training requires a train_dataset.")
+
+        return DataLoader(
+            self.train_dataset,
+            batch_size=self.args.train_batch_size,
+            sampler=None,
+            collate_fn=self.data_collator,
+            drop_last=self.args.dataloader_drop_last,
+            num_workers=self.args.dataloader_num_workers,
+            pin_memory=self.args.dataloader_pin_memory,
+        )
+
+
+    def evaluate_beir(self, epoch, output_dir, sim_function) -> Dict[str, float]:
+        beir_datasets = ['nfcorpus', 'fiqa', 'arguana', 'scidocs', 'scifact']
+        norm_query = False
+        norm_doc = False
+        beir_data_path = '/export/home/data/beir/'
+
+        metrics = {'epoch': epoch}
+        avg_ndcg_10 = []
+        avg_recall_100 = []
+
+        for dataset in beir_datasets:
+            logger.info(f"Start evaluating with dataset={dataset}")
+            split = 'dev' if dataset == 'msmarco' else 'test'
+
+            ndcg, _map, recall, precision, mrr, recall_cap, hole = beir_utils.evaluate_model(
+                query_encoder=self.model,
+                doc_encoder=self.model,
+                tokenizer=self.tokenizer,
+                dataset=dataset,
+                batch_size=self.args.per_device_eval_batch_size,
+                norm_query=norm_query,
+                norm_doc=norm_doc,
+                is_main=dist_utils.is_main(),
+                split=split,
+                metric=sim_function,
+                beir_data_path=beir_data_path,
+            )
+
+            if dist_utils.is_main():
+                # logger.info(dataset + ' ' + str(ndcg))
+                # logger.info(dataset + ' ' + str(_map))
+                # logger.info(dataset + ' ' + str(recall))
+                # logger.info(dataset + ' ' + str(precision))
+                # logger.info(dataset + ' ' + str(mrr))
+                # logger.info(dataset + ' ' + str(recall_cap))
+                # logger.info(dataset + ' ' + str(hole))
+
+                metrics[f'eval_{dataset}_ndcg@10'] = ndcg['NDCG@10']
+                metrics[f'eval_{dataset}_recall@100'] = recall['Recall@100']
+                avg_ndcg_10.append(ndcg['NDCG@10'])
+                avg_recall_100.append(recall['Recall@100'])
+
+                result_dict = {
+                    'dataset': dataset,
+                    'split': split,
+                    'metric': sim_function,
+                    'norm_query': norm_query,
+                    'norm_doc': norm_doc,
+                    'scores': {
+                        'ndcg': ndcg,
+                        'map': _map,
+                        'precision': precision,
+                        'recall': recall,
+                        'mrr': mrr,
+                        'recall_cap': recall_cap,
+                        'hole': hole,
+                    }
+                }
+                with open(f"{output_dir}/{dataset}.json", 'w') as writer:
+                    writer.write(json.dumps(result_dict, indent=4) + "\n")
+                rows = ['metric,@1,@3,@5,@10,@100,@1000']
+                for metric_name, scores in result_dict['scores'].items():
+                    row = ','.join([str(s) for s in ([metric_name] + list(scores.values()))])
+                    rows.append(row)
+                with open(f"{output_dir}/{dataset}.csv", 'w') as writer:
+                    for row in rows:
+                        writer.write(row + "\n")
+
+        metrics['eval_avg_ndcg@10'] = np.mean(avg_ndcg_10)
+        metrics['eval_avg_recall@100'] = np.mean(avg_recall_100)
+
+        return metrics
+
+
+    def evaluate_senteval(
+        self, epoch, output_dir, eval_senteval_transfer: bool = False,
     ) -> Dict[str, float]:
 
         # SentEval prepare and batcher
@@ -140,9 +303,84 @@ class CLTrainer(Trainer):
             avg_transfer /= 7
             metrics['eval_avg_transfer'] = avg_transfer
 
-        self.log(metrics)
+        results.update(metrics)
+        with open(f"{output_dir}/senteval.json", 'w') as writer:
+            writer.write(json.dumps(results, indent=4) + "\n")
+
         return metrics
-        
+
+    def _maybe_log_save_evaluate(self, tr_loss, model, trial, epoch, extra_logs=None):
+        if self.control.should_log:
+            if is_torch_tpu_available():
+                xm.mark_step()
+
+            logs: Dict[str, float] = {}
+
+            # all_gather + mean() to get average loss over all processes
+            tr_loss_scalar = self._nested_gather(tr_loss).mean().item()
+
+            # reset tr_loss to zero
+            tr_loss -= tr_loss
+
+            logs["loss"] = round(tr_loss_scalar / (self.state.global_step - self._globalstep_last_logged), 4)
+            if extra_logs:
+                for k, v in extra_logs.items():
+                    if isinstance(v, torch.Tensor):
+                        v = self._nested_gather(v).mean().item()
+                    logs[k] = round(v / (self.state.global_step - self._globalstep_last_logged), 4)
+                    # logs[k] = round(self._nested_gather(v).mean().item() / (self.state.global_step - self._globalstep_last_logged), 4)
+                    extra_logs[k] = 0.0
+
+            logs["learning_rate"] = self._get_learning_rate()
+
+            self._total_loss_scalar += tr_loss_scalar
+            self._globalstep_last_logged = self.state.global_step
+            self.store_flos()
+
+            self.log(logs)
+
+        metrics = None
+        if self.control.should_evaluate:
+            # major_metric = 'eval_avg_transfer' if 'eval_avg_transfer' in metrics else 'eval_avg_sts'
+            eval_output_dir = os.path.join(self.eval_output_dir, 'epoch-%.2f_step-%d' % (epoch, self.state.global_step))
+            os.makedirs(eval_output_dir, exist_ok=True)
+            metrics = self.evaluate_beir(epoch=epoch, output_dir=eval_output_dir, sim_function=self.model.model_args.sim_type)
+            metrics_senteval = self.evaluate_senteval(epoch=epoch, output_dir=eval_output_dir)
+            metrics.update(metrics_senteval)
+            metrics["step"] = self.state.global_step
+            for k, v in metrics.items():
+                if isinstance(v, float64):
+                    metrics[k] = float(v)
+            self.log(metrics)
+            major_metric = 'eval_avg_ndcg@10'
+            self._report_to_hp_search(trial, epoch, metrics)
+
+            # check if it's a new best score
+            major_score = metrics[major_metric]
+            metrics['major_score'] = major_score
+            self.eval_writer.write(json.dumps(metrics) + '\n')
+            eval_output_path = os.path.join(eval_output_dir, 'avg_score.json')
+            self._dump_eval_output(metrics, eval_output_path)
+
+            if major_score > self.best_score:
+                self.early_stop_counter = 0
+                logger.info("New best score: %s=%.6f", major_metric, major_score)
+                print("\nNew best score: %s=%.6f (%.2f%%), previous best was %.6f" %
+                      (major_metric, major_score,
+                       ((major_score - self.best_score) / self.best_score) * 100.0 if self.best_score != 0.0 else 0.0,
+                       self.best_score))
+                self.best_score = major_score
+                if self.args.save_best:
+                    self.save_model(os.path.join(self.args.output_dir, 'best_ckpt'))
+            else:
+                self.early_stop_counter += 1
+                if self.early_stop_counter >= self.early_stop_patience:
+                    self.control.should_training_stop = True
+
+        if self.control.should_save:
+            self._save_checkpoint(model, trial, metrics=metrics)
+            self.control = self.callback_handler.on_save(self.args, self.state, self.control)
+
     def _save_checkpoint(self, model, trial, metrics=None):
         """
         Compared to original implementation, we change the saving policy to
@@ -154,7 +392,8 @@ class CLTrainer(Trainer):
         assert _model_unwrap(model) is self.model, "internal model should be a reference to self.model"
 
         # Determine the new best metric / best model checkpoint
-        if metrics is not None and self.args.metric_for_best_model is not None:
+        if False:
+        # if metrics is not None and self.args.metric_for_best_model is not None:
             metric_to_check = self.args.metric_for_best_model
             if not metric_to_check.startswith("eval_"):
                 metric_to_check = f"eval_{metric_to_check}"
@@ -176,9 +415,6 @@ class CLTrainer(Trainer):
                     self.deepspeed.save_checkpoint(output_dir)
 
                 # Save optimizer and scheduler
-                if self.sharded_dpp:
-                    self.optimizer.consolidate_state_dict()
-
                 if is_torch_tpu_available():
                     xm.rendezvous("saving_optimizer_states")
                     xm.save(self.optimizer.state_dict(), os.path.join(output_dir, "optimizer.pt"))
@@ -199,27 +435,12 @@ class CLTrainer(Trainer):
             # Save model checkpoint
             checkpoint_folder = f"{PREFIX_CHECKPOINT_DIR}-{self.state.global_step}"
 
-            if self.hp_search_backend is not None and trial is not None:
-                if self.hp_search_backend == HPSearchBackend.OPTUNA:
-                    run_id = trial.number
-                else:
-                    from ray import tune
-
-                    run_id = tune.get_trial_id()
-                run_name = self.hp_name(trial) if self.hp_name is not None else f"run-{run_id}"
-                output_dir = os.path.join(self.args.output_dir, run_name, checkpoint_folder)
-            else:
-                output_dir = os.path.join(self.args.output_dir, checkpoint_folder)
-
-                self.store_flos()
+            output_dir = os.path.join(self.args.output_dir, 'checkpoints', checkpoint_folder)
+            self.store_flos()
 
             self.save_model(output_dir)
             if self.deepspeed:
                 self.deepspeed.save_checkpoint(output_dir)
-
-            # Save optimizer and scheduler
-            if self.sharded_dpp:
-                self.optimizer.consolidate_state_dict()
 
             if is_torch_tpu_available():
                 xm.rendezvous("saving_optimizer_states")
@@ -234,7 +455,6 @@ class CLTrainer(Trainer):
                     torch.save(self.lr_scheduler.state_dict(), os.path.join(output_dir, "scheduler.pt"))
                 reissue_pt_warnings(caught_warnings)
 
-
             # Save the Trainer state
             if self.is_world_process_zero():
                 self.state.save_to_json(os.path.join(output_dir, "trainer_state.json"))
@@ -242,7 +462,56 @@ class CLTrainer(Trainer):
             # Maybe delete some older checkpoints.
             if self.is_world_process_zero():
                 self._rotate_checkpoints(use_mtime=True)
-    
+
+
+    def training_step(self, model: nn.Module, inputs: Dict[str, Union[torch.Tensor, Any]]) -> torch.Tensor:
+        """
+        Perform a training step on a batch of inputs.
+
+        Subclass and override to inject custom behavior.
+
+        Args:
+            model (`nn.Module`):
+                The model to train.
+            inputs (`Dict[str, Union[torch.Tensor, Any]]`):
+                The inputs and targets of the model.
+
+                The dictionary will be unpacked before being fed to the model. Most models expect the targets under the
+                argument `labels`. Check your model's documentation for all accepted arguments.
+
+        Return:
+            `torch.Tensor`: The tensor with training loss on this batch.
+        """
+        model.train()
+        inputs = self._prepare_inputs(inputs)
+        extra_losses = {}
+
+        with self.autocast_smart_context_manager():
+            loss, outputs = self.compute_loss(model, inputs, return_outputs=True)
+            if hasattr(outputs, 'specific_losses'):
+                for k, v in outputs.specific_losses.items():
+                    extra_losses[k] = v
+
+        if self.args.gradient_accumulation_steps > 1 and not self.deepspeed:
+            # deepspeed handles loss scaling by gradient_accumulation_steps in its `backward`
+            loss = loss / self.args.gradient_accumulation_steps
+            for k, v in extra_losses.items():
+                extra_losses[k] = v / self.args.gradient_accumulation_steps
+
+        if self.do_grad_scaling:
+            self.scaler.scale(loss).backward()
+        elif self.use_apex:
+            with amp.scale_loss(loss, self.optimizer) as scaled_loss:
+                scaled_loss.backward()
+        elif self.deepspeed:
+            # loss gets scaled under gradient_accumulation_steps in deepspeed
+            loss = self.deepspeed.backward(loss)
+        else:
+            loss.backward()
+
+        return loss.detach(), extra_losses
+
+
     def train(self, model_path: Optional[str] = None, trial: Union["optuna.Trial", Dict[str, Any]] = None):
         """
         Main training entry point.
@@ -259,6 +528,10 @@ class CLTrainer(Trainer):
         """
         # This might change the seed so needs to run first.
         self._hp_search_setup(trial)
+        self.eval_output_dir = os.path.join(self.args.output_dir, 'eval_output')
+        os.makedirs(self.eval_output_dir, exist_ok=True)
+        output_eval_file = os.path.join(self.args.output_dir, f'eval_results.json')
+        self.eval_writer = open(output_eval_file, 'w')
 
         # Model re-init
         if self.model_init is not None:
@@ -329,9 +602,7 @@ class CLTrainer(Trainer):
             model = torch.nn.DataParallel(model)
 
         # Distributed training (should be after apex fp16 initialization)
-        if self.sharded_dpp:
-            model = ShardedDDP(model, self.optimizer)
-        elif self.args.local_rank != -1:
+        if self.args.local_rank != -1:
             model = torch.nn.parallel.DistributedDataParallel(
                 model,
                 device_ids=[self.args.local_rank],
@@ -417,6 +688,7 @@ class CLTrainer(Trainer):
 
         # tr_loss is a tensor to avoid synchronization of TPUs through .item()
         tr_loss = torch.tensor(0.0).to(self.args.device)
+        extra_logs = collections.defaultdict(float)
         # _total_loss_scalar is updated everytime .item() has to be called on tr_loss and stores the sum of all losses
         self._total_loss_scalar = 0.0
         self._globalstep_last_logged = 0
@@ -459,9 +731,15 @@ class CLTrainer(Trainer):
                 if ((step + 1) % self.args.gradient_accumulation_steps != 0) and self.args.local_rank != -1:
                     # Avoid unnecessary DDP synchronization since there will be no backward pass on this example.
                     with model.no_sync():
-                        tr_loss += self.training_step(model, inputs)
+                        loss, extra_losses = self.training_step(model, inputs)
+                        tr_loss += loss
+                        for k, v in extra_losses.items():
+                            extra_logs[k] += v
                 else:
-                    tr_loss += self.training_step(model, inputs)
+                    loss, extra_losses = self.training_step(model, inputs)
+                    tr_loss += loss
+                    for k, v in extra_losses.items():
+                        extra_logs[k] += v
                 self._total_flos += self.floating_point_ops(inputs)
 
                 if (step + 1) % self.args.gradient_accumulation_steps == 0 or (
@@ -504,13 +782,13 @@ class CLTrainer(Trainer):
                     self.state.epoch = epoch + (step + 1) / steps_in_epoch
                     self.control = self.callback_handler.on_step_end(self.args, self.state, self.control)
 
-                    self._maybe_log_save_evaluate(tr_loss, model, trial, epoch)
+                    self._maybe_log_save_evaluate(tr_loss, model, trial, epoch, extra_logs=extra_logs)
 
                 if self.control.should_epoch_stop or self.control.should_training_stop:
                     break
 
             self.control = self.callback_handler.on_epoch_end(self.args, self.state, self.control)
-            self._maybe_log_save_evaluate(tr_loss, model, trial, epoch)
+            self._maybe_log_save_evaluate(tr_loss, model, trial, epoch, extra_logs=extra_logs)
 
             if self.args.tpu_metrics_debug or self.args.debug:
                 if is_torch_tpu_available():

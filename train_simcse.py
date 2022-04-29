@@ -1,37 +1,41 @@
-import functools
 import logging
+import math
 import os
 import sys
-from enum import Enum
-
-import torch
-import datasets
-import types
-
-from functools import partial
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from typing import Optional, Union, List, Dict, Tuple
+import torch
+import collections
+import random
+
+from datasets import load_dataset
 
 import transformers
-from torch.distributed.elastic.multiprocessing.errors import record
 from transformers import (
     CONFIG_MAPPING,
     MODEL_FOR_MASKED_LM_MAPPING,
     AutoConfig,
     AutoModelForMaskedLM,
+    AutoModelForSequenceClassification,
     AutoTokenizer,
+    DataCollatorForLanguageModeling,
+    DataCollatorWithPadding,
     HfArgumentParser,
+    Trainer,
     TrainingArguments,
+    default_data_collator,
     set_seed,
+    EvalPrediction,
+    BertModel,
     BertForPreTraining,
+    RobertaModel
 )
+from transformers.tokenization_utils_base import BatchEncoding, PaddingStrategy, PreTrainedTokenizerBase
 from transformers.trainer_utils import is_main_process
-from transformers.integrations import WandbCallback
+from transformers.data.data_collator import DataCollatorForLanguageModeling
 from transformers.file_utils import cached_property, torch_required, is_torch_available, is_torch_tpu_available
-from simcse.models import PretrainedModelForContrastiveLearning, BertForCL
+from simcse.models import RobertaForCL, BertForCL
 from simcse.trainers import CLTrainer
-from simcse.utils import wandb_setup
-from simcse.data_process import passage_prepare_features, document_prepare_features, PassageDataCollatorWithPadding
 
 logger = logging.getLogger(__name__)
 MODEL_CONFIG_CLASSES = list(MODEL_FOR_MASKED_LM_MAPPING.keys())
@@ -82,19 +86,6 @@ class ModelArguments:
     )
 
     # @memray
-    cl_loss_weights: str = field(
-        default=None,
-        metadata={
-            "help": "Whether the parameters of query/doc encoder are shared."
-                    ""
-        },
-    )
-    shared_encoder: bool = field(
-        default=False,
-        metadata={
-            "help": "Whether the parameters of query/doc encoder are shared."
-        },
-    )
     hidden_dropout_prob: float = field(
         default=0.10,
         metadata={
@@ -114,19 +105,7 @@ class ModelArguments:
         metadata={
             "help": "What kind of pooler to use (cls, cls_before_pooler, avg, avg_top2, avg_first_last)."
         }
-    )
-    projector: str = field(
-        default="",
-        metadata={
-            "help": "projector MLP"
-        }
-    )
-    sim_type: str = field(
-        default="dot",
-        metadata={
-            "help": "What similarity metric function to use (dot, cosine)."
-        }
-    )
+    ) 
     hard_negative_weight: float = field(
         default=0,
         metadata={
@@ -152,27 +131,13 @@ class ModelArguments:
         }
     )
 
-    def to_dict(self):
-        """
-        Serializes this instance while replace `Enum` by their values (for JSON serialization support). It obfuscates
-        the token values by removing their value.
-        """
-        d = asdict(self)
-        for k, v in d.items():
-            if isinstance(v, Enum):
-                d[k] = v.value
-            if isinstance(v, list) and len(v) > 0 and isinstance(v[0], Enum):
-                d[k] = [x.value for x in v]
-            if k.endswith("_token"):
-                d[k] = f"<{k.upper()}>"
-        return d
-
 
 @dataclass
 class DataTrainingArguments:
     """
     Arguments pertaining to what data we are going to input our model for training and eval.
     """
+
     # Huggingface's original arguments. 
     dataset_name: Optional[str] = field(
         default=None, metadata={"help": "The name of the dataset to use (via the datasets library)."}
@@ -194,13 +159,6 @@ class DataTrainingArguments:
         metadata={"help": "The number of processes to use for the preprocessing."},
     )
 
-    # @memray
-    data_type: str = field(
-        default=None,
-        metadata={
-            "help": "document or passage."
-        }
-    )
     # SimCSE's arguments
     train_file: Optional[str] = field(
         default=None, 
@@ -231,22 +189,7 @@ class DataTrainingArguments:
         else:
             if self.train_file is not None:
                 extension = self.train_file.split(".")[-1]
-                assert extension in ["csv", "tsv", "jsonl", "json", "txt"], "`train_file` should be a csv, a json or a txt file."
-
-    def to_dict(self):
-        """
-        Serializes this instance while replace `Enum` by their values (for JSON serialization support). It obfuscates
-        the token values by removing their value.
-        """
-        d = asdict(self)
-        for k, v in d.items():
-            if isinstance(v, Enum):
-                d[k] = v.value
-            if isinstance(v, list) and len(v) > 0 and isinstance(v[0], Enum):
-                d[k] = [x.value for x in v]
-            if k.endswith("_token"):
-                d[k] = f"<{k.upper()}>"
-        return d
+                assert extension in ["csv", "tsv", "json", "txt"], "`train_file` should be a csv, a json or a txt file."
 
 
 @dataclass
@@ -307,7 +250,7 @@ class OurTrainingArguments(TrainingArguments):
 
         return device
 
-@record
+
 def main():
     # See all possible arguments in src/transformers/training_args.py
     # or by passing the --help flag to this script.
@@ -333,15 +276,10 @@ def main():
         )
 
     # Setup logging
-    os.makedirs(training_args.output_dir, exist_ok=True)
     logging.basicConfig(
         format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
         datefmt="%m/%d/%Y %H:%M:%S",
         level=logging.INFO if is_main_process(training_args.local_rank) else logging.WARN,
-        handlers=[
-            logging.FileHandler(training_args.output_dir+"/train_log.txt"),
-            logging.StreamHandler()
-        ]
     )
 
     # Log on each process the small summary:
@@ -374,17 +312,14 @@ def main():
     extension = data_args.train_file.split(".")[-1]
     if extension == "txt":
         extension = "text"
-    if extension == "jsonl":
-        extension = "text"
     if extension == "csv" or extension == "tsv":
-        loaded_datasets = datasets.load_dataset("csv",
-                                data_files=data_files,
-                                delimiter="\t" if "tsv" in data_args.train_file else ",",
-                                keep_in_memory=False,
+        datasets = load_dataset("csv", data_files=data_files,
                                 cache_dir="./data/",
+                                delimiter="\t" if "tsv" in data_args.train_file else ",",
+                                keep_in_memory=False
                                 )
     else:
-        loaded_datasets = datasets.load_dataset(extension, data_files=data_files, cache_dir="./data/")
+        datasets = load_dataset(extension, data_files=data_files, cache_dir="./data/")
 
     # See more about loading any type of standard or custom dataset (from files, python dict, pandas DataFrame, etc) at
     # https://huggingface.co/docs/datasets/loading_datasets.html.
@@ -424,69 +359,200 @@ def main():
             "You can do it from another script, save it, and load it from here, using --tokenizer_name."
         )
 
-    if False:
-        model = BertForCL.from_pretrained(
-            model_args.model_name_or_path,
-            from_tf=bool(".ckpt" in model_args.model_name_or_path),
-            config=config,
-            cache_dir=model_args.cache_dir,
-            revision=model_args.model_revision,
-            use_auth_token=True if model_args.use_auth_token else None,
-            model_args=model_args
-        )
-    else:
-        if not os.path.exists(model_args.model_name_or_path):
-            model = PretrainedModelForContrastiveLearning(
-                config,
-                model_args=model_args
-            )
-        else:
-            model = PretrainedModelForContrastiveLearning.from_pretrained(
+    if model_args.model_name_or_path:
+        if 'roberta' in model_args.model_name_or_path:
+            model = RobertaForCL.from_pretrained(
                 model_args.model_name_or_path,
+                from_tf=bool(".ckpt" in model_args.model_name_or_path),
                 config=config,
+                cache_dir=model_args.cache_dir,
+                revision=model_args.model_revision,
+                use_auth_token=True if model_args.use_auth_token else None,
+                model_args=model_args                  
+            )
+        elif 'bert' in model_args.model_name_or_path:
+            model = BertForCL.from_pretrained(
+                model_args.model_name_or_path,
+                from_tf=bool(".ckpt" in model_args.model_name_or_path),
+                config=config,
+                cache_dir=model_args.cache_dir,
+                revision=model_args.model_revision,
+                use_auth_token=True if model_args.use_auth_token else None,
                 model_args=model_args
             )
-    if model_args.do_mlm:
-        pretrained_model = BertForPreTraining.from_pretrained(model_args.model_name_or_path)
-        model.lm_head.load_state_dict(pretrained_model.cls.predictions.state_dict())
+            if model_args.do_mlm:
+                pretrained_model = BertForPreTraining.from_pretrained(model_args.model_name_or_path)
+                model.lm_head.load_state_dict(pretrained_model.cls.predictions.state_dict())
+        else:
+            raise NotImplementedError
+    else:
+        raise NotImplementedError
+        logger.info("Training new model from scratch")
+        model = AutoModelForMaskedLM.from_config(config)
+
+    model.resize_token_embeddings(len(tokenizer))
+
+    # Prepare features
+    column_names = datasets["train"].column_names
+    sent2_cname = None
+    if len(column_names) == 2:
+        # Pair datasets
+        sent0_cname = column_names[0]
+        sent1_cname = column_names[1]
+    elif len(column_names) == 3:
+        # Pair datasets with hard negatives
+        sent0_cname = column_names[0]
+        sent1_cname = column_names[1]
+        sent2_cname = column_names[2]
+    elif len(column_names) == 1:
+        # Unsupervised datasets
+        sent0_cname = column_names[0]
+        sent1_cname = column_names[0]
+    else:
+        raise NotImplementedError
+
+    def prepare_features(examples):
+        # padding = longest (default)
+        #   If no sentence in the batch exceed the max length, then use
+        #   the max sentence length in the batch, otherwise use the 
+        #   max sentence length in the argument and truncate those that
+        #   exceed the max length.
+        # padding = max_length (when pad_to_max_length, for pressure test)
+        #   All sentences are padded/truncated to data_args.max_seq_length.
+        total = len(examples[sent0_cname])
+
+        # Avoid "None" fields 
+        for idx in range(total):
+            if examples[sent0_cname][idx] is None:
+                examples[sent0_cname][idx] = " "
+            if examples[sent1_cname][idx] is None:
+                examples[sent1_cname][idx] = " "
+        
+        sentences = examples[sent0_cname] + examples[sent1_cname]
+
+        # If hard negative exists
+        if sent2_cname is not None:
+            for idx in range(total):
+                if examples[sent2_cname][idx] is None:
+                    examples[sent2_cname][idx] = " "
+            sentences += examples[sent2_cname]
+
+        sent_features = tokenizer(
+            sentences,
+            max_length=data_args.max_seq_length,
+            truncation=True,
+            padding="max_length" if data_args.pad_to_max_length else False,
+        )
+
+        features = {}
+        if sent2_cname is not None:
+            for key in sent_features:
+                features[key] = [[sent_features[key][i], sent_features[key][i+total], sent_features[key][i+total*2]] for i in range(total)]
+        else:
+            for key in sent_features:
+                features[key] = [[sent_features[key][i], sent_features[key][i+total]] for i in range(total)]
+            
+        return features
 
     if training_args.do_train:
-        train_dataset = loaded_datasets['train']
-        if data_args.data_type == 'document':
-            parse_fn = partial(document_prepare_features, tokenizer=tokenizer,
-                               max_seq_length=data_args.max_seq_length,
-                               padding_strategy='max_length' if data_args.pad_to_max_length else 'longest')
-        elif data_args.data_type == 'passage':
-            parse_fn = partial(passage_prepare_features, tokenizer=tokenizer,
-                               max_seq_length=data_args.max_seq_length,
-                               padding_strategy='max_length' if data_args.pad_to_max_length else 'longest')
-        else:
-            f'Unknown data_args.data_type=[{data_args.data_type}]'
-        train_dataset = train_dataset.shuffle(seed=42)
-        train_dataset.set_transform(parse_fn)
+        train_dataset = datasets["train"].map(
+            prepare_features,
+            batched=True,
+            num_proc=data_args.preprocessing_num_workers,
+            remove_columns=column_names,
+            load_from_cache_file=not data_args.overwrite_cache,
+        )
+
+    # Data collator
+    @dataclass
+    class OurDataCollatorWithPadding:
+        tokenizer: PreTrainedTokenizerBase
+        padding: Union[bool, str, PaddingStrategy] = True
+        max_length: Optional[int] = None
+        pad_to_multiple_of: Optional[int] = None
+        mlm: bool = True
+        mlm_probability: float = data_args.mlm_probability
+
+        def __call__(self, features: List[Dict[str, Union[List[int], List[List[int]], torch.Tensor]]]) -> Dict[str, torch.Tensor]:
+            special_keys = ['input_ids', 'attention_mask', 'token_type_ids', 'mlm_input_ids', 'mlm_labels']
+            bs = len(features)
+            if bs > 0:
+                num_sent = len(features[0]['input_ids'])
+            else:
+                return
+            flat_features = []
+            for feature in features:
+                for i in range(num_sent):
+                    flat_features.append({k: feature[k][i] if k in special_keys else feature[k] for k in feature})
+
+            batch = self.tokenizer.pad(
+                flat_features,
+                padding=self.padding,
+                max_length=self.max_length,
+                pad_to_multiple_of=self.pad_to_multiple_of,
+                return_tensors="pt",
+            )
+            if model_args.do_mlm:
+                batch["mlm_input_ids"], batch["mlm_labels"] = self.mask_tokens(batch["input_ids"])
+
+            batch = {k: batch[k].view(bs, num_sent, -1) if k in special_keys else batch[k].view(bs, num_sent, -1)[:, 0] for k in batch}
+
+            if "label" in batch:
+                batch["labels"] = batch["label"]
+                del batch["label"]
+            if "label_ids" in batch:
+                batch["labels"] = batch["label_ids"]
+                del batch["label_ids"]
+
+            return batch
+        
+        def mask_tokens(
+            self, inputs: torch.Tensor, special_tokens_mask: Optional[torch.Tensor] = None
+        ) -> Tuple[torch.Tensor, torch.Tensor]:
+            """
+            Prepare masked tokens inputs/labels for masked language modeling: 80% MASK, 10% random, 10% original.
+            """
+            inputs = inputs.clone()
+            labels = inputs.clone()
+            # We sample a few tokens in each sequence for MLM training (with probability `self.mlm_probability`)
+            probability_matrix = torch.full(labels.shape, self.mlm_probability)
+            if special_tokens_mask is None:
+                special_tokens_mask = [
+                    self.tokenizer.get_special_tokens_mask(val, already_has_special_tokens=True) for val in labels.tolist()
+                ]
+                special_tokens_mask = torch.tensor(special_tokens_mask, dtype=torch.bool)
+            else:
+                special_tokens_mask = special_tokens_mask.bool()
+
+            probability_matrix.masked_fill_(special_tokens_mask, value=0.0)
+            masked_indices = torch.bernoulli(probability_matrix).bool()
+            labels[~masked_indices] = -100  # We only compute loss on masked tokens
+
+            # 80% of the time, we replace masked input tokens with tokenizer.mask_token ([MASK])
+            indices_replaced = torch.bernoulli(torch.full(labels.shape, 0.8)).bool() & masked_indices
+            inputs[indices_replaced] = self.tokenizer.convert_tokens_to_ids(self.tokenizer.mask_token)
+
+            # 10% of the time, we replace masked input tokens with random word
+            indices_random = torch.bernoulli(torch.full(labels.shape, 0.5)).bool() & masked_indices & ~indices_replaced
+            random_words = torch.randint(len(self.tokenizer), labels.shape, dtype=torch.long)
+            inputs[indices_random] = random_words[indices_random]
+
+            # The rest of the time (10% of the time) we keep the masked input tokens unchanged
+            return inputs, labels
+
+    data_collator = default_data_collator if data_args.pad_to_max_length else OurDataCollatorWithPadding(tokenizer)
 
     trainer = CLTrainer(
         model=model,
         args=training_args,
         train_dataset=train_dataset if training_args.do_train else None,
         tokenizer=tokenizer,
-        data_collator=PassageDataCollatorWithPadding(
-            tokenizer,
-            max_length=data_args.max_seq_length,
-            padding_strategy='max_length' if data_args.pad_to_max_length else 'longest',
-            do_mlm=model_args.do_mlm,
-            mlm_probability=data_args.mlm_probability)
+        data_collator=data_collator,
     )
     trainer.model_args = model_args
 
     # Training
     if training_args.do_train:
-        wandb_callback = [ch for ch in trainer.callback_handler.callbacks if isinstance(ch, WandbCallback)]
-        if wandb_callback:
-            # override wandb_callback's setup method to record our hyperparameters
-            wandb_callback = wandb_callback[0]
-            new_setup = functools.partial(wandb_setup, model_args=model_args, data_args=data_args)
-            wandb_callback.setup =types.MethodType(new_setup, wandb_callback)
         model_path = (
             model_args.model_name_or_path
             if (model_args.model_name_or_path is not None and os.path.isdir(model_args.model_name_or_path))
@@ -510,9 +576,7 @@ def main():
     results = {}
     if training_args.do_eval:
         logger.info("*** Evaluate ***")
-        results = trainer.evaluate_beir(epoch=trainer.state.epoch, output_dir=training_args.output_dir, sim_function=model_args.sim_type)
-        results_senteval = trainer.evaluate_senteval(epoch=trainer.state.epoch, output_dir=training_args.output_dir)
-        results.update(results_senteval)
+        results = trainer.evaluate(eval_senteval_transfer=True)
 
         output_eval_file = os.path.join(training_args.output_dir, "eval_results.txt")
         if trainer.is_world_process_zero():

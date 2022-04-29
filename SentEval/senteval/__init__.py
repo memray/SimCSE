@@ -7,4 +7,4 @@
 
 from __future__ import absolute_import
 
-from senteval.engine import SE
+from SentEval.senteval.engine import SE

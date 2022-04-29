@@ -19,8 +19,8 @@ import logging
 
 from scipy.stats import spearmanr, pearsonr
 
-from senteval.utils import cosine
-from senteval.sick import SICKEval
+from SentEval.senteval.utils import cosine
+from SentEval.senteval.sick import SICKEval
 
 
 class STSEval(object):

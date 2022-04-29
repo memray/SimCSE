@@ -1,10 +1,13 @@
+from dataclasses import dataclass
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.distributed as dist
 
+from typing import Optional, Tuple
 import transformers
-from transformers import RobertaTokenizer
+from transformers import RobertaTokenizer, PreTrainedModel
 from transformers.models.roberta.modeling_roberta import RobertaPreTrainedModel, RobertaModel, RobertaLMHead
 from transformers.models.bert.modeling_bert import BertPreTrainedModel, BertModel, BertLMPredictionHead
 from transformers.activations import gelu
@@ -12,7 +15,7 @@ from transformers.file_utils import (
     add_code_sample_docstrings,
     add_start_docstrings,
     add_start_docstrings_to_model_forward,
-    replace_return_docstrings,
+    replace_return_docstrings, ModelOutput,
 )
 from transformers.modeling_outputs import SequenceClassifierOutput, BaseModelOutputWithPoolingAndCrossAttentions
 
@@ -31,6 +34,29 @@ class MLPLayer(nn.Module):
         x = self.activation(x)
 
         return x
+
+
+class ProjectorLayer(nn.Module):
+    """
+    Advanced dense layers for getting sentence representations over CLS representation.
+    """
+    def __init__(self, config, extra_config):
+        super().__init__()
+        assert extra_config.projector, 'projector is enabled but config.projector is not set'
+        sizes = [config.hidden_size] + list(map(int, extra_config.projector.split('-')))
+        layers = []
+        for i in range(len(sizes) - 2):
+            layers.append(nn.Linear(sizes[i], sizes[i + 1], bias=False))
+            layers.append(nn.BatchNorm1d(sizes[i + 1]))
+            layers.append(nn.ReLU(inplace=True))
+        layers.append(nn.Linear(sizes[-2], sizes[-1], bias=False))
+        self.projector = nn.Sequential(*layers)
+
+    def forward(self, features, **kwargs):
+        x = self.projector(features)
+
+        return x
+
 
 class Similarity(nn.Module):
     """
@@ -58,14 +84,14 @@ class Pooler(nn.Module):
     def __init__(self, pooler_type):
         super().__init__()
         self.pooler_type = pooler_type
-        assert self.pooler_type in ["cls", "cls_before_pooler", "avg", "avg_top2", "avg_first_last"], "unrecognized pooling type %s" % self.pooler_type
+        assert self.pooler_type in ["projector", "cls", "cls_before_pooler", "avg", "avg_top2", "avg_first_last"], "unrecognized pooling type %s" % self.pooler_type
 
     def forward(self, attention_mask, outputs):
         last_hidden = outputs.last_hidden_state
         pooler_output = outputs.pooler_output
         hidden_states = outputs.hidden_states
 
-        if self.pooler_type in ['cls_before_pooler', 'cls']:
+        if self.pooler_type in ['cls_before_pooler', 'cls', 'projector']:
             return last_hidden[:, 0]
         elif self.pooler_type == "avg":
             return ((last_hidden * attention_mask.unsqueeze(-1)).sum(1) / attention_mask.sum(-1).unsqueeze(-1))
@@ -89,10 +115,11 @@ def cl_init(cls, config):
     """
     cls.pooler_type = cls.model_args.pooler_type
     cls.pooler = Pooler(cls.model_args.pooler_type)
-    if cls.model_args.pooler_type == "cls":
+    if cls.model_args.pooler_type == "cls" or cls.model_args.pooler_type == "projector":
         cls.mlp = MLPLayer(config)
     cls.sim = Similarity(temp=cls.model_args.temp)
     cls.init_weights()
+
 
 def cl_forward(cls,
     encoder,
@@ -123,7 +150,7 @@ def cl_forward(cls,
     if token_type_ids is not None:
         token_type_ids = token_type_ids.view((-1, token_type_ids.size(-1))) # (bs * num_sent, len)
 
-    # Get raw embeddings
+    # Get raw embeddings, outputs.last_hidden_state=[bs*num_sent, hidden_dim]
     outputs = encoder(
         input_ids,
         attention_mask=attention_mask,
@@ -157,11 +184,11 @@ def cl_forward(cls,
 
     # If using "cls", we add an extra MLP layer
     # (same as BERT's original implementation) over the representation.
-    if cls.pooler_type == "cls":
+    if cls.pooler_type == "cls" or cls.model_args.pooler_type == "projector":
         pooler_output = cls.mlp(pooler_output)
 
-    # Separate representation
-    z1, z2 = pooler_output[:,0], pooler_output[:,1]
+    # Separate representation, z1/z2.shape=[bs, hidden]
+    z1, z2 = pooler_output[:, 0], pooler_output[:, 1]
 
     # Hard negative
     if num_sent == 3:
@@ -187,17 +214,18 @@ def cl_forward(cls,
         # current process's corresponding embeddings with original tensors
         z1_list[dist.get_rank()] = z1
         z2_list[dist.get_rank()] = z2
-        # Get full batch embeddings: (bs x N, hidden)
+        # Get full batch embeddings: (bs x n_gpu, hidden)
         z1 = torch.cat(z1_list, 0)
         z2 = torch.cat(z2_list, 0)
-
+    # cos_sim as logit, along dim=-1, resulting a matrix shape=[bs, bs]
+    #   z1.unsqueeze(1).shape=[B,1,H], z2.unsqueeze(0).shape=[1,B,H],
     cos_sim = cls.sim(z1.unsqueeze(1), z2.unsqueeze(0))
     # Hard negative
     if num_sent >= 3:
         z1_z3_cos = cls.sim(z1.unsqueeze(1), z3.unsqueeze(0))
-        cos_sim = torch.cat([cos_sim, z1_z3_cos], 1)
+        cos_sim = torch.cat([cos_sim, z1_z3_cos], 1)  # shape=[bs, bs*2]
 
-    labels = torch.arange(cos_sim.size(0)).long().to(cls.device)
+    labels = torch.arange(cos_sim.size(0)).long().to(cls.device)  # shape=[bs]
     loss_fct = nn.CrossEntropyLoss()
 
     # Calculate loss with hard negatives
@@ -205,7 +233,9 @@ def cl_forward(cls,
         # Note that weights are actually logits of weights
         z3_weight = cls.model_args.hard_negative_weight
         weights = torch.tensor(
-            [[0.0] * (cos_sim.size(-1) - z1_z3_cos.size(-1)) + [0.0] * i + [z3_weight] + [0.0] * (z1_z3_cos.size(-1) - i - 1) for i in range(z1_z3_cos.size(-1))]
+            [[0.0] * (cos_sim.size(-1) - z1_z3_cos.size(-1)) +
+             [0.0] * i + [z3_weight] + [0.0] * (z1_z3_cos.size(-1) - i - 1)
+             for i in range(z1_z3_cos.size(-1))]
         ).to(cls.device)
         cos_sim = cos_sim + weights
 
@@ -259,7 +289,7 @@ def sentemb_forward(
     )
 
     pooler_output = cls.pooler(attention_mask, outputs)
-    if cls.pooler_type == "cls" and not cls.model_args.mlp_only_train:
+    if (cls.pooler_type == "cls" or cls.model_args.pooler_type == "projector") and not cls.model_args.mlp_only_train:
         pooler_output = cls.mlp(pooler_output)
 
     if not return_dict:
@@ -387,3 +417,296 @@ class RobertaForCL(RobertaPreTrainedModel):
                 mlm_input_ids=mlm_input_ids,
                 mlm_labels=mlm_labels,
             )
+
+
+class CLSimilarity(nn.Module):
+    """
+    Dot product or cosine similarity
+    """
+    def __init__(self, sim_type, temp):
+        super().__init__()
+        self.sim_type = sim_type
+        self.temp = temp
+        self.cosine = nn.CosineSimilarity(dim=-1)
+
+    def forward(self, x, y):
+        '''
+        x.shape=[B,H], y.shape=[B,H]
+        cos_sim as logit, along dim=-1, resulting a matrix shape=[bs, bs]
+        '''
+        if self.sim_type == 'cosine':
+            # cast to x.shape=[B,1,H], y.shape=[1,B,H] or [B,H]
+            return self.cosine(x.unsqueeze(1), y.unsqueeze(0)) / self.temp
+        elif self.sim_type == 'dot':
+            return torch.mm(x, y.T) / self.temp
+        else:
+            raise NotImplementedError(f'Unsupported similarity function [{self.sim_type}]. '
+                                      f'Only cosine and dot are supported.')
+
+
+class PretrainedModelForContrastiveLearning(PreTrainedModel):
+    def __init__(self, config, **model_kargs):
+        super().__init__(config)
+        model_args = model_kargs["model_args"]
+        self.model_args = model_args
+        setattr(self.model_args, 'add_pooling_layer', False)
+        self.doc_encoder = transformers.AutoModel.from_pretrained(
+            self.model_args.model_name_or_path,
+            self.model_args,
+        )
+        setattr(self.doc_encoder, 'encoder_type', 'doc_encoder')
+        if model_args.shared_encoder:
+            print('Sharing the parameters between doc/query encoder!')
+            self.query_encoder = self.doc_encoder
+            setattr(self.query_encoder, 'encoder_type', 'shared')
+        else:
+            self.query_encoder = transformers.AutoModel.from_pretrained(self.model_args.model_name_or_path, self.model_args)
+            setattr(self.query_encoder, 'encoder_type', 'query_encoder')
+
+        '''
+        for each doc in wiki, randomly sample a section as doc, and generate corresponding queries
+              Doc: sents[0], cropped passage ver1, anchor;
+              Q1: sents[1], cropped passage ver2;
+              Q2: sents[2], another cropped passage in the same doc
+              Q3: sents[3], section titles;
+        '''
+        self.cl_loss_names = ['psg2self', 'title2psg', 'psg2psg']
+        self.cl_loss_weights = [1.0, 0.0, 0.0]
+        if model_args.cl_loss_weights:
+            cl_loss_weights = eval(model_args.cl_loss_weights)
+            assert len(cl_loss_weights) == len(self.cl_loss_weights), \
+                f'Ensure the cl_loss_weights is set correctly, currently num_loss={len(self.cl_loss_weights)}'
+            self.cl_loss_weights = cl_loss_weights
+        print('CL.loss_weights=', self.cl_loss_weights)
+
+        self.pooler_type = self.model_args.pooler_type
+        self.pooler = Pooler(self.model_args.pooler_type)
+        if self.model_args.pooler_type == "cls":
+            self.mlp = MLPLayer(config)
+        elif self.model_args.pooler_type == "projector":
+            self.mlp = ProjectorLayer(config, model_args)
+
+        self.sim = CLSimilarity(self.model_args.sim_type, temp=self.model_args.temp)
+        self._init_weights(self.pooler)
+        self._init_weights(self.mlp)
+
+    def _init_weights(self, module):
+        """Initialize the weights"""
+        if isinstance(module, nn.Linear):
+            # Slightly different from the TF version which uses truncated_normal for initialization
+            # cf https://github.com/pytorch/pytorch/pull/5617
+            module.weight.data.normal_(mean=0.0, std=self.config.initializer_range)
+            if module.bias is not None:
+                module.bias.data.zero_()
+        elif isinstance(module, nn.Embedding):
+            module.weight.data.normal_(mean=0.0, std=self.config.initializer_range)
+            if module.padding_idx is not None:
+                module.weight.data[module.padding_idx].zero_()
+        elif isinstance(module, nn.LayerNorm):
+            module.bias.data.zero_()
+            module.weight.data.fill_(1.0)
+
+    def forward(self,
+        input_ids=None,
+        attention_mask=None,
+        token_type_ids=None,
+        position_ids=None,
+        head_mask=None,
+        inputs_embeds=None,
+        labels=None,
+        output_attentions=None,
+        output_hidden_states=None,
+        return_dict=None,
+        sent_emb=False,
+        is_query=False,
+        mlm_input_ids=None,
+        mlm_labels=None,
+    ):
+        if sent_emb:
+            return self.sentemb_forward(
+                self.query_encoder if is_query else self.doc_encoder,
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                token_type_ids=token_type_ids,
+                position_ids=position_ids,
+                head_mask=head_mask,
+                inputs_embeds=inputs_embeds,
+                labels=labels,
+                output_attentions=output_attentions,
+                output_hidden_states=output_hidden_states,
+                return_dict=return_dict,
+            )
+        else:
+            return self.cl_forward(
+                input_ids,
+                attention_mask=attention_mask,
+                token_type_ids=token_type_ids,
+                position_ids=position_ids,
+                head_mask=head_mask,
+                inputs_embeds=inputs_embeds,
+                labels=labels,
+                output_attentions=output_attentions,
+                output_hidden_states=output_hidden_states,
+                return_dict=return_dict,
+                mlm_input_ids=mlm_input_ids,
+                mlm_labels=mlm_labels,
+            )
+
+    def cl_forward(self,
+        input_ids=None,
+        attention_mask=None,
+        token_type_ids=None,
+        position_ids=None,
+        hard_negative_sentids=None,
+        head_mask=None,
+        inputs_embeds=None,
+        labels=None,
+        output_attentions=None,
+        output_hidden_states=None,
+        return_dict=None,
+        mlm_input_ids=None,
+        mlm_labels=None,
+    ):
+        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+        batch_size = input_ids.size(0)
+        # Number of sentences in one instance
+        num_sent = input_ids.size(1)
+        valid_query_idx = [wid+1 for wid, w in enumerate(self.cl_loss_weights) if w > 0.0]
+        valid_query_idx = torch.tensor(valid_query_idx).to(input_ids.device)
+        num_queries = len(valid_query_idx)
+
+        # Flatten input for encoding, ignore the sents that won't be used (loss_weight==0.0)
+        doc_ids = input_ids[:, 0, :]
+        doc_attention_mask = attention_mask[:, 0, :]
+        # outputs.last_hidden_state=[bs, hidden_dim]
+        doc_outputs = self.doc_encoder(
+            doc_ids, attention_mask=doc_attention_mask, return_dict=True,
+            output_hidden_states=True if self.pooler_type in ['avg_top2', 'avg_first_last'] else False,
+        )
+
+        query_ids = torch.index_select(input_ids, dim=1, index=valid_query_idx)
+        query_attention_mask = torch.index_select(attention_mask, dim=1, index=valid_query_idx)
+        query_ids = query_ids.view((-1, query_ids.size(-1)))  # (bs * num_sent, len)
+        query_attention_mask = query_attention_mask.view((-1, query_attention_mask.size(-1)))  # (bs * num_sent len)
+        # outputs.last_hidden_state=[bs, hidden_dim]
+        query_outputs = self.query_encoder(
+            query_ids, attention_mask=query_attention_mask, return_dict=True,
+            output_hidden_states=True if self.pooler_type in ['avg_top2', 'avg_first_last'] else False,
+        )
+
+        # Pooling
+        doc_pooler_output = self.pooler(doc_attention_mask, doc_outputs)
+        query_pooler_output = self.pooler(query_attention_mask, query_outputs)
+
+        # If using "cls", we add an extra MLP layer
+        # (same as BERT's original implementation) over the representation.
+        if self.pooler_type == "cls" or self.pooler_type == "projector":
+            doc_pooler_output = self.mlp(doc_pooler_output)
+            query_pooler_output = self.mlp(query_pooler_output)
+
+        query_pooler_output = query_pooler_output.view((batch_size, num_queries, query_pooler_output.size(-1)))  # (bs, num_sent, hidden)
+        # Separate representation, z1.shape=[bs, hidden], z2.shape=[bs, num_q, hidden]
+        z1, z2 = doc_pooler_output, query_pooler_output
+
+        # Gather all embeddings if using distributed training
+        if dist.is_initialized() and self.training:
+            # Dummy vectors for allgather
+            z1_list = [torch.zeros_like(z1) for _ in range(dist.get_world_size())]
+            z2_list = [torch.zeros_like(z2) for _ in range(dist.get_world_size())]
+            # Allgather
+            dist.all_gather(tensor_list=z1_list, tensor=z1.contiguous())
+            dist.all_gather(tensor_list=z2_list, tensor=z2.contiguous())
+
+            # Since allgather results do not have gradients, we replace the
+            # current process's corresponding embeddings with original tensors
+            z1_list[dist.get_rank()] = z1
+            z2_list[dist.get_rank()] = z2
+            # Get full batch embeddings: (bs x n_gpu, hidden)
+            z1 = torch.cat(z1_list, 0)
+            z2 = torch.cat(z2_list, 0)
+
+        total_loss = 0.0
+        specific_losses = {}
+        loss_fct = nn.CrossEntropyLoss()
+        for loss_idx, (loss_name, loss_weight) in enumerate(zip(self.cl_loss_names, self.cl_loss_weights)):
+            if loss_weight == 0.0:
+                specific_losses[loss_name] = 0.0
+                continue
+            doc = z1  # [B,H]
+            q = z2[:, loss_idx, :]  # [B,H]
+            pairwise_sim = self.sim(doc, q)  # sim.shape=[bs, bs]
+            labels = torch.arange(pairwise_sim.size(0)).long().to(self.device)  # shape=[bs]
+            loss = loss_weight * loss_fct(pairwise_sim, labels)
+            total_loss += loss
+            specific_losses[loss_name] = loss
+
+        return ContrastiveLearningOutput(
+            loss=total_loss,
+            specific_losses=specific_losses
+        )
+
+    def sentemb_forward(
+        self,
+        encoder,
+        input_ids=None,
+        attention_mask=None,
+        token_type_ids=None,
+        position_ids=None,
+        head_mask=None,
+        inputs_embeds=None,
+        labels=None,
+        output_attentions=None,
+        output_hidden_states=None,
+        return_dict=None,
+    ):
+        outputs = encoder(
+            input_ids,
+            attention_mask=attention_mask,
+            token_type_ids=token_type_ids,
+            position_ids=position_ids,
+            head_mask=head_mask,
+            inputs_embeds=inputs_embeds,
+            output_attentions=output_attentions,
+            output_hidden_states=True if self.pooler_type in ['avg_top2', 'avg_first_last'] else False,
+            return_dict=True,
+        )
+
+        pooler_output = self.pooler(attention_mask, outputs)
+        if (self.pooler_type == "cls" or self.model_args.pooler_type == "projector") and not self.model_args.mlp_only_train:
+            pooler_output = self.mlp(pooler_output)
+
+        return BaseModelOutputWithPoolingAndCrossAttentions(
+            pooler_output=pooler_output,
+            last_hidden_state=outputs.last_hidden_state,
+            hidden_states=outputs.hidden_states,
+        )
+
+
+@dataclass
+class ContrastiveLearningOutput(ModelOutput):
+    """
+    Base class for outputs of sentence contrative learning models.
+
+    Args:
+        loss (`torch.FloatTensor` of shape `(1,)`, *optional*, returned when `labels` is provided):
+            Classification (or regression if config.num_labels==1) loss.
+        logits (`torch.FloatTensor` of shape `(batch_size, config.num_labels)`):
+            Classification (or regression if config.num_labels==1) scores (before SoftMax).
+        hidden_states (`tuple(torch.FloatTensor)`, *optional*, returned when `output_hidden_states=True` is passed or when `config.output_hidden_states=True`):
+            Tuple of `torch.FloatTensor` (one for the output of the embeddings + one for the output of each layer) of
+            shape `(batch_size, sequence_length, hidden_size)`.
+
+            Hidden-states of the model at the output of each layer plus the initial embedding outputs.
+        attentions (`tuple(torch.FloatTensor)`, *optional*, returned when `output_attentions=True` is passed or when `config.output_attentions=True`):
+            Tuple of `torch.FloatTensor` (one for each layer) of shape `(batch_size, num_heads, sequence_length,
+            sequence_length)`.
+
+            Attentions weights after the attention softmax, used to compute the weighted average in the self-attention
+            heads.
+    """
+
+    loss: Optional[torch.FloatTensor] = None
+    specific_losses: Optional[dict] = None
+    logits: torch.FloatTensor = None
+    hidden_states: Optional[Tuple[torch.FloatTensor]] = None
+    attentions: Optional[Tuple[torch.FloatTensor]] = None
