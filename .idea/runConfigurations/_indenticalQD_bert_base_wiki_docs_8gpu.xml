@@ -1,0 +1,32 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="(indenticalQD)bert-base wiki_docs 8gpu" type="PythonConfigurationType" factoryName="Python" folderName="wiki-doc" singleton="false">
+    <module name="SimCSE" />
+    <option name="INTERPRETER_OPTIONS" value="" />
+    <option name="PARENT_ENVS" value="true" />
+    <envs>
+      <env name="PYTHONUNBUFFERED" value="1" />
+      <env name="LD_LIBRARY_PATH" value="/usr/lib64;/usr/local/nvidia/lib:/usr/local/nvidia/lib64;/usr/local/nvidia/lib64/stubs" />
+      <env name="CUDA_VISIBLE_DEVICES" value="0,1,2,3,4,5,6,7" />
+      <env name="LOCAL_RANK" value="0" />
+      <env name="WORLD_SIZE" value="8" />
+      <env name="CUDA_LAUNCH_BLOCKING" value="1" />
+      <env name="WANDB_PROJECT" value="dense_retrieval" />
+      <env name="WANDB_API_KEY" value="c338136c195ab221b8c7cfaa446db16b2e86c6db" />
+      <env name="WANDB_DISABLED" value="true" />
+    </envs>
+    <option name="SDK_HOME" value="" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+    <option name="IS_MODULE_SDK" value="true" />
+    <option name="ADD_CONTENT_ROOTS" value="true" />
+    <option name="ADD_SOURCE_ROOTS" value="true" />
+    <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+    <option name="SCRIPT_NAME" value="torch.distributed.launch" />
+    <option name="PARAMETERS" value="--nproc_per_node=8 --master_port=21787 --max_restarts=0 train.py --model_name_or_path bert-base-uncased --shared_encoder True --attention_probs_dropout_prob 0.0 --hidden_dropout_prob 0.0 --train_file /export/home/data/pretrain/wiki2021_structure/wiki_docs.jsonl --data_type document --remove_unused_columns False --data_pipeline_name psg-32-identical --sim_type cosine --pooler_type avg --temp 0.05 --output_dir /export/home/exp/search/unsup_dr/simcse_v2/test --cache_dir /export/home/data/pretrain/.cache --max_steps 100000 --warmup_steps 10000 --logging_steps 100 --eval_steps 5000 --save_steps 5000 --per_device_train_batch_size 32 --per_device_eval_batch_size 16 --dataloader_num_workers 0 --preprocessing_num_workers 0 --learning_rate 1e-5 --max_seq_length 512 --evaluation_strategy steps --load_best_model_at_end --overwrite_output_dir --do_train --do_eval --fp16 --run_name wiki-docs.modelv1.psg-32-identical.bert-base-uncased.shared-nodropout.avg-nomlp.cosine.step100k.bs256.lr1e5" />
+    <option name="SHOW_COMMAND_LINE" value="false" />
+    <option name="EMULATE_TERMINAL" value="false" />
+    <option name="MODULE_MODE" value="true" />
+    <option name="REDIRECT_INPUT" value="false" />
+    <option name="INPUT_FILE" value="" />
+    <method v="2" />
+  </configuration>
+</component>

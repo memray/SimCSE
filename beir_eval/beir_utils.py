@@ -121,10 +121,10 @@ class DenseEncoderModel:
                 ids, mask = ids.cuda(), mask.cuda()
 
                 # @memray for SimCSE
-                if 'is_query' in inspect.getfullargspec(self.query_encoder.forward).args:
-                    emb = self.query_encoder(ids, mask, sent_emb=True, is_query=False)
+                if 'is_query' in inspect.getfullargspec(self.doc_encoder.forward).args:
+                    emb = self.doc_encoder(ids, mask, sent_emb=True, is_query=False)
                 else:
-                    emb = self.query_encoder(ids, mask, sent_emb=True)
+                    emb = self.doc_encoder(ids, mask, sent_emb=True)
                 if hasattr(emb, 'pooler_output'):
                     emb = emb['pooler_output']
                 allemb.append(emb)

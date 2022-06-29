@@ -142,7 +142,6 @@ def cl_forward(cls,
     mlm_input_ids=None,
     mlm_labels=None,
 ):
-    print(input_ids.shape)
     return_dict = return_dict if return_dict is not None else cls.config.use_return_dict
     ori_input_ids = input_ids
     batch_size = input_ids.size(0)
@@ -336,7 +335,6 @@ class BertForCL(BertPreTrainedModel):
         sent_emb=False,
         mlm_input_ids=None,
         mlm_labels=None,
-        length=None
     ):
         if sent_emb:
             return sentemb_forward(self, self.bert,
@@ -366,7 +364,6 @@ class BertForCL(BertPreTrainedModel):
                 mlm_input_ids=mlm_input_ids,
                 mlm_labels=mlm_labels,
             )
-
 
 
 class RobertaForCL(RobertaPreTrainedModel):
@@ -461,12 +458,13 @@ def gather_norm(input, input_mask=None):
     return _norm.mean()
 
 
-class PretrainedModelForContrastiveLearningV1(PreTrainedModel):
+class PretrainedModelForContrastiveLearning(PreTrainedModel):
     def __init__(self, hfconfig, **model_kargs):
         super().__init__(hfconfig)
         model_args = model_kargs["model_args"]
         self.config = hfconfig
         self.model_args = model_args
+        self.seed = model_kargs["seed"]
         setattr(hfconfig, 'add_pooling_layer', False)
         self.doc_encoder = transformers.AutoModel.from_pretrained(
             self.model_args.model_name_or_path,
@@ -482,35 +480,60 @@ class PretrainedModelForContrastiveLearningV1(PreTrainedModel):
                 self.model_args.model_name_or_path,
                 config=self.model_args)
             setattr(self.query_encoder, 'encoder_type', 'query_encoder')
-
         '''
-        for each doc in wiki, randomly sample a section as doc, and generate corresponding queries
-              Doc: sents[0], cropped passage ver1, anchor;
-              Q1: sents[1], cropped passage ver2;
-              Q2: sents[2], another cropped passage in the same doc
-              Q3: sents[3], section titles;
+        each loss group receives a tuple of (D+,Q+,D-,Q-)
         '''
-        self.cl_loss_names = ['psg2self', 'title2psg', 'psg2psg']
-        self.cl_loss_weights = [1.0, 0.0, 0.0]
+        self.cl_loss_groups = ['psg2self', 'title2psg']
+        self.cl_loss_weights = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         if model_args.cl_loss_weights:
             cl_loss_weights = eval(model_args.cl_loss_weights)
             assert len(cl_loss_weights) == len(self.cl_loss_weights), \
                 f'Ensure the cl_loss_weights is set correctly, currently num_loss={len(self.cl_loss_weights)}'
             self.cl_loss_weights = cl_loss_weights
+        print('CL.loss_names=', self.cl_loss_groups)
         print('CL.loss_weights=', self.cl_loss_weights)
 
+        print('pooler_type=', self.model_args.pooler_type)
+        self.mlp_only_train = self.model_args.mlp_only_train
+        print('mlp_only_train=', self.mlp_only_train)
         self.pooler_type = self.model_args.pooler_type
         self.pooler = Pooler(self.model_args.pooler_type)
-        if self.model_args.pooler_type == "cls":
-            self.mlp = MLPLayer(hfconfig)
-            self._init_weights(self.mlp)
-        elif self.model_args.pooler_type == "projector":
-            self.mlp = ProjectorLayer(hfconfig, model_args)
-            self._init_weights(self.mlp)
-        else:
-            self.mlp = None
 
+        print('q_proj_type=', self.model_args.q_proj_type)
+        print('d_proj_type=', self.model_args.d_proj_type)
+        if self.model_args.q_proj_type and self.model_args.q_proj_type != "none":
+            if self.model_args.q_proj_type == "mlp":
+                self.q_mlp = MLPLayer(hfconfig)
+            elif self.model_args.q_proj_type == "projector":
+                self.q_mlp = ProjectorLayer(hfconfig, model_args)
+            else:
+                raise NotImplementedError('Unknown q_proj_type ' + self.model_args.q_proj_type)
+            self._init_weights(self.q_mlp)
+        else:
+            self.q_mlp = None
+        if self.model_args.d_proj_type and self.model_args.d_proj_type != "none":
+            if self.model_args.d_proj_type == "shared":
+                self.d_mlp = self.q_mlp
+            elif self.model_args.d_proj_type == "mlp":
+                self.d_mlp = MLPLayer(hfconfig)
+            elif self.model_args.d_proj_type == "projector":
+                self.d_mlp = ProjectorLayer(hfconfig, model_args)
+            else:
+                raise NotImplementedError('Unknown d_proj_type ' + self.model_args.d_proj_type)
+            self._init_weights(self.d_mlp)
+        else:
+            self.d_mlp = None
+        print('sim_type=', self.model_args.sim_type)
+        print('temp=', self.model_args.temp)
+        self.sim_type = self.model_args.sim_type
+        self.temp = self.model_args.temp
         self.sim = CLSimilarity(self.model_args.sim_type, temp=self.model_args.temp)
+
+        print('memory_type', self.model_args.memory_type)
+        print('memory_size', self.model_args.memory_size)
+        self.memory_type = self.model_args.memory_type
+        self.memory_size = self.model_args.memory_size
+
         self._init_weights(self.pooler)
 
     def _init_weights(self, module):
@@ -548,7 +571,7 @@ class PretrainedModelForContrastiveLearningV1(PreTrainedModel):
     ):
         if sent_emb:
             return self.sentemb_forward(
-                self.query_encoder if is_query else self.doc_encoder,
+                is_query,
                 input_ids=input_ids,
                 attention_mask=attention_mask,
                 token_type_ids=token_type_ids,
@@ -591,98 +614,144 @@ class PretrainedModelForContrastiveLearningV1(PreTrainedModel):
         mlm_input_ids=None,
         mlm_labels=None,
     ):
-        # print(input_ids.shape, input_ids[0][0])
-        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+        # print(input_ids.shape)
         batch_size = input_ids.size(0)
+        total_loss = 0.0
         specific_losses = {}
-        # Number of sentences in one instance
-        num_sent = input_ids.size(1)
-        valid_query_idx = [wid+1 for wid, w in enumerate(self.cl_loss_weights) if w > 0.0]
-        valid_query_idx = torch.tensor(valid_query_idx).to(input_ids.device)
-        num_queries = len(valid_query_idx)
+        loss_fct = nn.CrossEntropyLoss()
 
-        # Flatten input for encoding, ignore the sents that won't be used (loss_weight==0.0)
-        doc_ids = input_ids[:, 0, :]
-        doc_attention_mask = attention_mask[:, 0, :]
-        # outputs.last_hidden_state=[bs, hidden_dim]
-        doc_outputs = self.doc_encoder(
-            doc_ids, attention_mask=doc_attention_mask, return_dict=True,
-            output_hidden_states=True if self.pooler_type in ['avg_top2', 'avg_first_last'] else False,
-        )
+        for lg_id, loss_group in enumerate(self.cl_loss_groups):
+            # at least one weight should be larger than 0 to enable the loss groups
+            weight_sum = sum([self.cl_loss_weights[i] for i in range(lg_id*3, lg_id*3+3)])
+            if weight_sum == 0: continue
+            # ignore the doc/query sents that won't be used (loss_weight==0.0)
+            doc_idx = [lg_id*4, lg_id*4+1] if self.cl_loss_weights[lg_id*3+1] > 0 else [lg_id*4]
+            query_idx = [lg_id*4+1, lg_id*4+3] if self.cl_loss_weights[lg_id*3+2] > 0 else [lg_id*4+1]
+            num_doc, num_query = len(doc_idx), len(query_idx)
+            doc_idx = torch.tensor(doc_idx).to(input_ids.device)
+            query_idx = torch.tensor(query_idx).to(input_ids.device)
 
-        query_ids = torch.index_select(input_ids, dim=1, index=valid_query_idx)
-        query_attention_mask = torch.index_select(attention_mask, dim=1, index=valid_query_idx)
-        query_ids = query_ids.view((-1, query_ids.size(-1)))  # (bs * num_sent, len)
-        query_attention_mask = query_attention_mask.view((-1, query_attention_mask.size(-1)))  # (bs * num_sent len)
-        # outputs.last_hidden_state=[bs, hidden_dim]
-        query_outputs = self.query_encoder(
-            query_ids, attention_mask=query_attention_mask, return_dict=True,
-            output_hidden_states=True if self.pooler_type in ['avg_top2', 'avg_first_last'] else False,
-        )
-        doc_norm = gather_norm(
-            doc_outputs.last_hidden_state.reshape(-1, doc_outputs.last_hidden_state.shape[-1]),
-            doc_attention_mask.reshape(-1))
-        query_norm = gather_norm(
-            query_outputs.last_hidden_state.reshape(-1, query_outputs.last_hidden_state.shape[-1]),
-            query_attention_mask.reshape(-1))
-        specific_losses[f'norm_doc_model'] = doc_norm
-        specific_losses[f'norm_query_model'] = query_norm
+            # Flatten input for encoding
+            doc_tokens = torch.index_select(input_ids, dim=1, index=doc_idx)
+            doc_attention_mask = torch.index_select(attention_mask, dim=1, index=doc_idx)
+            doc_tokens = doc_tokens.view((-1, doc_tokens.size(-1)))  # (bs * num_sent, len)
+            doc_attention_mask = doc_attention_mask.view((-1, doc_attention_mask.size(-1)))  # (bs * num_sent len)
+            # outputs.last_hidden_state=[bs, hidden_dim]
+            doc_outputs = self.doc_encoder(
+                doc_tokens, attention_mask=doc_attention_mask, return_dict=True,
+                output_hidden_states=True if self.pooler_type in ['avg_top2', 'avg_first_last'] else False,
+            )
 
-        # Pooling
-        doc_pooler_output = self.pooler(doc_attention_mask, doc_outputs)
-        query_pooler_output = self.pooler(query_attention_mask, query_outputs)
-        doc_norm = gather_norm(doc_pooler_output)
-        query_norm = gather_norm(query_pooler_output)
-        specific_losses[f'norm_doc_pool'] = doc_norm
-        specific_losses[f'norm_query_pool'] = query_norm
+            query_tokens = torch.index_select(input_ids, dim=1, index=query_idx)
+            query_attention_mask = torch.index_select(attention_mask, dim=1, index=query_idx)
+            query_tokens = query_tokens.view((-1, query_tokens.size(-1)))  # (bs * num_sent, len)
+            query_attention_mask = query_attention_mask.view((-1, query_attention_mask.size(-1)))  # (bs * num_sent len)
+            # outputs.last_hidden_state=[bs, hidden_dim]
+            query_outputs = self.query_encoder(
+                query_tokens, attention_mask=query_attention_mask, return_dict=True,
+                output_hidden_states=True if self.pooler_type in ['avg_top2', 'avg_first_last'] else False,
+            )
 
-        # If using "cls", we add an extra MLP layer
-        # (same as BERT's original implementation) over the representation.
-        if self.mlp:
-            doc_pooler_output = self.mlp(doc_pooler_output)
-            query_pooler_output = self.mlp(query_pooler_output)
+            doc_norm = gather_norm(
+                doc_outputs.last_hidden_state.reshape(-1, doc_outputs.last_hidden_state.shape[-1]),
+                doc_attention_mask.reshape(-1))
+            query_norm = gather_norm(
+                query_outputs.last_hidden_state.reshape(-1, query_outputs.last_hidden_state.shape[-1]),
+                query_attention_mask.reshape(-1))
+            specific_losses[f'norm_doc_{loss_group}_model'] = doc_norm
+            specific_losses[f'norm_query_{loss_group}_model'] = query_norm
+
+            # Pooling
+            doc_pooler_output = self.pooler(doc_attention_mask, doc_outputs)
+            query_pooler_output = self.pooler(query_attention_mask, query_outputs)
             doc_norm = gather_norm(doc_pooler_output)
             query_norm = gather_norm(query_pooler_output)
-            specific_losses[f'norm_doc_mlp'] = doc_norm
-            specific_losses[f'norm_query_mlp'] = query_norm
+            specific_losses[f'norm_doc_{loss_group}_pool'] = doc_norm
+            specific_losses[f'norm_query_{loss_group}_pool'] = query_norm
 
-        query_pooler_output = query_pooler_output.view((batch_size, num_queries, query_pooler_output.size(-1)))  # (bs, num_sent, hidden)
-        # Separate representation, z1.shape=[bs, hidden], z2.shape=[bs, num_q, hidden]
-        z1, z2 = doc_pooler_output, query_pooler_output
+            # If using "cls", we add an extra MLP layer
+            # (same as BERT's original implementation) over the representation.
+            if self.d_mlp:
+                doc_pooler_output = self.mlp(doc_pooler_output)
+            if self.q_mlp:
+                query_pooler_output = self.mlp(query_pooler_output)
+            doc_norm = gather_norm(doc_pooler_output)
+            query_norm = gather_norm(query_pooler_output)
+            specific_losses[f'norm_doc_{loss_group}_mlp'] = doc_norm
+            specific_losses[f'norm_query_{loss_group}_mlp'] = query_norm
 
-        # Gather all embeddings if using distributed training
-        if dist.is_initialized() and self.training:
-            # Dummy vectors for allgather
-            z1_list = [torch.zeros_like(z1) for _ in range(dist.get_world_size())]
-            z2_list = [torch.zeros_like(z2) for _ in range(dist.get_world_size())]
-            # Allgather
-            # print('Before all_gather.')
-            dist.all_gather(tensor_list=z1_list, tensor=z1.contiguous())
-            dist.all_gather(tensor_list=z2_list, tensor=z2.contiguous())
-            # print('After all_gather.')
+            doc_pooler_output = doc_pooler_output.view((batch_size, num_doc, doc_pooler_output.size(-1)))  # (bs, num_sent, hidden)
+            query_pooler_output = query_pooler_output.view((batch_size, num_query, query_pooler_output.size(-1)))  # (bs, num_sent, hidden)
+            # Separate representation, z1.shape=[bs, hidden], z2.shape=[bs, num_q, hidden]
+            z1, z2 = doc_pooler_output, query_pooler_output
 
-            # Since allgather results do not have gradients, we replace the
-            # current process's corresponding embeddings with original tensors
-            z1_list[dist.get_rank()] = z1
-            z2_list[dist.get_rank()] = z2
-            # Get full batch embeddings: (bs x n_gpu, hidden)
-            z1 = torch.cat(z1_list, 0)
-            z2 = torch.cat(z2_list, 0)
+            if self.memory_size > 0:
+                # https://discuss.pytorch.org/t/random-number-on-gpu/9649
+                torch.manual_seed(self.seed + dist.get_rank())
+                z3 = torch.rand(self.memory_size, z1.shape[-1]).to(z1.device)
 
-        total_loss = 0.0
-        specific_losses['batch_size'] = z1.shape[0]
-        loss_fct = nn.CrossEntropyLoss()
-        for loss_idx, (loss_name, loss_weight) in enumerate(zip(self.cl_loss_names, self.cl_loss_weights)):
-            if loss_weight == 0.0:
-                specific_losses[loss_name] = 0.0
-                continue
-            doc = z1  # [B,H]
-            q = z2[:, loss_idx, :]  # [B,H]
-            pairwise_sim = self.sim(doc, q)  # sim.shape=[bs, bs]
-            labels = torch.arange(pairwise_sim.size(0)).long().to(self.device)  # shape=[bs]
-            loss = loss_weight * loss_fct(pairwise_sim, labels)
-            total_loss += loss
-            specific_losses[loss_name] = loss
+            # Gather all embeddings if using distributed training
+            if dist.is_initialized() and self.training:
+                # Gather hard negative
+                if self.memory_size > 0:
+                    z3_list = [torch.zeros_like(z3) for _ in range(dist.get_world_size())]
+                    dist.all_gather(tensor_list=z3_list, tensor=z3.contiguous())
+                    z3_list[dist.get_rank()] = z3
+                    z3 = torch.cat(z3_list, dim=0)
+
+                # Dummy vectors for allgather
+                z1_list = [torch.zeros_like(z1) for _ in range(dist.get_world_size())]
+                z2_list = [torch.zeros_like(z2) for _ in range(dist.get_world_size())]
+                # Allgather
+                dist.all_gather(tensor_list=z1_list, tensor=z1.contiguous())
+                dist.all_gather(tensor_list=z2_list, tensor=z2.contiguous())
+
+                # Since allgather results do not have gradients, we replace the
+                # current process's corresponding embeddings with original tensors
+                z1_list[dist.get_rank()] = z1
+                z2_list[dist.get_rank()] = z2
+                # Get full batch embeddings: (bs x n_gpu, hidden)
+                z1 = torch.cat(z1_list, 0)
+                z2 = torch.cat(z2_list, 0)
+
+            # CL with in-batch negatives
+            specific_losses['batch_size'] = z1.shape[0]
+            doc = z1[:, 0, :]  # [B x n_gpu, 1, H] -> [B x n_gpu,H]
+            q = z2[:, 0, :]  # [B x n_gpu, 1, H] -> [B x n_gpu,H]
+            pos_sim = self.sim(doc, q)  # sim.shape=[bs x n_gpu, bs x n_gpu]
+
+            # Hard negative
+            if self.memory_size > 0:
+                z1_z3_cos = self.sim(doc, z3)
+                z2_z3_cos = self.sim(q, z3)
+                pos_sim = torch.cat([pos_sim, z1_z3_cos, z2_z3_cos], dim=1)  # shape=[bs, bs*2]
+
+            labels = torch.arange(pos_sim.size(0)).long().to(self.device)  # shape=[bs]
+            for loss_idx in range(3):
+                loss_weight = self.cl_loss_weights[lg_id * 3 + loss_idx]
+                if loss_weight <= 0: continue
+                if loss_idx == 0:  # CL with in-batch negatives
+                    loss_name = 'D+Q+'
+                    loss = loss_weight * loss_fct(pos_sim, labels)
+                elif loss_idx == 1:  # CL with hard negative docs (D- and Q+)
+                    loss_name = 'D-Q+'
+                    doc = z1[:, 1, :]  # [B,H]
+                    q = z2[:, 0, :]  # [B,H]
+                    neg_sim = self.sim(doc, q)  # sim.shape=[bs, bs]
+                    pairwise_sim = torch.cat([pos_sim, neg_sim], 1)  # shape=[bs, bs*2]
+                    loss = loss_weight * loss_fct(pairwise_sim, labels)
+                elif loss_idx == 2:  # CL with hard negative queries (D+ and Q-)
+                    loss_name = 'D+Q-'
+                    doc = z1[:, 0, :]  # [B,H]
+                    q = z2[:, 1, :]  # [B,H]
+                    neg_sim = self.sim(doc, q)  # sim.shape=[bs, bs]
+                    pairwise_sim = torch.cat([pos_sim, neg_sim], 1)  # shape=[bs, bs*2]
+                    loss = loss_weight * loss_fct(pairwise_sim, labels)
+                else:
+                    raise NotImplementedError(f'loss_idx={loss_idx} should not exist.')
+
+                total_loss += loss
+                specific_losses[loss_group+'_'+loss_name] = loss
 
         return ContrastiveLearningOutput(
             loss=total_loss,
@@ -691,7 +760,7 @@ class PretrainedModelForContrastiveLearningV1(PreTrainedModel):
 
     def sentemb_forward(
         self,
-        encoder,
+        is_query,
         input_ids=None,
         attention_mask=None,
         token_type_ids=None,
@@ -703,6 +772,13 @@ class PretrainedModelForContrastiveLearningV1(PreTrainedModel):
         output_hidden_states=None,
         return_dict=None,
     ):
+        if is_query:
+            encoder = self.query_encoder
+            mlp = self.mlp if hasattr(self, 'mlp') else self.q_mlp
+        else:
+            encoder = self.doc_encoder
+            mlp = self.mlp if hasattr(self, 'mlp') else self.d_mlp
+
         outputs = encoder(
             input_ids,
             attention_mask=attention_mask,
@@ -716,8 +792,8 @@ class PretrainedModelForContrastiveLearningV1(PreTrainedModel):
         )
 
         pooler_output = self.pooler(attention_mask, outputs)
-        if self.mlp and not self.model_args.mlp_only_train:
-            pooler_output = self.mlp(pooler_output)
+        if mlp and not self.mlp_only_train:
+            pooler_output = mlp(pooler_output)
 
         return BaseModelOutputWithPoolingAndCrossAttentions(
             pooler_output=pooler_output,

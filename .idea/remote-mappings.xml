@@ -10,6 +10,7 @@
             </list>
           </settings>
         </remote-mappings>
+        <remote-mappings server-id="python@sftp://root@127.0.0.1:2222/export/share/ruimeng/env/anaconda/envs/ir-cuda114/bin/python3.8" />
       </list>
     </list>
   </component>

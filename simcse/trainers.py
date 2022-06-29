@@ -1,49 +1,34 @@
 import collections
-import inspect
 import math
-import sys
 import os
-import re
 import json
-import shutil
 import time
 import warnings
-from pathlib import Path
-import importlib.util
 
 from numpy import float64
 from packaging import version
+from torch.optim import Optimizer
+from torch.optim.lr_scheduler import LambdaLR
 from transformers import Trainer
 from transformers.integrations import hp_params
 from transformers.modeling_utils import PreTrainedModel
-from transformers.training_args import ParallelMode, TrainingArguments
-from transformers.utils import logging
+from transformers.optimization import TYPE_TO_SCHEDULER_FUNCTION, get_linear_schedule_with_warmup, \
+    get_cosine_schedule_with_warmup, get_cosine_with_hard_restarts_schedule_with_warmup, \
+    get_polynomial_decay_schedule_with_warmup, get_constant_schedule, get_constant_schedule_with_warmup
+
 from transformers.trainer_utils import (
     PREFIX_CHECKPOINT_DIR,
-    BestRun,
-    EvalPrediction,
-    HPSearchBackend,
-    PredictionOutput,
     TrainOutput,
-    default_compute_objective,
-    default_hp_space,
     set_seed,
-    speed_metrics,
+    speed_metrics, EvalLoopOutput,
 )
 from transformers.file_utils import (
     WEIGHTS_NAME,
     is_apex_available,
     is_datasets_available,
-    is_in_notebook,
-    is_torch_tpu_available,
+    is_torch_tpu_available, ExplicitEnum,
 )
 from transformers.trainer_callback import (
-    CallbackHandler,
-    DefaultFlowCallback,
-    PrinterCallback,
-    ProgressCallback,
-    TrainerCallback,
-    TrainerControl,
     TrainerState,
 )
 from transformers.trainer_pt_utils import (
@@ -61,6 +46,8 @@ from torch.utils.data.sampler import RandomSampler, SequentialSampler
 
 from SentEval import senteval
 from beir_eval import beir_utils, dist_utils
+from src import utils
+from src.utils import get_cosine_with_hard_decayed_restarts_schedule_with_warmup
 
 if is_torch_tpu_available():
     import torch_xla.core.xla_model as xm
@@ -84,107 +71,97 @@ def _model_unwrap(model: nn.Module) -> nn.Module:
     else:
         return model
 
-from transformers.optimization import Adafactor, AdamW, get_scheduler
-import copy
 # Set path to SentEval
 PATH_TO_DATA = '/export/share/ruimeng/project/search/simcse/SentEval/data/'
 
+class SchedulerType(ExplicitEnum):
+    LINEAR = "linear"
+    COSINE = "cosine"
+    COSINE_WITH_RESTARTS = "cosine_with_restarts"
+    COSINE_WITH_DECAYED_RESTARTS = "cosine_with_decayed_restarts"
+    POLYNOMIAL = "polynomial"
+    CONSTANT = "constant"
+    CONSTANT_WITH_WARMUP = "constant_with_warmup"
+
+TYPE_TO_SCHEDULER_FUNCTION = {
+    SchedulerType.LINEAR: get_linear_schedule_with_warmup,
+    SchedulerType.COSINE: get_cosine_schedule_with_warmup,
+    SchedulerType.COSINE_WITH_RESTARTS: get_cosine_with_hard_restarts_schedule_with_warmup,
+    SchedulerType.COSINE_WITH_DECAYED_RESTARTS: get_cosine_with_hard_decayed_restarts_schedule_with_warmup,
+    SchedulerType.POLYNOMIAL: get_polynomial_decay_schedule_with_warmup,
+    SchedulerType.CONSTANT: get_constant_schedule,
+    SchedulerType.CONSTANT_WITH_WARMUP: get_constant_schedule_with_warmup,
+}
 import numpy as np
 
 logger = logging.get_logger(__name__)
 
 
 class CLTrainer(Trainer):
-
-    def _get_train_sampler(self) -> Optional[torch.utils.data.Sampler]:
-        if not has_length(self.train_dataset):
-            return None
-
-        generator = None
-        if self.args.world_size <= 1 and _is_torch_generator_available:
-            generator = torch.Generator()
-            generator.manual_seed(int(torch.empty((), dtype=torch.int64).random_().item()))
-
-        # Build the sampler.
-        if self.args.group_by_length:
-            if is_datasets_available() and isinstance(self.train_dataset, datasets.Dataset):
-                lengths = (
-                    self.train_dataset[self.args.length_column_name]
-                    if self.args.length_column_name in self.train_dataset.column_names
-                    else None
-                )
-            else:
-                lengths = None
-            model_input_name = self.tokenizer.model_input_names[0] if self.tokenizer is not None else None
-            if self.args.world_size <= 1:
-                return LengthGroupedSampler(
-                    self.args.train_batch_size * self.args.gradient_accumulation_steps,
-                    dataset=self.train_dataset,
-                    lengths=lengths,
-                    model_input_name=model_input_name,
-                    generator=generator,
-                )
-            else:
-                return DistributedLengthGroupedSampler(
-                    self.args.train_batch_size * self.args.gradient_accumulation_steps,
-                    dataset=self.train_dataset,
-                    num_replicas=self.args.world_size,
-                    rank=self.args.process_index,
-                    lengths=lengths,
-                    model_input_name=model_input_name,
-                    seed=self.args.seed,
-                )
-
-        else:
-            if self.args.world_size <= 1:
-                if _is_torch_generator_available:
-                    return RandomSampler(self.train_dataset, generator=generator)
-                return RandomSampler(self.train_dataset)
-            elif (
-                self.args.parallel_mode in [ParallelMode.TPU, ParallelMode.SAGEMAKER_MODEL_PARALLEL]
-                and not self.args.dataloader_drop_last
-            ):
-                # Use a loop for TPUs when drop_last is False to have all batches have the same size.
-                return DistributedSamplerWithLoop(
-                    self.train_dataset,
-                    batch_size=self.args.per_device_train_batch_size,
-                    num_replicas=self.args.world_size,
-                    rank=self.args.process_index,
-                    seed=self.args.seed,
-                )
-            else:
-                return DistributedSampler(
-                    self.train_dataset,
-                    num_replicas=self.args.world_size,
-                    rank=self.args.process_index,
-                    seed=self.args.seed,
-                )
-
-    def get_train_dataloader(self) -> DataLoader:
+    def evaluation_loop(
+        self,
+        dataloader: DataLoader,
+        description: str,
+        prediction_loss_only: Optional[bool] = None,
+        ignore_keys: Optional[List[str]] = None,
+        metric_key_prefix: str = None,
+        report_align_unif: bool = True
+    ) -> EvalLoopOutput:
         """
-        Returns the training [`~torch.utils.data.DataLoader`].
-
-        Will use no sampler if `self.train_dataset` does not implement `__len__`, a random sampler (adapted to
-        distributed training if necessary) otherwise.
-
-        Subclass and override this method if you want to inject some custom behavior.
+        Prediction/evaluation loop, shared by `Trainer.evaluate()` and `Trainer.predict()`.
         """
-        if self.train_dataset is None:
-            raise ValueError("Trainer: training requires a train_dataset.")
+        args = self.args
+        # this requires manual set since train/eval use the same collate_fn
+        dataloader.collate_fn.batch_size = self.args.per_device_eval_batch_size
+        model = self._wrap_model(self.model, training=False)
 
-        return DataLoader(
-            self.train_dataset,
-            batch_size=self.args.train_batch_size,
-            sampler=None,
-            collate_fn=self.data_collator,
-            drop_last=self.args.dataloader_drop_last,
-            num_workers=self.args.dataloader_num_workers,
-            pin_memory=self.args.dataloader_pin_memory,
-        )
+        # if full fp16 or bf16 eval is wanted and this ``evaluation`` or ``predict`` isn't called
+        # while ``train`` is running, cast it to the right dtype first and then put on device
+        if not self.is_in_train:
+            if args.fp16_full_eval:
+                model = model.to(dtype=torch.float16, device=args.device)
+            elif args.bf16_full_eval:
+                model = model.to(dtype=torch.bfloat16, device=args.device)
 
+        batch_size = dataloader.batch_size
 
-    def evaluate_beir(self, epoch, output_dir, sim_function) -> Dict[str, float]:
-        beir_datasets = ['nfcorpus', 'fiqa', 'arguana', 'scidocs', 'scifact']
+        logger.info(f"***** Running {description} *****")
+        logger.info(f"  Num examples = {self.num_examples(dataloader)}")
+        logger.info(f"  Batch size = {batch_size}")
+
+        model.eval()
+        model.moco_train_mode_encoder_k = False
+
+        _metrics = {}
+        # Main evaluation loop
+        for step, inputs in enumerate(dataloader):
+            # Prediction step
+            inputs = self._prepare_inputs(inputs)
+            with torch.no_grad():
+                outputs = model(**inputs, update_kencoder_queue=False, report_align_unif=report_align_unif)
+
+            for k, v in outputs['specific_losses'].items():
+                v = v.detach()
+                v = self._nested_gather(v)
+                _metrics[k] = v if k not in _metrics else torch.cat((_metrics[k], v), dim=0)
+
+        metrics = {}
+        metric_key_prefix = 'test'  # only test_/eval_
+        for k, v in _metrics.items():
+            metrics[f"{metric_key_prefix}_{k}"] = v.float().mean().item()
+
+        model.moco_train_mode_encoder_k = True
+        return EvalLoopOutput(predictions=None, label_ids=None, metrics=metrics, num_samples=len(dataloader))
+
+    def evaluate_beir(self, epoch, output_dir, sim_function, beir_datasets=None) -> Dict[str, float]:
+        if not beir_datasets:
+            # fever will cause gpu error when `Encoding Batch 88/109`
+            # beir_datasets = ['nfcorpus', 'fiqa', 'arguana', 'scidocs', 'scifact'] # quick test
+            # beir_datasets = ['nfcorpus', 'fiqa', 'arguana', 'scidocs', 'scifact', 'webis-touche2020', 'cqadupstack', 'quora', 'dbpedia-entity', 'nq'] # mostly reported in Contriever
+            # beir_datasets = ['nfcorpus', 'fiqa', 'arguana', 'scidocs', 'scifact', 'webis-touche2020', 'cqadupstack', 'trec-covid', 'nq', 'dbpedia-entity', 'quora'] # small testsets+NQ+FEVER+Quora
+            beir_datasets = ['nfcorpus', 'fiqa', 'arguana', 'scidocs', 'scifact', 'webis-touche2020', 'cqadupstack', 'trec-covid', 'quora', 'nq']  # smallest 8 datasets, plus two large OOD datasets (NQ+Quora)
+            # beir_datasets = ['nfcorpus', 'fiqa', 'arguana', 'scidocs', 'scifact', 'webis-touche2020', 'cqadupstack', 'trec-covid']  # smallest 8 datasets
+            # beir_datasets = ['fiqa']  # test
         norm_query = False
         norm_doc = False
         beir_data_path = '/export/home/data/beir/'
@@ -339,12 +316,20 @@ class CLTrainer(Trainer):
 
             self.log(logs)
 
-        metrics = None
-        if self.control.should_evaluate:
-            # major_metric = 'eval_avg_transfer' if 'eval_avg_transfer' in metrics else 'eval_avg_sts'
+        metrics = {}
+        if self.args.do_eval and self.control.should_evaluate:
             eval_output_dir = os.path.join(self.eval_output_dir, 'epoch-%.2f_step-%d' % (epoch, self.state.global_step))
             os.makedirs(eval_output_dir, exist_ok=True)
-            metrics = self.evaluate_beir(epoch=epoch, output_dir=eval_output_dir, sim_function=self.model.model_args.sim_type)
+            # dev score
+            if self.eval_dataset:
+                with utils.numpy_seed(self.args.seed):
+                    metrics_dev = self.evaluate(self.eval_dataset, metric_key_prefix="dev")
+                    metrics.update(metrics_dev)
+            # beir-eval
+            metrics_beir = self.evaluate_beir(epoch=epoch, output_dir=eval_output_dir, sim_function=self.model.sim_type)
+            metrics.update(metrics_beir)
+            # sent-eval
+            # major_metric = 'eval_avg_transfer' if 'eval_avg_transfer' in metrics else 'eval_avg_sts'
             metrics_senteval = self.evaluate_senteval(epoch=epoch, output_dir=eval_output_dir)
             metrics.update(metrics_senteval)
             metrics["step"] = self.state.global_step
@@ -381,6 +366,9 @@ class CLTrainer(Trainer):
             self._save_checkpoint(model, trial, metrics=metrics)
             self.control = self.callback_handler.on_save(self.args, self.state, self.control)
 
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
     def _save_checkpoint(self, model, trial, metrics=None):
         """
         Compared to original implementation, we change the saving policy to
@@ -391,78 +379,77 @@ class CLTrainer(Trainer):
         # want to save.
         assert _model_unwrap(model) is self.model, "internal model should be a reference to self.model"
 
-        # Determine the new best metric / best model checkpoint
-        if False:
-        # if metrics is not None and self.args.metric_for_best_model is not None:
-            metric_to_check = self.args.metric_for_best_model
-            if not metric_to_check.startswith("eval_"):
-                metric_to_check = f"eval_{metric_to_check}"
-            metric_value = metrics[metric_to_check]
+        # Save model checkpoint
+        checkpoint_folder = f"{PREFIX_CHECKPOINT_DIR}-{self.state.global_step}"
 
-            operator = np.greater if self.args.greater_is_better else np.less
-            if (
-                self.state.best_metric is None
-                or self.state.best_model_checkpoint is None
-                or operator(metric_value, self.state.best_metric)
-            ):
-                output_dir = self.args.output_dir
-                self.state.best_metric = metric_value
-                self.state.best_model_checkpoint = output_dir
+        output_dir = os.path.join(self.args.output_dir, 'checkpoints', checkpoint_folder)
+        os.makedirs(output_dir, exist_ok=True)
+        if hasattr(self, 'model_data_training_args'):
+            torch.save(self.model_data_training_args, os.path.join(output_dir, "model_data_training_args.bin"))
 
-                # Only save model when it is the best one
-                self.save_model(output_dir)
-                if self.deepspeed:
-                    self.deepspeed.save_checkpoint(output_dir)
+        self.store_flos()
 
-                # Save optimizer and scheduler
-                if is_torch_tpu_available():
-                    xm.rendezvous("saving_optimizer_states")
-                    xm.save(self.optimizer.state_dict(), os.path.join(output_dir, "optimizer.pt"))
-                    with warnings.catch_warnings(record=True) as caught_warnings:
-                        xm.save(self.lr_scheduler.state_dict(), os.path.join(output_dir, "scheduler.pt"))
-                        reissue_pt_warnings(caught_warnings)
-                elif self.is_world_process_zero() and not self.deepspeed:
-                    # deepspeed.save_checkpoint above saves model/optim/sched
-                    torch.save(self.optimizer.state_dict(), os.path.join(output_dir, "optimizer.pt"))
-                    with warnings.catch_warnings(record=True) as caught_warnings:
-                        torch.save(self.lr_scheduler.state_dict(), os.path.join(output_dir, "scheduler.pt"))
-                    reissue_pt_warnings(caught_warnings)
+        self.save_model(output_dir)
+        if self.deepspeed:
+            self.deepspeed.save_checkpoint(output_dir)
 
-                # Save the Trainer state
-                if self.is_world_process_zero():
-                    self.state.save_to_json(os.path.join(output_dir, "trainer_state.json"))
-        else:
-            # Save model checkpoint
-            checkpoint_folder = f"{PREFIX_CHECKPOINT_DIR}-{self.state.global_step}"
-
-            output_dir = os.path.join(self.args.output_dir, 'checkpoints', checkpoint_folder)
-            self.store_flos()
-
-            self.save_model(output_dir)
-            if self.deepspeed:
-                self.deepspeed.save_checkpoint(output_dir)
-
-            if is_torch_tpu_available():
-                xm.rendezvous("saving_optimizer_states")
-                xm.save(self.optimizer.state_dict(), os.path.join(output_dir, "optimizer.pt"))
-                with warnings.catch_warnings(record=True) as caught_warnings:
-                    xm.save(self.lr_scheduler.state_dict(), os.path.join(output_dir, "scheduler.pt"))
-                    reissue_pt_warnings(caught_warnings)
-            elif self.is_world_process_zero() and not self.deepspeed:
-                # deepspeed.save_checkpoint above saves model/optim/sched
-                torch.save(self.optimizer.state_dict(), os.path.join(output_dir, "optimizer.pt"))
-                with warnings.catch_warnings(record=True) as caught_warnings:
-                    torch.save(self.lr_scheduler.state_dict(), os.path.join(output_dir, "scheduler.pt"))
+        if is_torch_tpu_available():
+            xm.rendezvous("saving_optimizer_states")
+            xm.save(self.optimizer.state_dict(), os.path.join(output_dir, "optimizer.pt"))
+            with warnings.catch_warnings(record=True) as caught_warnings:
+                xm.save(self.lr_scheduler.state_dict(), os.path.join(output_dir, "scheduler.pt"))
                 reissue_pt_warnings(caught_warnings)
+        elif self.is_world_process_zero() and not self.deepspeed:
+            # deepspeed.save_checkpoint above saves model/optim/sched
+            torch.save(self.optimizer.state_dict(), os.path.join(output_dir, "optimizer.pt"))
+            with warnings.catch_warnings(record=True) as caught_warnings:
+                torch.save(self.lr_scheduler.state_dict(), os.path.join(output_dir, "scheduler.pt"))
+            reissue_pt_warnings(caught_warnings)
 
-            # Save the Trainer state
-            if self.is_world_process_zero():
-                self.state.save_to_json(os.path.join(output_dir, "trainer_state.json"))
+        # Save the Trainer state
+        if self.is_world_process_zero():
+            self.state.save_to_json(os.path.join(output_dir, "trainer_state.json"))
 
-            # Maybe delete some older checkpoints.
-            if self.is_world_process_zero():
-                self._rotate_checkpoints(use_mtime=True)
+        # Maybe delete some older checkpoints.
+        if self.is_world_process_zero():
+            self._rotate_checkpoints(use_mtime=True)
 
+
+    def create_scheduler(self, num_training_steps: int, optimizer: torch.optim.Optimizer = None):
+        if self.lr_scheduler is None:
+            self.lr_scheduler = self.get_scheduler(
+                self.args.lr_scheduler_type,
+                optimizer=self.optimizer if optimizer is None else optimizer,
+            )
+        return self.lr_scheduler
+
+    def get_scheduler(self, name, optimizer):
+        """
+        Modified based on optimization.get_scheduler()
+        """
+        num_warmup_steps = self.args.get_warmup_steps(self.args.max_steps)
+        num_training_steps = self.args.max_steps
+        name = SchedulerType(name)
+        schedule_func = TYPE_TO_SCHEDULER_FUNCTION[name]
+        if name == SchedulerType.CONSTANT:
+            return schedule_func(optimizer)
+        elif name == SchedulerType.CONSTANT_WITH_WARMUP:
+            return schedule_func(optimizer, num_warmup_steps=num_warmup_steps)
+        elif name == SchedulerType.COSINE:
+            return schedule_func(optimizer, num_warmup_steps=num_warmup_steps,
+                                 num_training_steps=num_training_steps, num_cycles=self.args.num_cycles)
+        elif name == SchedulerType.COSINE_WITH_RESTARTS:
+            return schedule_func(optimizer, num_warmup_steps=num_warmup_steps,
+                                 num_training_steps=num_training_steps, num_cycles=self.args.num_cycles)
+        elif name == SchedulerType.COSINE_WITH_DECAYED_RESTARTS:
+            return schedule_func(optimizer, num_warmup_steps=num_warmup_steps,
+                                 num_training_steps=num_training_steps, num_cycles=self.args.num_cycles)
+        elif name == SchedulerType.POLYNOMIAL:
+            return schedule_func(optimizer, num_warmup_steps=num_warmup_steps,
+                                 num_training_steps=num_training_steps,
+                                 lr_end=self.args.lr_end, power=self.args.power)
+
+        return schedule_func(optimizer, num_warmup_steps=num_warmup_steps, num_training_steps=num_training_steps)
 
     def training_step(self, model: nn.Module, inputs: Dict[str, Union[torch.Tensor, Any]]) -> torch.Tensor:
         """
@@ -489,8 +476,13 @@ class CLTrainer(Trainer):
         with self.autocast_smart_context_manager():
             loss, outputs = self.compute_loss(model, inputs, return_outputs=True)
             if hasattr(outputs, 'specific_losses'):
+                # print('batch_size=', outputs['specific_losses']['batch_size'])
                 for k, v in outputs.specific_losses.items():
                     extra_losses[k] = v
+                sent_lens = inputs['length'].type(torch.float).mean(dim=0)
+                for li, l in enumerate(sent_lens):
+                    extra_losses[f'sent_len_{li}'] = l
+                    # print(f'sent_len_{li}={l}')
 
         if self.args.gradient_accumulation_steps > 1 and not self.deepspeed:
             # deepspeed handles loss scaling by gradient_accumulation_steps in its `backward`
@@ -603,6 +595,8 @@ class CLTrainer(Trainer):
 
         # Distributed training (should be after apex fp16 initialization)
         if self.args.local_rank != -1:
+            print('Initializing DistributedDataParallel')
+            print('self.args.local_rank=', self.args.local_rank)
             model = torch.nn.parallel.DistributedDataParallel(
                 model,
                 device_ids=[self.args.local_rank],
