@@ -177,9 +177,9 @@ def word_replace(tokens, replace_ratio, replace_with_mask=False):
     else it works as token deletion
     '''
     if replace_with_mask:
-        _tokens = ['[MASK]' if random.random() < replace_ratio else t for t in tokens]
+        _tokens = ['[MASK]' if np.random.uniform() < replace_ratio else t for t in tokens]
     else:
-        _tokens = [t for t in tokens if random.random() > replace_ratio]
+        _tokens = [t for t in tokens if np.random.uniform() > replace_ratio]
     return _tokens
 
 
@@ -288,6 +288,7 @@ def hfdataset_prepare_features(examples, tokenizer, max_seq_length, padding_stra
                                max_context_len=256, min_dq_len=10,
                                min_q_len=0.05, max_q_len=0.5,
                                min_d_len=0.05, max_d_len=0.5,
+                               title_as_query_ratio=0.0,
                                include_doctitle_ratio=0.0,
                                seed=67,
                                **config_kwargs
@@ -304,9 +305,12 @@ def hfdataset_prepare_features(examples, tokenizer, max_seq_length, padding_stra
             if max_context_len > 0:
                 context_tokens = crop_sequence(context_tokens, max_len=max_context_len, crop_to_maxlen=True)
             d_tokens = crop_sequence(context_tokens, max_len=max_d_len, min_len=min_d_len, min_dq_len=min_dq_len, crop_to_maxlen=False)
-            d = title + ' # ' + ' '.join(d_tokens) if random.random() <= include_doctitle_ratio else ' '.join(d_tokens)
+            d = title + ' # ' + ' '.join(d_tokens) if np.random.uniform() <= include_doctitle_ratio else ' '.join(d_tokens)
             q_tokens = crop_sequence(context_tokens, max_len=max_q_len, min_len=min_q_len, min_dq_len=min_dq_len, crop_to_maxlen=False)
-            q = title + ' # ' + ' '.join(q_tokens) if random.random() <= include_doctitle_ratio else ' '.join(q_tokens)
+            q = title + ' # ' + ' '.join(q_tokens) if np.random.uniform() <= include_doctitle_ratio else ' '.join(q_tokens)
+            #
+            if title is not None and np.random.uniform() < title_as_query_ratio:
+                q = title
             sents0.append(d)  # cropped psg as doc
             sents1.append(q)  # cropped psg as query
     except Exception as e:
@@ -382,7 +386,7 @@ def document_prepare_features(examples,
         if query_in_doc:
             q_tokens, q_start, q_end = crop_sequence(d_tokens, max_len=max_q_len, min_len=min_q_len, min_dq_len=min_dq_len,
                                                  crop_to_maxlen=False, return_index=True)
-            if q_retain_ratio < 1.0 and random.random() > q_retain_ratio:
+            if q_retain_ratio < 1.0 and np.random.uniform() > q_retain_ratio:
                 d_tokens = d_tokens[:q_start] + ['[MASK]'] + d_tokens[q_end:]
         else:
             q_tokens = crop_sequence(psg_tokens, max_len=max_q_len, min_len=min_q_len, min_dq_len=min_dq_len, crop_to_maxlen=False)
@@ -430,8 +434,8 @@ def document_prepare_features(examples,
             if word_del_ratio:
                 d = word_replace(d, replace_ratio=word_del_ratio, replace_with_mask=False)
                 q = word_replace(q, replace_ratio=word_del_ratio, replace_with_mask=False)
-            d = doc['title'] + ' # ' + ' '.join(d) if random.random() <= include_doctitle_ratio else ' '.join(d)
-            q = doc['title'] + ' # ' + ' '.join(q) if random.random() <= include_doctitle_ratio else ' '.join(q)
+            d = doc['title'] + ' # ' + ' '.join(d) if np.random.uniform() <= include_doctitle_ratio else ' '.join(d)
+            q = doc['title'] + ' # ' + ' '.join(q) if np.random.uniform() <= include_doctitle_ratio else ' '.join(q)
             # print(f'[title,len={len(title_tokens)}]', title_tokens)
             # print(f'[ctx_full,len={len(ctx_full_tokens)}]', ' '.join(ctx_full_tokens))
             # print(f'[ctx_cropped,len={len(context_tokens)}]', ' '.join(context_tokens))
@@ -449,8 +453,8 @@ def document_prepare_features(examples,
                 if word_del_ratio:
                     d = word_replace(d, replace_ratio=word_del_ratio, replace_with_mask=False)
                     q = word_replace(q, replace_ratio=word_del_ratio, replace_with_mask=False)
-                d = doc['title'] + ' # ' + ' '.join(d) if random.random() <= include_doctitle_ratio else ' '.join(d)
-                q = doc['title'] + ' # ' + ' '.join(q) if random.random() <= include_doctitle_ratio else ' '.join(q)
+                d = doc['title'] + ' # ' + ' '.join(d) if np.random.uniform() <= include_doctitle_ratio else ' '.join(d)
+                q = doc['title'] + ' # ' + ' '.join(q) if np.random.uniform() <= include_doctitle_ratio else ' '.join(q)
                 sents[2].append(d)
                 sents[3].append(q)
 
@@ -464,7 +468,7 @@ def document_prepare_features(examples,
                 d = crop_sequence(context_tokens, max_len=max_d_len, min_len=min_d_len, min_dq_len=min_dq_len, crop_to_maxlen=False)
                 if word_del_ratio:
                     d = word_replace(d, replace_ratio=word_del_ratio, replace_with_mask=False)
-                d = doc['title'] + ' # ' + ' '.join(d) if random.random() <= include_doctitle_ratio else ' '.join(d)
+                d = doc['title'] + ' # ' + ' '.join(d) if np.random.uniform() <= include_doctitle_ratio else ' '.join(d)
                 sents[4].append(d)
                 sents[5].append(q)
                 # Tuple 2 D-/Q-
@@ -476,7 +480,7 @@ def document_prepare_features(examples,
                                   crop_to_maxlen=False)
                 if word_del_ratio:
                     d = word_replace(d, replace_ratio=word_del_ratio, replace_with_mask=False)
-                d = doc['title'] + ' # ' + ' '.join(d) if random.random() <= include_doctitle_ratio else ' '.join(d)
+                d = doc['title'] + ' # ' + ' '.join(d) if np.random.uniform() <= include_doctitle_ratio else ' '.join(d)
                 sents[6].append(d)
                 sents[7].append(q)
     except Exception as e:

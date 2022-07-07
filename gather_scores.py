@@ -33,23 +33,26 @@ def main():
         # 'wikipedia.contriever-256.moco-2e14.bert-base-uncased.avg.cosine.maxlen256.step200k.bs256.lr1e5',
         # 'wikipedia.contriever-256.moco-2e14.bert-base-uncased.avg.dot.normQD.maxlen256.step200k.bs256.lr1e5',
 
-        # Ablation of similarity metric
+        # Ablation of momentum
         # 'wikipedia.contriever-256.moco-2e14.bert-base-uncased.avg.dot.maxlen256.step200k.bs256.lr1e5',
         # 'wikipedia.contriever-256.moco-2e14.bert-base-uncased.avg.dot.maxlen256.step200k.warmup10k.bs256.lr1e5',
-        # 'wikipedia.contriever-256.moco-2e14.bert-base-uncased.avg.cosine.maxlen256.step200k.bs256.lr1e5',
-        # 'wikipedia.contriever-256.moco-2e14.bert-base-uncased.avg.dot.normQD.maxlen256.step200k.bs256.lr1e5',
+        # 'wikipedia.contriever-256.moco-2e14.bert-base-uncased.avg.dot.maxlen256.step200k.bs256.lr1e5.momentum0',
+        # 'wikipedia.contriever-256.moco-2e14.bert-base-uncased.avg.dot.maxlen256.step200k.bs256.lr1e5.momentum025',
+        'wikipedia.contriever-256.moco-2e14.bert-base-uncased.avg.dot.maxlen256.step200k.bs256.lr1e5.momentum099',
+        # 'wikipedia.contriever-256.moco-2e14.bert-base-uncased.avg.dot.maxlen256.step200k.bs256.lr1e5.momentum1',
 
         # Ablation of datasets
-        'wikipedia.contriever-256.moco-2e14.bert-base-uncased.avg.dot.maxlen256.step200k.warmup10k.bs256.lr1e5',
-        'pile.contriever-256.moco-2e12.bert-base-uncased.avg.dot.maxlen256.step200k.warmup10k.bs256.lr1e5',
-        'pile.contriever-256.moco-2e17.bert-base-uncased.avg.dot.maxlen256.step200k.warmup10k.bs256.lr1e5.lr-polynomial-power2',
-        'c4.contriever-256.moco-2e12.bert-base-uncased.avg.dot.maxlen256.step200k.bs256.lr1e5',
-        'c4.contriever-256.moco-2e13.bert-base-uncased.avg.dot.maxlen256.step200k.bs256.lr1e5',
-        'c4.contriever-256.moco-2e14.bert-base-uncased.avg.dot.maxlen256.step200k.bs256.lr1e5',
-        'cc100.contriever-256.moco-2e12.bert-base-uncased.avg.dot.maxlen256.step200k.bs512.lr1e5',
-        'cc100.contriever-256.moco-2e14.bert-base-uncased.avg.dot.maxlen256.step200k.bs256.lr1e5',
-        'cc100.contriever-256.moco-2e17.bert-base-uncased.avg.dot.maxlen256.step200k.warmup10k.bs256.lr1e5',
-        'cc100.contriever-256.moco-2e17.bert-base-uncased.avg.dot.maxlen256.step200k.warmup10k.bs256.lr5e6',
+        # 'wikipedia.contriever-256.moco-2e12.bert-base-uncased.avg.dot.maxlen256.step200k.bs256.lr1e5',
+        # 'wikipedia.contriever-256.moco-2e14.bert-base-uncased.avg.dot.maxlen256.step200k.warmup10k.bs256.lr1e5',
+        # 'pile.contriever-256.moco-2e12.bert-base-uncased.avg.dot.maxlen256.step200k.warmup10k.bs256.lr1e5',
+        # 'pile.contriever-256.moco-2e17.bert-base-uncased.avg.dot.maxlen256.step200k.warmup10k.bs256.lr1e5.lr-polynomial-power2',
+        # 'c4.contriever-256.moco-2e12.bert-base-uncased.avg.dot.maxlen256.step200k.bs256.lr1e5',
+        # 'c4.contriever-256.moco-2e13.bert-base-uncased.avg.dot.maxlen256.step200k.bs256.lr1e5',
+        # 'c4.contriever-256.moco-2e14.bert-base-uncased.avg.dot.maxlen256.step200k.bs256.lr1e5',
+        # 'cc100.contriever-256.moco-2e12.bert-base-uncased.avg.dot.maxlen256.step200k.bs512.lr1e5',
+        # 'cc100.contriever-256.moco-2e14.bert-base-uncased.avg.dot.maxlen256.step200k.bs256.lr1e5',
+        # 'cc100.contriever-256.moco-2e17.bert-base-uncased.avg.dot.maxlen256.step200k.warmup10k.bs256.lr1e5',
+        # 'cc100.contriever-256.moco-2e17.bert-base-uncased.avg.dot.maxlen256.step200k.warmup10k.bs256.lr5e6',
     ]
     beir_datasets = [
         'msmarco',

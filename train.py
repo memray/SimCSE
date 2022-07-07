@@ -22,12 +22,12 @@ from transformers.trainer_utils import is_main_process
 from transformers.integrations import WandbCallback
 
 from simcse.data_configs import load_data_config
+from simcse.data_loader import load_datasets
 from simcse.models_v2 import PretrainedModelForContrastiveLearning
 
 from simcse.trainers import CLTrainer
 from simcse.utils import wandb_setup
-from simcse.data_process import passage_prepare_features, document_prepare_features, PassageDataCollatorWithPadding, \
-    hfdataset_prepare_features
+from simcse.data_process import PassageDataCollatorWithPadding
 from src.arguments import ModelArguments, CustomTrainingArguments, ExtHFTrainingArguments, MoCoArguments
 from src.moco import MoCo
 
@@ -75,6 +75,8 @@ def main():
                 "Use --overwrite_output_dir to overcome."
             )
         elif training_args.resume_training and os.path.exists(os.path.join(hftraining_args.output_dir, "model_data_training_args.bin")):
+            logger.info("Reloading model_args and moco_args from %s",
+                        os.path.join(hftraining_args.output_dir, "model_data_training_args.bin"))
             model_args, _, _, moco_args = torch.load(os.path.join(hftraining_args.output_dir, "model_data_training_args.bin"))
 
     # Setup logging
@@ -94,7 +96,10 @@ def main():
         transformers.utils.logging.set_verbosity_info()
         transformers.utils.logging.enable_default_handler()
         transformers.utils.logging.enable_explicit_format()
-    logger.info("Training/evaluation parameters %s", hftraining_args)
+    logger.info("Training/evaluation parameters:\n%s", hftraining_args)
+    logger.info("Custom training parameters:\n%s", training_args)
+    logger.info("Custom model parameters:\n%s", model_args)
+    logger.info("MoCo model parameters:\n%s", moco_args)
 
     # Set seed before initializing model.
     set_seed(hftraining_args.seed)
@@ -118,13 +123,14 @@ def main():
         "attention_probs_dropout_prob": model_args.attention_probs_dropout_prob,
     }
 
-    if model_args.config_name:
-        hfconfig = AutoConfig.from_pretrained(model_args.config_name, **config_kwargs)
-    elif model_args.model_name_or_path:
-        hfconfig = AutoConfig.from_pretrained(model_args.model_name_or_path, **config_kwargs)
-    else:
-        hfconfig = CONFIG_MAPPING[model_args.model_type]()
-        logger.warning("You are instantiating a new config instance from scratch.")
+    hfconfig = AutoConfig.from_pretrained('bert-base-uncased', **config_kwargs)
+    # if model_args.config_name:
+    #     hfconfig = AutoConfig.from_pretrained(model_args.config_name, **config_kwargs)
+    # elif model_args.model_name_or_path:
+    #     hfconfig = AutoConfig.from_pretrained(model_args.model_name_or_path, **config_kwargs)
+    # else:
+    #     hfconfig = CONFIG_MAPPING[model_args.model_type]()
+    #     logger.warning("You are instantiating a new config instance from scratch.")
 
     tokenizer_kwargs = {
         "cache_dir": model_args.cache_dir,
@@ -142,78 +148,7 @@ def main():
             "You can do it from another script, save it, and load it from here, using --tokenizer_name."
         )
 
-    if hftraining_args.do_train and training_args.train_file:
-        data_files = {}
-        data_files["train"] = training_args.train_file
-        if data_files["train"] == 'c4':
-            # https://huggingface.co/datasets/c4
-            loaded_datasets = datasets.load_dataset("c4", "en", cache_dir=model_args.cache_dir)
-            title_field = None
-            text_field = 'text'
-            train_dataset = loaded_datasets['train']
-        elif data_files["train"] == 'cc100':
-            # https://huggingface.co/datasets/cc100, examples are sentences, no longer than 100 words.
-            loaded_datasets = datasets.load_dataset("cc100", lang="en", cache_dir=model_args.cache_dir, split='train[:2%]')
-            title_field = None
-            text_field = 'text'
-            train_dataset = loaded_datasets
-        elif data_files["train"] == 'the_pile':
-            # https://huggingface.co/datasets/the_pile
-            loaded_datasets = datasets.load_dataset("the_pile", cache_dir=model_args.cache_dir, split='train[:1%]')
-            title_field = None
-            text_field = 'text'
-            train_dataset = loaded_datasets
-        elif data_files["train"] == 'wikipedia':
-            # https://huggingface.co/datasets/wikipedia
-            loaded_datasets = datasets.load_dataset("wikipedia", "20220301.en", cache_dir=model_args.cache_dir)
-            title_field = 'title'
-            text_field = 'text'
-            train_dataset = loaded_datasets['train']
-        else:
-            loaded_datasets = datasets.load_dataset("text",
-                                                    data_files=data_files,
-                                                    keep_in_memory=False,
-                                                    cache_dir=model_args.cache_dir)
-            train_dataset = loaded_datasets['train']
-
-        if training_args.data_type == 'document':
-            data_prep_config = load_data_config(training_args)
-            parse_fn = partial(document_prepare_features,
-                               tokenizer=tokenizer,
-                               max_seq_length=training_args.max_seq_length,
-                               padding_strategy='max_length' if training_args.pad_to_max_length else 'longest',
-                               **data_prep_config
-                               )
-        elif training_args.data_type == 'hf':
-            data_prep_config = load_data_config(training_args)
-            parse_fn = partial(hfdataset_prepare_features, tokenizer=tokenizer,
-                               max_seq_length=training_args.max_seq_length,
-                               padding_strategy='max_length' if training_args.pad_to_max_length else 'longest',
-                               title_field=title_field,
-                               text_field=text_field,
-                               **data_prep_config
-            )
-        train_dataset = train_dataset.shuffle(seed=hftraining_args.seed)
-        train_dataset.set_transform(parse_fn)
-
-        psg_parse_fn = partial(passage_prepare_features, tokenizer=tokenizer,
-                               max_seq_length=training_args.max_seq_length,
-                               padding_strategy='max_length' if training_args.pad_to_max_length else 'longest')
-
-        # load a subset of wikipedia as devset
-        if training_args.dev_file:
-            dev_dataset = datasets.load_dataset("csv",
-                                                data_files={"dev": training_args.dev_file},
-                                                keep_in_memory=False,
-                                                cache_dir=model_args.cache_dir,
-                                                delimiter="\t" if "tsv" in training_args.dev_file else ",",
-                                                split='dev')
-            dev_dataset.set_transform(psg_parse_fn)
-        else:
-            dev_dataset = None
-    else:
-        train_dataset = None
-        dev_dataset = None
+    train_dataset, dev_dataset = load_datasets(tokenizer, training_args, model_args, hftraining_args)
 
     if model_args.arch_type == 'simcl':
         model = PretrainedModelForContrastiveLearning(
@@ -243,6 +178,7 @@ def main():
             mlm_probability=training_args.mlm_probability)
     )
     trainer.model_args = model_args
+    trainer.training_args = training_args
     setattr(trainer, 'model_data_training_args', [model_args, training_args, hftraining_args, moco_args])
     torch.save(trainer.model_data_training_args, os.path.join(hftraining_args.output_dir, "model_data_training_args.bin"))
 
@@ -261,8 +197,9 @@ def main():
     if wandb_callback:
         # override wandb_callback's setup method to record our customized hyperparameters
         wandb_callback = wandb_callback[0]
-        new_setup = functools.partial(wandb_setup, model_args=model_args,
-                                      data_args=training_args, moco_args=moco_args, resume=wandb_resume)
+        new_setup = functools.partial(wandb_setup,
+                                      model_args=model_args, training_args=training_args,
+                                      moco_args=moco_args, resume=wandb_resume)
         wandb_callback.setup =types.MethodType(new_setup, wandb_callback)
 
     """""""""""""""""""""
@@ -304,8 +241,8 @@ def main():
                                         output_dir=hftraining_args.output_dir,
                                         sim_function=model_args.sim_type,
                                         beir_datasets=final_beir_datasets)
-        results_senteval = trainer.evaluate_senteval(epoch=trainer.state.epoch, output_dir=hftraining_args.output_dir)
-        results.update(results_senteval)
+        # results_senteval = trainer.evaluate_senteval(epoch=trainer.state.epoch, output_dir=hftraining_args.output_dir)
+        # results.update(results_senteval)
 
         output_eval_file = os.path.join(hftraining_args.output_dir, "eval_results.txt")
         if trainer.is_world_process_zero():

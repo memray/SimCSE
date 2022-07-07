@@ -34,6 +34,7 @@ from transformers.trainer_callback import (
 from transformers.trainer_pt_utils import (
     reissue_pt_warnings,
 )
+from tqdm.auto import tqdm
 
 from transformers.utils import logging
 import torch
@@ -139,14 +140,18 @@ class CLTrainer(Trainer):
             inputs = self._prepare_inputs(inputs)
             with torch.no_grad():
                 outputs = model(**inputs, update_kencoder_queue=False, report_align_unif=report_align_unif)
-
             for k, v in outputs['specific_losses'].items():
-                v = v.detach()
-                v = self._nested_gather(v)
+                if isinstance(v, torch.Tensor):
+                    v = v.detach()
+                    v = self._nested_gather(v)
+                else:
+                    _v = torch.Tensor(1)
+                    _v[0] = v
+                    v = _v
                 _metrics[k] = v if k not in _metrics else torch.cat((_metrics[k], v), dim=0)
 
         metrics = {}
-        metric_key_prefix = 'test'  # only test_/eval_
+        metric_key_prefix = 'test'  # only test_/eval_ are accepted by HF trainers
         for k, v in _metrics.items():
             metrics[f"{metric_key_prefix}_{k}"] = v.float().mean().item()
 
@@ -159,12 +164,12 @@ class CLTrainer(Trainer):
             # beir_datasets = ['nfcorpus', 'fiqa', 'arguana', 'scidocs', 'scifact'] # quick test
             # beir_datasets = ['nfcorpus', 'fiqa', 'arguana', 'scidocs', 'scifact', 'webis-touche2020', 'cqadupstack', 'quora', 'dbpedia-entity', 'nq'] # mostly reported in Contriever
             # beir_datasets = ['nfcorpus', 'fiqa', 'arguana', 'scidocs', 'scifact', 'webis-touche2020', 'cqadupstack', 'trec-covid', 'nq', 'dbpedia-entity', 'quora'] # small testsets+NQ+FEVER+Quora
-            beir_datasets = ['nfcorpus', 'fiqa', 'arguana', 'scidocs', 'scifact', 'webis-touche2020', 'cqadupstack', 'trec-covid', 'quora', 'nq']  # smallest 8 datasets, plus two large OOD datasets (NQ+Quora)
+            beir_datasets = ['nfcorpus', 'fiqa', 'arguana', 'scidocs', 'scifact', 'webis-touche2020', 'cqadupstack', 'trec-covid', 'quora']  # smallest 8 datasets+quora
             # beir_datasets = ['nfcorpus', 'fiqa', 'arguana', 'scidocs', 'scifact', 'webis-touche2020', 'cqadupstack', 'trec-covid']  # smallest 8 datasets
             # beir_datasets = ['fiqa']  # test
         norm_query = False
         norm_doc = False
-        beir_data_path = '/export/home/data/beir/'
+        beir_data_path = self.training_args.beir_path
 
         metrics = {'epoch': epoch}
         avg_ndcg_10 = []
@@ -451,7 +456,31 @@ class CLTrainer(Trainer):
 
         return schedule_func(optimizer, num_warmup_steps=num_warmup_steps, num_training_steps=num_training_steps)
 
-    def training_step(self, model: nn.Module, inputs: Dict[str, Union[torch.Tensor, Any]]) -> torch.Tensor:
+    def compute_loss(self, model, inputs, return_outputs=False):
+        """
+        How the loss is computed by Trainer. By default, all models return the loss in the first element.
+
+        Subclass and override for custom behavior.
+        """
+        if self.label_smoother is not None and "labels" in inputs:
+            labels = inputs.pop("labels")
+        else:
+            labels = None
+        outputs = model(**inputs)
+        # Save past state if it exists
+        # TODO: this needs to be fixed and made cleaner later.
+        if self.args.past_index >= 0:
+            self._past = outputs[self.args.past_index]
+
+        if labels is not None:
+            loss = self.label_smoother(outputs, labels)
+        else:
+            # We don't use .loss here since the model may return tuples instead of ModelOutput.
+            loss = outputs["loss"] if isinstance(outputs, dict) else outputs[0]
+
+        return (loss, outputs) if return_outputs else loss
+
+    def training_step(self, model: nn.Module, inputs: Dict[str, Union[torch.Tensor, Any]], forward_only: bool=False) -> torch.Tensor:
         """
         Perform a training step on a batch of inputs.
 
@@ -474,8 +503,13 @@ class CLTrainer(Trainer):
         extra_losses = {}
 
         with self.autocast_smart_context_manager():
+            if forward_only:
+                with torch.no_grad():
+                    _, _ = self.compute_loss(model, inputs, return_outputs=True)
+                    model.zero_grad()
+                    return None, None
             loss, outputs = self.compute_loss(model, inputs, return_outputs=True)
-            if hasattr(outputs, 'specific_losses'):
+            if hasattr(inputs, 'report_metrics') and inputs['report_metrics'] and hasattr(outputs, 'specific_losses'):
                 # print('batch_size=', outputs['specific_losses']['batch_size'])
                 for k, v in outputs.specific_losses.items():
                     extra_losses[k] = v
@@ -646,6 +680,7 @@ class CLTrainer(Trainer):
         start_time = time.time()
         epochs_trained = 0
         steps_trained_in_current_epoch = 0
+        steps_trained_progress_bar = None
 
         # Check if continuing training from a checkpoint
         if model_path and os.path.isfile(os.path.join(model_path, "trainer_state.json")):
@@ -665,6 +700,7 @@ class CLTrainer(Trainer):
                     f"  Will skip the first {epochs_trained} epochs then the first {steps_trained_in_current_epoch} "
                     "batches in the first epoch."
                 )
+        steps_trained_progress_bar = tqdm(total=steps_trained_in_current_epoch)
 
         # Update the references
         self.callback_handler.model = self.model
@@ -708,20 +744,35 @@ class CLTrainer(Trainer):
 
             steps_in_epoch = len(train_dataloader) if train_dataset_is_sized else self.args.max_steps
             self.control = self.callback_handler.on_epoch_begin(self.args, self.state, self.control)
-
             assert train_dataset_is_sized, "currently we only support sized dataloader!"
+            # prepare for the warmup for queue size
+            if self.model.warmup_queue_size_ratio > 0:
+                fullsize_step = int(self.model.warmup_queue_size_ratio * self.args.max_steps)
+                num_warmup_stage = int(self.model.queue_size / total_train_batch_size)
+                warmup_steps = {(fullsize_step // num_warmup_stage * i): i+1 for i in range(1, num_warmup_stage)}
+            else:
+                self.model.active_queue_size = self.model.queue_size
 
             inputs = None
             last_inputs = None
             for step, inputs in enumerate(epoch_iterator):
+                if self.model.warmup_queue_size_ratio > 0 and (step + 1) in warmup_steps:
+                    self.model.active_queue_size = total_train_batch_size * warmup_steps[self.state.global_step]
+                    print(f'step={(step + 1)}, model.active_queue_size={self.model.active_queue_size}')
+                inputs['report_metrics'] = True if (step + 1) % self.args.logging_steps == 0 else False
                 # Skip past any already trained steps if resuming training
                 if steps_trained_in_current_epoch > 0:
                     steps_trained_in_current_epoch -= 1
                     continue
-
+                if (step + 1) % self.model.queue_update_steps != 0:
+                    # only feedforward the model to update the queue
+                    _, _ = self.training_step(model, inputs, forward_only=True)
+                    self.state.global_step += 1
+                    self.state.epoch = epoch + (step + 1) / steps_in_epoch
+                    steps_trained_progress_bar.update(1)
+                    continue
                 if (step + 1) % self.args.gradient_accumulation_steps == 0:
                     self.control = self.callback_handler.on_step_begin(self.args, self.state, self.control)
-
                 if ((step + 1) % self.args.gradient_accumulation_steps != 0) and self.args.local_rank != -1:
                     # Avoid unnecessary DDP synchronization since there will be no backward pass on this example.
                     with model.no_sync():
@@ -744,11 +795,9 @@ class CLTrainer(Trainer):
                     # Gradient clipping
                     if self.args.max_grad_norm is not None and self.args.max_grad_norm > 0 and not self.deepspeed:
                         # deepspeed does its own clipping
-
                         if self.use_amp:
                             # AMP: gradients need unscaling
                             self.scaler.unscale_(self.optimizer)
-
                         if hasattr(self.optimizer, "clip_grad_norm"):
                             # Some optimizers (like the sharded optimizer) have a specific way to do gradient clipping
                             self.optimizer.clip_grad_norm(self.args.max_grad_norm)
@@ -758,7 +807,6 @@ class CLTrainer(Trainer):
                                 amp.master_params(self.optimizer) if self.use_apex else model.parameters(),
                                 self.args.max_grad_norm,
                             )
-
                     # Optimizer step
                     if is_torch_tpu_available():
                         xm.optimizer_step(self.optimizer)
@@ -769,13 +817,11 @@ class CLTrainer(Trainer):
                         self.optimizer.step()
                     
                     self.lr_scheduler.step()
-
                     model.zero_grad()
 
                     self.state.global_step += 1
                     self.state.epoch = epoch + (step + 1) / steps_in_epoch
                     self.control = self.callback_handler.on_step_end(self.args, self.state, self.control)
-
                     self._maybe_log_save_evaluate(tr_loss, model, trial, epoch, extra_logs=extra_logs)
 
                 if self.control.should_epoch_stop or self.control.should_training_stop:

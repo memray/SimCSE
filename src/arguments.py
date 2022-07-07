@@ -82,7 +82,6 @@ class ModelArguments:
             "with private models)."
         },
     )
-
     # @memray
     cl_loss_weights: str = field(
         default=None,
@@ -224,7 +223,6 @@ class CustomTrainingArguments:
         default=None,
         metadata={"help": "The number of processes to use for the preprocessing."},
     )
-
     # @memray
     # Training
     resume_training: str = field(
@@ -313,6 +311,9 @@ class CustomTrainingArguments:
         },
     )
     # BEIR test
+    beir_path: Optional[str] = field(
+        default="/export/home/data/beir", metadata={ "help": "Base directory of BEIR data."},
+    )
     beir_datasets: List[str] = field(
         default=None,
         metadata={
@@ -647,13 +648,16 @@ class ExtHFTrainingArguments(TrainingArguments):
 
 
 class MoCoArguments():
-    def __init__(self, retrieval=False):
+    def __init__(self):
         self.parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
         self.initialize()
 
     def initialize(self):
         # basic parameters
+        self.parser.add_argument("--queue_strategy", type=str, default='fifo', help="'fifo', 'priority'")
         self.parser.add_argument("--queue_size", type=int, default=65536)
+        self.parser.add_argument("--warmup_queue_size_ratio", type=float, default=0.0, help='linearly increase queue size to 100% until training_steps*warmup_queuesize_ratio.')
+        self.parser.add_argument("--queue_update_steps", type=int, default=1, help='we only update the model parameters (backprop) every k step, and but update queue in the rest k-1 steps.')
         self.parser.add_argument("--momentum", type=float, default=0.9995)
         # self.parser.add_argument("--retriever_model_id", type=str, default='bert-base-uncased')
         self.parser.add_argument("--temperature", type=float, default=0.05)
@@ -666,6 +670,12 @@ class MoCoArguments():
         self.parser.add_argument('--random_init', action='store_true', help='init model with random weights')
         self.parser.add_argument('--projection_size', type=int, default=768)
         self.parser.add_argument('--indep_encoder_k', type=bool, default=False)
+        # alignment+uniformity
+        self.parser.add_argument('--align_unif_loss', type=bool, default=False)
+        self.parser.add_argument('--align_weight', type=float, default=0.0)
+        self.parser.add_argument('--align_alpha', type=float, default=2)
+        self.parser.add_argument('--unif_weight', type=float, default=0.0)
+        self.parser.add_argument('--unif_t', type=float, default=2)
 
     def print_options(self, opt):
         message = ''

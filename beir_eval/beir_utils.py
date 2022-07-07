@@ -214,6 +214,7 @@ def evaluate_model(
                 recall_caps.append(recall_cap)
                 holes.append(hole)
         if is_main:
+            print('Dataset: ', dataset)
             ndcg = {key: sum(item.get(key) for item in ndcgs) / 12 for key in ndcgs[0]}
             _map = {key: sum(item.get(key) for item in _maps) / 12 for key in _maps[0]}
             recall = {key: sum(item.get(key) for item in recalls) / 12 for key in recalls[0]}
@@ -230,6 +231,7 @@ def evaluate_model(
         #                   f'batch_size={retriever.retriever.batch_size}, chunk_size={retriever.retriever.corpus_chunk_size}')
         results = retriever.retrieve(corpus, queries)
         if is_main:
+            print('Dataset: ', dataset)
             # print(f'Start evaluating, #(qrels)={len(qrels)}, #(results)={len(results)}')
             ndcg, _map, recall, precision = retriever.evaluate(qrels, results, retriever.k_values)
             mrr = retriever.evaluate_custom(qrels, results, retriever.k_values, metric="mrr")

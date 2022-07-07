@@ -3,7 +3,7 @@ import os
 from transformers import is_torch_tpu_available
 
 
-def wandb_setup(cls, args=None, state=None, model=None, model_args=None, data_args=None, moco_args=None, resume=False, **kwargs):
+def wandb_setup(cls, args=None, state=None, model=None, model_args=None, training_args=None, moco_args=None, resume=False, **kwargs):
     """
     Modified based on WandbCallback at L534 of transformers.integration
     to keep track of our customized parameters (moodel_args, data_args)
@@ -20,9 +20,9 @@ def wandb_setup(cls, args=None, state=None, model=None, model_args=None, data_ar
         if model_args is not None:
             model_args = model_args.to_dict()
             combined_dict = {**model_args, **combined_dict}
-        if data_args is not None:
-            data_args = data_args.to_dict()
-            combined_dict = {**data_args, **combined_dict}
+        if training_args is not None:
+            training_args = training_args.to_dict()
+            combined_dict = {**training_args, **combined_dict}
         if moco_args is not None:
             moco_args = vars(moco_args)
             combined_dict = {**moco_args, **combined_dict}
