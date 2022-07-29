@@ -21,7 +21,6 @@ from transformers import (
 from transformers.trainer_utils import is_main_process
 from transformers.integrations import WandbCallback
 
-from simcse.data_configs import load_data_config
 from simcse.data_loader import load_datasets
 from simcse.models_v2 import PretrainedModelForContrastiveLearning
 
@@ -64,6 +63,7 @@ def main():
         ]
     )
     logger = logging.getLogger(__name__)
+    logger.warning(f"Input arguments: \n\t {' '.join(sys.argv)}")
 
     if (
         os.path.exists(hftraining_args.output_dir)
@@ -78,13 +78,6 @@ def main():
             logger.info("Reloading model_args and moco_args from %s",
                         os.path.join(hftraining_args.output_dir, "model_data_training_args.bin"))
             model_args, _, _, moco_args = torch.load(os.path.join(hftraining_args.output_dir, "model_data_training_args.bin"))
-
-    # Setup logging
-    logging.basicConfig(
-        format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
-        datefmt="%m/%d/%Y %H:%M:%S",
-        level=logging.INFO if is_main_process(hftraining_args.local_rank) else logging.WARN,
-    )
 
     # Log on each process the small summary:
     logger.warning(
@@ -123,14 +116,14 @@ def main():
         "attention_probs_dropout_prob": model_args.attention_probs_dropout_prob,
     }
 
-    hfconfig = AutoConfig.from_pretrained('bert-base-uncased', **config_kwargs)
-    # if model_args.config_name:
-    #     hfconfig = AutoConfig.from_pretrained(model_args.config_name, **config_kwargs)
-    # elif model_args.model_name_or_path:
-    #     hfconfig = AutoConfig.from_pretrained(model_args.model_name_or_path, **config_kwargs)
-    # else:
-    #     hfconfig = CONFIG_MAPPING[model_args.model_type]()
-    #     logger.warning("You are instantiating a new config instance from scratch.")
+    # hfconfig = AutoConfig.from_pretrained('bert-base-uncased', **config_kwargs)
+    if model_args.config_name:
+        hfconfig = AutoConfig.from_pretrained(model_args.config_name, **config_kwargs)
+    elif model_args.model_name_or_path:
+        hfconfig = AutoConfig.from_pretrained(model_args.model_name_or_path, **config_kwargs)
+    else:
+        hfconfig = CONFIG_MAPPING[model_args.model_type]()
+        logger.warning("You are instantiating a new config instance from scratch.")
 
     tokenizer_kwargs = {
         "cache_dir": model_args.cache_dir,
@@ -179,9 +172,10 @@ def main():
     )
     trainer.model_args = model_args
     trainer.training_args = training_args
+    trainer.hftraining_args = hftraining_args
+    trainer.moco_args = moco_args
     setattr(trainer, 'model_data_training_args', [model_args, training_args, hftraining_args, moco_args])
     torch.save(trainer.model_data_training_args, os.path.join(hftraining_args.output_dir, "model_data_training_args.bin"))
-
     # if it's a path, reload status
     if os.path.isdir(model_args.model_name_or_path):
         if model_args.arch_type == 'moco':
@@ -241,8 +235,8 @@ def main():
                                         output_dir=hftraining_args.output_dir,
                                         sim_function=model_args.sim_type,
                                         beir_datasets=final_beir_datasets)
-        # results_senteval = trainer.evaluate_senteval(epoch=trainer.state.epoch, output_dir=hftraining_args.output_dir)
-        # results.update(results_senteval)
+        results_senteval = trainer.evaluate_senteval(epoch=trainer.state.epoch, output_dir=hftraining_args.output_dir)
+        results.update(results_senteval)
 
         output_eval_file = os.path.join(hftraining_args.output_dir, "eval_results.txt")
         if trainer.is_world_process_zero():

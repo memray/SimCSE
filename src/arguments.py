@@ -42,145 +42,44 @@ class ModelArguments:
     """
 
     # Huggingface's original arguments
-    model_name_or_path: Optional[str] = field(
-        default=None,
-        metadata={
-            "help": "The model checkpoint for weights initialization."
-                    "Don't set if you want to train a model from scratch."
-        },
-    )
-    model_type: Optional[str] = field(
-        default=None,
-        metadata={"help": "If training from scratch, pass a model type from the list: " + ", ".join(MODEL_TYPES)},
-    )
-    arch_type: Optional[str] = field(
-        default=None,
-        metadata={"help": "moco or simcl"},
-    )
-    config_name: Optional[str] = field(
-        default=None, metadata={"help": "Pretrained config name or path if not the same as model_name"}
-    )
-    tokenizer_name: Optional[str] = field(
-        default=None, metadata={"help": "Pretrained tokenizer name or path if not the same as model_name"}
-    )
-    cache_dir: Optional[str] = field(
-        default=None,
-        metadata={"help": "Where do you want to store the pretrained models downloaded from huggingface.co"},
-    )
-    use_fast_tokenizer: bool = field(
-        default=True,
-        metadata={"help": "Whether to use one of the fast tokenizer (backed by the tokenizers library) or not."},
-    )
-    model_revision: str = field(
-        default="main",
-        metadata={"help": "The specific model version to use (can be a branch name, tag name or commit id)."},
-    )
-    use_auth_token: bool = field(
-        default=False,
-        metadata={
-            "help": "Will use the token generated when running `transformers-cli login` (necessary to use this script "
-            "with private models)."
-        },
-    )
+    model_name_or_path: Optional[str] = field(default=None, metadata={"help": "The model checkpoint for weights initialization."
+                    "Don't set if you want to train a model from scratch."})
+    model_type: Optional[str] = field(default=None, metadata={"help": "If training from scratch, pass a model type from the list: " + ", ".join(MODEL_TYPES)})
+    arch_type: Optional[str] = field(default=None, metadata={"help": "moco or simcl"})
+    config_name: Optional[str] = field(default=None, metadata={"help": "Pretrained config name or path if not the same as model_name"})
+    tokenizer_name: Optional[str] = field(default=None, metadata={"help": "Pretrained tokenizer name or path if not the same as model_name"})
+    cache_dir: Optional[str] = field(default=None, metadata={"help": "Where do you want to store the pretrained models downloaded from huggingface.co"})
+    use_fast_tokenizer: bool = field(default=True, metadata={"help": "Whether to use one of the fast tokenizer (backed by the tokenizers library) or not."})
+    model_revision: str = field(default="main", metadata={"help": "The specific model version to use (can be a branch name, tag name or commit id)."})
+    use_auth_token: bool = field(default=False, metadata={"help": "Will use the token generated when running `transformers-cli login` (necessary to use this script "
+            "with private models)."})
     # @memray
-    cl_loss_weights: str = field(
-        default=None,
-        metadata={
-            "help": "Whether the parameters of query/doc encoder are shared."
-                    ""
-        },
-    )
-    shared_encoder: bool = field(
-        default=False,
-        metadata={
-            "help": "Whether the parameters of query/doc encoder are shared."
-        },
-    )
-    hidden_dropout_prob: float = field(
-        default=0.10,
-        metadata={
-            "help": "."
-        }
-    )
-    attention_probs_dropout_prob: float = field(
-        default=0.10,
-        metadata={
-            "help": "."
-        }
-    )
+    cl_loss_weights: str = field(default=None, metadata={"help": "Whether the parameters of query/doc encoder are shared."})
+    shared_encoder: bool = field(default=False, metadata={"help": "Whether the parameters of query/doc encoder are shared."})
+    hidden_dropout_prob: float = field(default=0.10, metadata={"help": "."})
+    attention_probs_dropout_prob: float = field(default=0.10, metadata={"help": "."})
 
     # MoCo related arguments
-    memory_type: str = field(
-        default=None,
-        metadata={"help": ""}
-    )
-    memory_size: int = field(
-        default=0,
-        metadata={"help": ""}
-    )
+    memory_type: str = field(default=None, metadata={"help": ""})
+    memory_size: int = field(default=0, metadata={"help": ""})
 
     # SimCSE's arguments
-    temp: float = field(
-        default=0.05,
-        metadata={
-            "help": "Temperature for softmax."
-        }
-    )
-    pooler_type: str = field(
-        default="cls",
-        metadata={
-            "help": "What kind of pooler to use (cls, cls_before_pooler, avg, avg_top2, avg_first_last)."
-        }
-    )
-    q_proj_type: str = field(
-        default="none",
-        metadata={
-            "help": "projector MLP setting, format is"
+    temp: float = field(default=0.05, metadata={"help": "Temperature for softmax."})
+    pooler_type: str = field(default="cls", metadata={"help": "What kind of pooler to use (cls, cls_before_pooler, avg, avg_top2, avg_first_last)."})
+    q_proj_type: str = field(default="none", metadata={"help": "projector MLP setting, format is"
                     "`none`: no projecter"
                     "mlp: a simple D by D dense layer with Tanh activation, no parameter sharing (used in SimCSE)"
-                    "1024-2048: three dense layers (D*1024*2048) with BatchNorm1d and ReLU (barlow-twin)"
-        }
-    )
-    d_proj_type: str = field(
-        default="none",
-        metadata={
-            "help": "projector MLP setting, format is"
+                    "1024-2048: three dense layers (D*1024*2048) with BatchNorm1d and ReLU (barlow-twin)"})
+    d_proj_type: str = field(default="none", metadata={"help": "projector MLP setting, format is"
                     "shared: use the same parameters as q_proj"
                     "`none`: no projecter"
                     "mlp: a simple D by D dense layer with Tanh activation, no parameter sharing (used in SimCSE)"
-                    "1024-2048: three dense layers (D*1024*2048) with BatchNorm1d and ReLU (barlow-twin)"
-        }
-    )
-    sim_type: str = field(
-        default="dot",
-        metadata={
-            "help": "What similarity metric function to use (dot, cosine)."
-        }
-    )
-    hard_negative_weight: float = field(
-        default=0,
-        metadata={
-            "help": "The **logit** of weight for hard negatives (only effective if hard negatives are used)."
-        }
-    )
-    do_mlm: bool = field(
-        default=False,
-        metadata={
-            "help": "Whether to use MLM auxiliary objective."
-        }
-    )
-    mlm_weight: float = field(
-        default=0.1,
-        metadata={
-            "help": "Weight for MLM auxiliary objective (only effective if --do_mlm)."
-        }
-    )
-    mlp_only_train: bool = field(
-        default=False,
-        metadata={
-            "help": "Use MLP only during training"
-        }
-    )
+                    "1024-2048: three dense layers (D*1024*2048) with BatchNorm1d and ReLU (barlow-twin)"})
+    sim_type: str = field(default="dot", metadata={"help": "What similarity metric function to use (dot, cosine)."})
+    hard_negative_weight: float = field(default=0, metadata={"help": "The **logit** of weight for hard negatives (only effective if hard negatives are used)."})
+    do_mlm: bool = field(default=False, metadata={"help": "Whether to use MLM auxiliary objective."})
+    mlm_weight: float = field(default=0.1, metadata={"help": "Weight for MLM auxiliary objective (only effective if --do_mlm)."})
+    mlp_only_train: bool = field(default=False, metadata={"help": "Use MLP only during training"})
 
     def to_dict(self):
         """
@@ -204,150 +103,41 @@ class CustomTrainingArguments:
     Arguments pertaining to what data we are going to input our model for training and eval.
     """
     # Huggingface's original arguments.
-    dataset_name: Optional[str] = field(
-        default=None, metadata={"help": "The name of the dataset to use (via the datasets library)."}
-    )
-    dataset_config_name: Optional[str] = field(
-        default=None, metadata={"help": "The configuration name of the dataset to use (via the datasets library)."}
-    )
-    overwrite_cache: bool = field(
-        default=False, metadata={"help": "Overwrite the cached training and evaluation sets"}
-    )
-    validation_split_percentage: Optional[int] = field(
-        default=5,
-        metadata={
-            "help": "The percentage of the train set used as validation set in case there's no validation split"
-        },
-    )
-    preprocessing_num_workers: Optional[int] = field(
-        default=None,
-        metadata={"help": "The number of processes to use for the preprocessing."},
-    )
+    dataset_name: Optional[str] = field(default=None, metadata={"help": "The name of the dataset to use (via the datasets library)."})
+    dataset_config_name: Optional[str] = field(default=None, metadata={"help": "The configuration name of the dataset to use (via the datasets library)."})
+    overwrite_cache: bool = field(default=False, metadata={"help": "Overwrite the cached training and evaluation sets"})
+    validation_split_percentage: Optional[int] = field(default=5, metadata={"help": "The percentage of the train set used as validation set in case there's no validation split"})
     # @memray
     # Training
-    resume_training: str = field(
-        default=None,
-        metadata={
-            "help": "resume training."
-        }
-    )
-    data_type: str = field(
-        default=None,
-        metadata={
-            "help": "document or passage."
-        }
-    )
-    data_pipeline_name: str = field(
-        default=None,
-        metadata={
-            "help": "Pre-defined data pipeline name. If set, all data hyper-parameters below will be overwritten."
-        }
-    )
-    max_context_len: int = field(
-        default=None,
-        metadata={
-            "help": "if data_type is document and max_context_len is given, we first randomly crop a contiguous span, "
-                    "and Q/D will be sampled from it."
-        },
-    )
-    min_dq_len: int = field(
-        default=None,
-        metadata={
-            "help": "The minimal number of words for sampled query and doc."
-        },
-    )
-    min_q_len: float = field(
-        default=None,
-        metadata={
-            "help": "min Query len. If less 1.0, it denotes a length ratio."
-        },
-    )
-    max_q_len: float = field(
-        default=None,
-        metadata={
-            "help": "max Query len. If less 1.0, it denotes a length ratio."
-        },
-    )
-    min_d_len: float = field(
-        default=None,
-        metadata={
-            "help": "min Doc len. If less 1.0, it denotes a length ratio."
-        },
-    )
-    max_d_len: float = field(
-        default=None,
-        metadata={
-            "help": "max Doc len. If less 1.0, it denotes a length ratio."
-        },
-    )
-    word_del_ratio: float = field(
-        default=0.0,
-        metadata={
-            "help": "Ratio for applying word deletion, for both Q and D."
-        },
-    )
-    query_in_doc: bool = field(
-        default=False,
-        metadata={
-            "help": "Whether sampled query must appear in doc. "
-        },
-    )
-    q_retain_ratio: float = field(
-        default=0.0,
-        metadata={
-            "help": "For ICT Q is taken and removed from D, this ratio controls by which rate Q is retained in D."
-        },
-    )
-    context_range: str = field(
-        default='paragraph',
-        metadata={
-            "help": "Sample a chunk from a document/section/paragraph while loading wiki data."
-        },
-    )
-    include_doctitle_ratio: float = field(
-        default=0.0,
-        metadata={
-            "help": "whether doc title is added (at the beginning)."
-        },
-    )
+    resume_training: str = field(default=None, metadata={"help": "resume training."})
+    data_type: str = field(default=None, metadata={"help": "document or passage."})
+    data_pipeline_name: str = field(default=None, metadata={"help": "Pre-defined data pipeline name. If set, all data hyper-parameters below will be overwritten."})
+    max_context_len: int = field(default=None, metadata={"help": "if data_type is document and max_context_len is given, we first randomly crop a contiguous span, and Q/D will be sampled from it."})
+    min_dq_len: int = field(default=None, metadata={"help": "The minimal number of words for sampled query and doc."})
+    min_q_len: float = field(default=None, metadata={"help": "min Query len. If less 1.0, it denotes a length ratio."})
+    max_q_len: float = field(default=None, metadata={"help": "max Query len. If less 1.0, it denotes a length ratio."})
+    min_d_len: float = field(default=None, metadata={"help": "min Doc len. If less 1.0, it denotes a length ratio."})
+    max_d_len: float = field(default=None, metadata={"help": "max Doc len. If less 1.0, it denotes a length ratio."})
+    word_del_ratio: float = field(default=0.0, metadata={"help": "Ratio for applying word deletion, for both Q and D."})
+    query_in_doc: bool = field(default=False, metadata={"help": "Whether sampled query must appear in doc. "})
+    q_retain_ratio: float = field(default=0.0, metadata={"help": "For ICT Q is taken and removed from D, this ratio controls by which rate Q is retained in D."})
+    context_range: str = field(default='paragraph', metadata={"help": "Sample a chunk from a document/section/paragraph while loading wiki data."})
+    dq_prompt_ratio: float = field(default=0.0, metadata={"help": "Randomly add a prefix to indicate the input is Q/D."})
+    title_as_query_ratio: float = field(default=0.0, metadata={"help": "randomly use title as query."})
+    include_doctitle_ratio: float = field(default=0.0, metadata={"help": "whether doc title is added (at the beginning)."})
     # BEIR test
-    beir_path: Optional[str] = field(
-        default="/export/home/data/beir", metadata={ "help": "Base directory of BEIR data."},
-    )
-    beir_datasets: List[str] = field(
-        default=None,
-        metadata={
-            "help": "Specify what BEIR datasets will be used in evaluation."
-                    "Only affect the do_test phrase, not effective for during-training evaluation."
-        }
-    )
+    beir_path: Optional[str] = field(default="/export/home/data/beir", metadata={ "help": "Base directory of BEIR data."})
+    beir_datasets: List[str] = field(default=None, metadata={"help": "Specify what BEIR datasets will be used in evaluation."
+                    "Only affect the do_test phrase, not effective for during-training evaluation."})
     # SimCSE's arguments
-    train_file: Optional[str] = field(
-        default=None,
-        metadata={"help": "The training data file (.txt or .csv)."}
-    )
-    dev_file: Optional[str] = field(
-        default=None,
-        metadata={"help": "The dev data file (.txt or .csv)."}
-    )
-    max_seq_length: Optional[int] = field(
-        default=32,
-        metadata={
-            "help": "The maximum total input sequence length after tokenization. Sequences longer "
-            "than this will be truncated."
-        },
-    )
-    pad_to_max_length: bool = field(
-        default=False,
-        metadata={
-            "help": "Whether to pad all samples to `max_seq_length`. "
-            "If False, will pad the samples dynamically when batching to the maximum length in the batch."
-        },
-    )
-    mlm_probability: float = field(
-        default=0.15,
-        metadata={"help": "Ratio of tokens to mask for MLM (only effective if --do_mlm)"}
-    )
+    train_file: Optional[str] = field(default=None, metadata={"help": "The training data file (.txt or .csv)."})
+    train_prob: Optional[str] = field(default=None, metadata={"help": "The sampling probability for multiple datasets."})
+    dev_file: Optional[str] = field(default=None, metadata={"help": "The dev data file (.txt or .csv)."})
+    max_seq_length: Optional[int] = field(default=32, metadata={"help": "The maximum total input sequence length after tokenization. Sequences longer "
+            "than this will be truncated."})
+    pad_to_max_length: bool = field(default=False, metadata={"help": "Whether to pad all samples to `max_seq_length`. "
+            "If False, will pad the samples dynamically when batching to the maximum length in the batch."})
+    mlm_probability: float = field(default=0.15, metadata={"help": "Ratio of tokens to mask for MLM (only effective if --do_mlm)"})
 
     # def __post_init__(self):
     #     if self.dataset_name is None and self.train_file is None:
@@ -379,23 +169,11 @@ class ExtHFTrainingArguments(TrainingArguments):
     ## By default, we evaluate STS (dev) during training (for selecting best checkpoints) and evaluate
     ## both STS and transfer tasks (dev) at the end of training. Using --eval_transfer will allow evaluating
     ## both STS and transfer tasks (dev) during training.
-    eval_transfer: bool = field(
-        default=False,
-        metadata={"help": "Evaluate transfer task dev sets (in validation)."}
-    )
-    lr_scheduler_type: SchedulerType = field(
-        default="linear",
-        metadata={"help": "The scheduler type to use."},
-    )
-    num_cycles: float = field(
-        default=0.5, metadata={"help": "."}
-    )
-    lr_end: float = field(
-        default=1e-7, metadata={"help": "."}
-    )
-    power: float = field(
-        default=1.0, metadata={"help": "."}
-    )
+    eval_transfer: bool = field(default=False, metadata={"help": "Evaluate transfer task dev sets (in validation)."})
+    lr_scheduler_type: SchedulerType = field(default="linear", metadata={"help": "The scheduler type to use."})
+    num_cycles: float = field(default=0.5, metadata={"help": "."})
+    lr_end: float = field(default=1e-7, metadata={"help": "."})
+    power: float = field(default=1.0, metadata={"help": "."})
 
     @cached_property
     @torch_required
@@ -465,8 +243,6 @@ class ExtHFTrainingArguments(TrainingArguments):
         self.hub_strategy = HubStrategy(self.hub_strategy)
 
         self.lr_scheduler_type = SchedulerType(self.lr_scheduler_type)
-        if self.do_eval is False and self.evaluation_strategy != IntervalStrategy.NO:
-            self.do_eval = True
 
         # eval_steps has to be defined and non-zero, fallbacks to logging_steps if the latter is non-zero
         if self.evaluation_strategy == IntervalStrategy.STEPS \
@@ -654,6 +430,8 @@ class MoCoArguments():
 
     def initialize(self):
         # basic parameters
+        self.parser.add_argument("--num_q_view", type=int, default=1)
+        self.parser.add_argument("--num_k_view", type=int, default=1)
         self.parser.add_argument("--queue_strategy", type=str, default='fifo', help="'fifo', 'priority'")
         self.parser.add_argument("--queue_size", type=int, default=65536)
         self.parser.add_argument("--warmup_queue_size_ratio", type=float, default=0.0, help='linearly increase queue size to 100% until training_steps*warmup_queuesize_ratio.')
@@ -669,7 +447,7 @@ class MoCoArguments():
         # self.parser.add_argument("--score_function", type=str, default='dot')
         self.parser.add_argument('--random_init', action='store_true', help='init model with random weights')
         self.parser.add_argument('--projection_size', type=int, default=768)
-        self.parser.add_argument('--indep_encoder_k', type=bool, default=False)
+        self.parser.add_argument('--indep_encoder_k', type=bool, default=False, help='whether to use an independent/asynchronous encoder.')
         # alignment+uniformity
         self.parser.add_argument('--align_unif_loss', type=bool, default=False)
         self.parser.add_argument('--align_weight', type=float, default=0.0)

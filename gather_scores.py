@@ -6,11 +6,16 @@ import pandas as pd
 4 datasets are not directly available by BEIR: 'bioasq', 'signal1m', 'robust04', 'trec-news'
 2 datasets are not in leaderboards by Mar 19, 2022: 'cqadupstack', 'quora'
 '''
-
-
 def main():
-    exp_base_dir = '/export/home/exp/search/unsup_dr/exp_v1/'
+    # exp_base_dir = '/export/home/exp/search/unsup_dr/exp_v1/'
+    # exp_names = [
+    #     'wikipedia.contriever-256.moco-2e14.bert-base-uncased.avg.dot.maxlen256.step200k.warmup10k.bs256.lr3e5',
+    #     ]
+    exp_base_dir = '/export/home/exp/search/unsup_dr/exp_v2/'
     exp_names = [
+        'pile.1stlineastitle.moco-2e14.contriever-256-prompt-Qtitle05.bert-base-uncased.avg.dot.maxlen256.step200k.bs512.lr3e5/'
+        # 'pile+wiki.moco-2e14.contriever-256-prompt.bert-base-uncased.avg.dot.maxlen256.step200k.bs256.lr3e5'
+        # 'pile+wiki.moco-2e14.contriever-256-prompt-Qtitle05.bert-base-uncased.avg.dot.maxlen256.step200k.bs512.lr3e5'
         # 'pile.contriever-256.moco-2e12.bert-base-uncased.avg.dot.maxlen256.step200k.warmup10k.bs256.lr1e5'
 
         # Ablation of queue size
@@ -38,7 +43,7 @@ def main():
         # 'wikipedia.contriever-256.moco-2e14.bert-base-uncased.avg.dot.maxlen256.step200k.warmup10k.bs256.lr1e5',
         # 'wikipedia.contriever-256.moco-2e14.bert-base-uncased.avg.dot.maxlen256.step200k.bs256.lr1e5.momentum0',
         # 'wikipedia.contriever-256.moco-2e14.bert-base-uncased.avg.dot.maxlen256.step200k.bs256.lr1e5.momentum025',
-        'wikipedia.contriever-256.moco-2e14.bert-base-uncased.avg.dot.maxlen256.step200k.bs256.lr1e5.momentum099',
+        # 'wikipedia.contriever-256.moco-2e14.bert-base-uncased.avg.dot.maxlen256.step200k.bs256.lr1e5.momentum099',
         # 'wikipedia.contriever-256.moco-2e14.bert-base-uncased.avg.dot.maxlen256.step200k.bs256.lr1e5.momentum1',
 
         # Ablation of datasets
