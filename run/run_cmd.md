@@ -7,19 +7,51 @@ nohup bash run/eval/beireval.2gpu.2-3.sh > nohup.beireval.2gpu.2-3.out 2>&1 &
 nohup bash run/eval/beireval.2gpu.4-5.sh > nohup.beireval.2gpu.4-5.out 2>&1 &
 nohup bash run/eval/beireval.2gpu.6-7.sh > nohup.beireval.2gpu.6-7.out 2>&1 &
 
-
 # MoCo v2
 cd /export/share/ruimeng/project/search/simcse
-sh run/moco_v1/moco.pile.gpu8.sh
+sh run/moco_v2/moco.cc.2e14.prompt+title0.5.gpu8.sh
+sh run/moco_v2/moco.wiki+cc.2e14.prompt.gpu8.sh
+sh run/moco_v2/moco.wiki+subpile10.2e14.prompt+title0.5.gpu8.sh
+sh run/moco_v2/moco.cc.2e14.prompt.gpu8.sh
+sh run/moco_v2/moco.wiki+subpile10.2e14.prompt.gpu8.sh
+sh run/moco_v2/moco.wiki+cc.2e14.prompt+title0.5.gpu8.sh
+sh run/moco_v2/moco.wiki+subpile5.2e14.prompt+title0.5.gpu8.sh
+sh run/moco_v2/moco.owt+wiki.2e14.prompt+title0.5.gpu8.sh
+sh run/moco_v2/moco.pile.2e14.prompt+title0.5.gpu8.sh
+sh run/moco_v2/moco.pile.2e14.prompt+title1.gpu8.sh
+sh run/moco_v2/moco.pile.2e14.prompt+title0.gpu8.sh
+sh run/moco_v2/moco.pile.2e14.prompt+title0.5.gpu8.test.sh
+
+sh run/moco_v2/moco.pile+wiki.2e14.prompt+title1.gpu8.sh
+sh run/moco_v2/moco.wiki.2e14.updatefreq.gpu8.sh
+sh run/moco_v2/moco.pile+wiki.2e14.prompt+title0.5.gpu8.sh
+sh run/moco_v2/moco.pile+wiki.2e17.gpu8.sh
+sh run/moco_v2/moco.wiki.2e14.q128d512.gpu8.sh
+sh run/moco_v2/moco.wiki+beir.2e14.gpu8.sh
+sh run/moco_v2/moco.wiki.2e14.prompt.gpu8.sh
+sh run/moco_v2/moco.pile+wiki.2e14.gpu8.sh
+
+sh run/moco_v2/moco.beir.2e14.gpu8.sh
+sh run/moco_v2/moco.wikipedia.2e14.align1.gpu8.sh
+sh run/moco_v2/moco.wikipedia.2e14.unif1.gpu8.sh
+
+
+sh run/moco_v2/moco.c4+wiki.moment099.2e18.gpu16.sh
 
 # MoCo v1
 cd /export/share/ruimeng/project/search/simcse
+sh run/moco_v1/moco.wikipedia.2e14.warmupqueue.gpu8.sh
+sh run/moco_v1/moco.wikipedia.2e14.cls.gpu8.sh
+sh run/moco_v1/moco.wikipedia.2e14.lr3e5.gpu8.sh
+
+sh run/moco_v1/moco.moment095.gpu8.sh
+sh run/moco_v1/moco.moment0999.gpu8.sh
+
 sh run/moco_v1/moco.c4+wiki.moment0.2e17.bs512.gpu8.sh
 sh run/moco_v1/moco.c4+wiki.moment0.2e18.gpu8.sh
 sh run/moco_v1/moco.moment025.gpu8.sh
 sh run/moco_v1/moco.c4+wiki.moment0.gpu8.sh
 sh run/moco_v1/moco.wikipedia.2e8.gpu8.sh
-sh run/moco_v1/moco.moment05.gpu8.sh
 sh run/moco_v1/moco.moment0.gpu8.sh
 sh run/moco_v1/moco.pile.gpu8.sh
 sh run/moco_v1/moco.dot_normQD.gpu8.sh
