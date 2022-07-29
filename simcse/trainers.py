@@ -9,6 +9,7 @@ from numpy import float64
 from packaging import version
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LambdaLR
+from torch.utils.data import SequentialSampler
 from transformers import Trainer
 from transformers.integrations import hp_params
 from transformers.modeling_utils import PreTrainedModel
@@ -43,7 +44,6 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Un
 from torch.utils.data.dataloader import DataLoader
 from torch.utils.data.dataset import Dataset
 from torch.utils.data.distributed import DistributedSampler
-from torch.utils.data.sampler import RandomSampler, SequentialSampler
 
 from SentEval import senteval
 from beir_eval import beir_utils, dist_utils
@@ -53,7 +53,6 @@ from src.utils import get_cosine_with_hard_decayed_restarts_schedule_with_warmup
 if is_torch_tpu_available():
     import torch_xla.core.xla_model as xm
     import torch_xla.debug.metrics as met
-    import torch_xla.distributed.parallel_loader as pl
 
 if is_apex_available():
     from apex import amp
@@ -97,7 +96,6 @@ import numpy as np
 
 logger = logging.get_logger(__name__)
 
-
 class CLTrainer(Trainer):
     def evaluation_loop(
         self,
@@ -106,7 +104,8 @@ class CLTrainer(Trainer):
         prediction_loss_only: Optional[bool] = None,
         ignore_keys: Optional[List[str]] = None,
         metric_key_prefix: str = None,
-        report_align_unif: bool = True
+        report_align_unif: bool = True,
+        report_metrics: bool = True
     ) -> EvalLoopOutput:
         """
         Prediction/evaluation loop, shared by `Trainer.evaluate()` and `Trainer.predict()`.
@@ -139,7 +138,10 @@ class CLTrainer(Trainer):
             # Prediction step
             inputs = self._prepare_inputs(inputs)
             with torch.no_grad():
-                outputs = model(**inputs, update_kencoder_queue=False, report_align_unif=report_align_unif)
+                outputs = model(**inputs,
+                                update_kencoder_queue=False,
+                                report_align_unif=True,
+                                report_metrics=True)
             for k, v in outputs['specific_losses'].items():
                 if isinstance(v, torch.Tensor):
                     v = v.detach()
@@ -164,12 +166,13 @@ class CLTrainer(Trainer):
             # beir_datasets = ['nfcorpus', 'fiqa', 'arguana', 'scidocs', 'scifact'] # quick test
             # beir_datasets = ['nfcorpus', 'fiqa', 'arguana', 'scidocs', 'scifact', 'webis-touche2020', 'cqadupstack', 'quora', 'dbpedia-entity', 'nq'] # mostly reported in Contriever
             # beir_datasets = ['nfcorpus', 'fiqa', 'arguana', 'scidocs', 'scifact', 'webis-touche2020', 'cqadupstack', 'trec-covid', 'nq', 'dbpedia-entity', 'quora'] # small testsets+NQ+FEVER+Quora
-            beir_datasets = ['nfcorpus', 'fiqa', 'arguana', 'scidocs', 'scifact', 'webis-touche2020', 'cqadupstack', 'trec-covid', 'quora']  # smallest 8 datasets+quora
+            beir_datasets = ['nfcorpus', 'fiqa', 'arguana', 'scidocs', 'scifact', 'webis-touche2020', 'cqadupstack', 'trec-covid', 'quora', 'nq']  # smallest 8 datasets+quora,nq
             # beir_datasets = ['nfcorpus', 'fiqa', 'arguana', 'scidocs', 'scifact', 'webis-touche2020', 'cqadupstack', 'trec-covid']  # smallest 8 datasets
             # beir_datasets = ['fiqa']  # test
-        norm_query = False
-        norm_doc = False
+        norm_query = self.model.norm_query
+        norm_doc = self.model.norm_doc
         beir_data_path = self.training_args.beir_path
+
 
         metrics = {'epoch': epoch}
         avg_ndcg_10 = []
@@ -178,7 +181,7 @@ class CLTrainer(Trainer):
         for dataset in beir_datasets:
             logger.info(f"Start evaluating with dataset={dataset}")
             split = 'dev' if dataset == 'msmarco' else 'test'
-
+            add_qd_prompt = (self.training_args.dq_prompt_ratio > 0.0)
             ndcg, _map, recall, precision, mrr, recall_cap, hole = beir_utils.evaluate_model(
                 query_encoder=self.model,
                 doc_encoder=self.model,
@@ -191,6 +194,7 @@ class CLTrainer(Trainer):
                 split=split,
                 metric=sim_function,
                 beir_data_path=beir_data_path,
+                add_qd_prompt=add_qd_prompt
             )
 
             if dist_utils.is_main():
@@ -291,6 +295,38 @@ class CLTrainer(Trainer):
 
         return metrics
 
+    def _dump_eval_output(self, eval_output, eval_output_path):
+        with open(eval_output_path, 'w') as eval_output_writer:
+            print("Dumping eval outputs to %s" % eval_output_path)
+            eval_output_writer.write(json.dumps(eval_output) + '\n')
+
+    def get_eval_dataloader(self, eval_dataset: Optional[Dataset] = None) -> DataLoader:
+        """
+        Returns the evaluation [`~torch.utils.data.DataLoader`].
+
+        Subclass and override this method if you want to inject some custom behavior.
+
+        Args:
+            eval_dataset (`torch.utils.data.Dataset`, *optional*):
+                If provided, will override `self.eval_dataset`. If it is an `datasets.Dataset`, columns not accepted by
+                the `model.forward()` method are automatically removed. It must implement `__len__`.
+        """
+        if eval_dataset is None and self.eval_dataset is None:
+            raise ValueError("Trainer: evaluation requires an eval_dataset.")
+        eval_dataset = eval_dataset if eval_dataset is not None else self.eval_dataset
+        if is_datasets_available() and isinstance(eval_dataset, datasets.Dataset):
+            eval_dataset = self._remove_unused_columns(eval_dataset, description="evaluation")
+        eval_sampler = SequentialSampler(eval_dataset)
+        return DataLoader(
+            eval_dataset,
+            sampler=eval_sampler,
+            batch_size=self.args.eval_batch_size,
+            collate_fn=self.data_collator,
+            drop_last=self.args.dataloader_drop_last,
+            num_workers=0, # self.args.dataloader_num_workers, # it causes collapse with multiple workers
+            pin_memory=self.args.dataloader_pin_memory,
+        )
+
     def _maybe_log_save_evaluate(self, tr_loss, model, trial, epoch, extra_logs=None):
         if self.control.should_log:
             if is_torch_tpu_available():
@@ -309,7 +345,10 @@ class CLTrainer(Trainer):
                 for k, v in extra_logs.items():
                     if isinstance(v, torch.Tensor):
                         v = self._nested_gather(v).mean().item()
-                    logs[k] = round(v / (self.state.global_step - self._globalstep_last_logged), 4)
+                    if k in {'queue_ptr', 'active_queue_size'}:
+                        logs[k] = round(v)
+                    else:
+                        logs[k] = round(v / (self.state.global_step - self._globalstep_last_logged), 4)
                     # logs[k] = round(self._nested_gather(v).mean().item() / (self.state.global_step - self._globalstep_last_logged), 4)
                     extra_logs[k] = 0.0
 
@@ -331,7 +370,9 @@ class CLTrainer(Trainer):
                     metrics_dev = self.evaluate(self.eval_dataset, metric_key_prefix="dev")
                     metrics.update(metrics_dev)
             # beir-eval
-            metrics_beir = self.evaluate_beir(epoch=epoch, output_dir=eval_output_dir, sim_function=self.model.sim_type)
+            metrics_beir = self.evaluate_beir(epoch=epoch, output_dir=eval_output_dir,
+                                              sim_function=self.model.sim_type,
+                                              beir_datasets=self.training_args.beir_datasets)
             metrics.update(metrics_beir)
             # sent-eval
             # major_metric = 'eval_avg_transfer' if 'eval_avg_transfer' in metrics else 'eval_avg_sts'
@@ -360,8 +401,7 @@ class CLTrainer(Trainer):
                        ((major_score - self.best_score) / self.best_score) * 100.0 if self.best_score != 0.0 else 0.0,
                        self.best_score))
                 self.best_score = major_score
-                if self.args.save_best:
-                    self.save_model(os.path.join(self.args.output_dir, 'best_ckpt'))
+                self.save_model(os.path.join(self.args.output_dir, 'best_ckpt'))
             else:
                 self.early_stop_counter += 1
                 if self.early_stop_counter >= self.early_stop_patience:
@@ -371,8 +411,9 @@ class CLTrainer(Trainer):
             self._save_checkpoint(model, trial, metrics=metrics)
             self.control = self.callback_handler.on_save(self.args, self.state, self.control)
 
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
+        # do not use, will significantly slow down the training
+        # if torch.cuda.is_available():
+        #     torch.cuda.empty_cache()
 
     def _save_checkpoint(self, model, trial, metrics=None):
         """
@@ -509,7 +550,7 @@ class CLTrainer(Trainer):
                     model.zero_grad()
                     return None, None
             loss, outputs = self.compute_loss(model, inputs, return_outputs=True)
-            if hasattr(inputs, 'report_metrics') and inputs['report_metrics'] and hasattr(outputs, 'specific_losses'):
+            if hasattr(outputs, 'specific_losses'):
                 # print('batch_size=', outputs['specific_losses']['batch_size'])
                 for k, v in outputs.specific_losses.items():
                     extra_losses[k] = v
@@ -680,7 +721,7 @@ class CLTrainer(Trainer):
         start_time = time.time()
         epochs_trained = 0
         steps_trained_in_current_epoch = 0
-        steps_trained_progress_bar = None
+        steps_trained_progress_bar = tqdm(total=steps_trained_in_current_epoch)
 
         # Check if continuing training from a checkpoint
         if model_path and os.path.isfile(os.path.join(model_path, "trainer_state.json")):
@@ -700,7 +741,6 @@ class CLTrainer(Trainer):
                     f"  Will skip the first {epochs_trained} epochs then the first {steps_trained_in_current_epoch} "
                     "batches in the first epoch."
                 )
-        steps_trained_progress_bar = tqdm(total=steps_trained_in_current_epoch)
 
         # Update the references
         self.callback_handler.model = self.model
@@ -749,14 +789,17 @@ class CLTrainer(Trainer):
             if self.model.warmup_queue_size_ratio > 0:
                 fullsize_step = int(self.model.warmup_queue_size_ratio * self.args.max_steps)
                 num_warmup_stage = int(self.model.queue_size / total_train_batch_size)
-                warmup_steps = {(fullsize_step // num_warmup_stage * i): i+1 for i in range(1, num_warmup_stage)}
+                warmup_steps = {(fullsize_step // (num_warmup_stage - 1) * i): i+1 for i in range(1, num_warmup_stage)}
+                self.model.active_queue_size = total_train_batch_size
             else:
                 self.model.active_queue_size = self.model.queue_size
 
             inputs = None
             last_inputs = None
             for step, inputs in enumerate(epoch_iterator):
-                if self.model.warmup_queue_size_ratio > 0 and (step + 1) in warmup_steps:
+                # steps_trained_progress_bar.update(1)
+                # continue
+                if self.model.warmup_queue_size_ratio > 0 and self.state.global_step in warmup_steps:
                     self.model.active_queue_size = total_train_batch_size * warmup_steps[self.state.global_step]
                     print(f'step={(step + 1)}, model.active_queue_size={self.model.active_queue_size}')
                 inputs['report_metrics'] = True if (step + 1) % self.args.logging_steps == 0 else False
@@ -767,9 +810,9 @@ class CLTrainer(Trainer):
                 if (step + 1) % self.model.queue_update_steps != 0:
                     # only feedforward the model to update the queue
                     _, _ = self.training_step(model, inputs, forward_only=True)
-                    self.state.global_step += 1
-                    self.state.epoch = epoch + (step + 1) / steps_in_epoch
-                    steps_trained_progress_bar.update(1)
+                    # self.state.global_step += 1
+                    # self.state.epoch = epoch + (step + 1) / steps_in_epoch
+                    # steps_trained_progress_bar.update(1)
                     continue
                 if (step + 1) % self.args.gradient_accumulation_steps == 0:
                     self.control = self.callback_handler.on_step_begin(self.args, self.state, self.control)
@@ -795,7 +838,7 @@ class CLTrainer(Trainer):
                     # Gradient clipping
                     if self.args.max_grad_norm is not None and self.args.max_grad_norm > 0 and not self.deepspeed:
                         # deepspeed does its own clipping
-                        if self.use_amp:
+                        if self.use_cuda_amp:
                             # AMP: gradients need unscaling
                             self.scaler.unscale_(self.optimizer)
                         if hasattr(self.optimizer, "clip_grad_norm"):
@@ -810,7 +853,7 @@ class CLTrainer(Trainer):
                     # Optimizer step
                     if is_torch_tpu_available():
                         xm.optimizer_step(self.optimizer)
-                    elif self.use_amp:
+                    elif self.use_cuda_amp:
                         self.scaler.step(self.optimizer)
                         self.scaler.update()
                     else:

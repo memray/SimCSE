@@ -8,11 +8,12 @@ from transformers import BertModel
 from src import utils
 
 class Contriever(BertModel):
-
     def __init__(self, config, pooling="average", **kwargs):
         super().__init__(config, add_pooling_layer=False)
-        if not hasattr(config, "pooling"):
-            self.config.pooling = pooling
+        # will be set outside
+        self.pooling = pooling
+        self.num_view = 0
+        self.cls_token_id = None
 
     def forward(
         self,
@@ -28,6 +29,16 @@ class Contriever(BertModel):
         output_hidden_states=None,
         normalize=False,
     ):
+        # append CLS special tokens to input
+        # if self.num_view == 1, just use the default CLS
+        if self.num_view > 1:
+            bs, seqlen = input_ids.shape
+            extended_len = seqlen + self.num_view - 1
+            extra_cls_tokens = torch.zeros((bs, self.num_view - 1), device=input_ids.device, dtype=input_ids.dtype) + self.cls_token_id
+            extra_mask_tokens = torch.ones((bs, self.num_view - 1), device=input_ids.device, dtype=input_ids.dtype)
+            input_ids = torch.cat([extra_cls_tokens, input_ids], dim=1)
+            attention_mask = torch.cat([extra_mask_tokens, attention_mask], dim=1)
+            position_ids = torch.arange(extended_len, device=input_ids.device).expand(1, -1)
 
         model_output = super().forward(
             input_ids=input_ids,
@@ -41,17 +52,16 @@ class Contriever(BertModel):
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
         )
-
         last_hidden = model_output['last_hidden_state']
         last_hidden = last_hidden.masked_fill(~attention_mask[..., None].bool(), 0.)
 
-        if self.config.pooling == "average":
-            emb = last_hidden.sum(dim=1) / attention_mask.sum(dim=1)[..., None]
-        elif self.config.pooling == "cls":
-            emb = last_hidden[:, 0]
-
-        if normalize:
-            emb = torch.nn.functional.normalize(emb, dim=-1)
+        if self.pooling == "average":
+            emb = last_hidden.sum(dim=1) / attention_mask.sum(dim=1)[..., None]  # shape=[B,H]
+        elif self.pooling == "cls":
+            emb = last_hidden[:, 0]  # shape=[B,H]
+        elif self.pooling == "multiview":
+            emb = last_hidden[:, :self.num_view]  # shape=[B,V,H]
+        # if normalize: emb = torch.nn.functional.normalize(emb, dim=-1)  # normalized outside
         return emb
 
 def load_retriever(model_path):
