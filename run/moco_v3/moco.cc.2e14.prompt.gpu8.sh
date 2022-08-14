@@ -15,14 +15,14 @@ export CUDA_LAUNCH_BLOCKING=1
 export NCCL_DEBUG=INFO
 
 export EXP_NAME=cc.moco-2e14.contriever-256-prompt.bert-base-uncased.avg.dot.maxlen256.step200k.bs512.lr3e5
-export PROJECT_DIR=/export/home/exp/search/unsup_dr/exp_v2/$EXP_NAME
+export PROJECT_DIR=/export/home/exp/search/unsup_dr/exp_v3/$EXP_NAME
 mkdir -p $PROJECT_DIR
 cp "$0" $PROJECT_DIR  # copy bash to project dir
 echo $PROJECT_DIR
 
 export WANDB_NAME=$EXP_NAME
 export WANDB_API_KEY=c338136c195ab221b8c7cfaa446db16b2e86c6db
-export WANDB_PROJECT=unsup_retrieval_v2
+export WANDB_PROJECT=unsup_retrieval_v3
 export WANDB_DIR=$PROJECT_DIR
 mkdir -p $WANDB_DIR/wandb
 

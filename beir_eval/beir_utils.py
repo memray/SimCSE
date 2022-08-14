@@ -149,6 +149,7 @@ def evaluate_model(
         split='test', 
         metric='dot',
         beir_data_path="BEIR/datasets",
+        add_qd_prompt=False,
     ):
     if metric == 'cosine':
         metric = 'cos_sim'
@@ -171,9 +172,10 @@ def evaluate_model(
             maxlength=max_length,
             add_special_tokens=add_special_tokens, 
             norm_query=norm_query, 
-            norm_doc=norm_doc
-        ), 
-        batch_size=batch_size
+            norm_doc=norm_doc,
+        ),
+        batch_size=batch_size,
+        add_qd_prompt=add_qd_prompt
     )
     retriever = EvaluateRetrieval(dmodel, score_function=metric)
     url = "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/{}.zip".format(dataset)

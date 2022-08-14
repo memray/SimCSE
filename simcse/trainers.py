@@ -160,7 +160,13 @@ class CLTrainer(Trainer):
         model.moco_train_mode_encoder_k = True
         return EvalLoopOutput(predictions=None, label_ids=None, metrics=metrics, num_samples=len(dataloader))
 
-    def evaluate_beir(self, epoch, output_dir, sim_function, beir_datasets=None) -> Dict[str, float]:
+    def evaluate_beir(self, epoch, output_dir, sim_function, batch_size=32, beir_datasets=None) -> Dict[str, float]:
+        # clear cache to prevent job from running into errors with multi-GPU on large datasets (likely to be related to GPU memory)
+        #       ERROR:torch.distributed.elastic.multiprocessing.api:failed (exitcode: -9) local_rank: 0 (pid: 106555) of binary:
+        #       16gpu will error out on datasets >= NQ
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
         if not beir_datasets:
             # fever will cause gpu error when `Encoding Batch 88/109`
             # beir_datasets = ['nfcorpus', 'fiqa', 'arguana', 'scidocs', 'scifact'] # quick test
@@ -172,7 +178,6 @@ class CLTrainer(Trainer):
         norm_query = self.model.norm_query
         norm_doc = self.model.norm_doc
         beir_data_path = self.training_args.beir_path
-
 
         metrics = {'epoch': epoch}
         avg_ndcg_10 = []
@@ -186,13 +191,14 @@ class CLTrainer(Trainer):
                 doc_encoder=self.model,
                 tokenizer=self.tokenizer,
                 dataset=dataset,
-                batch_size=self.args.per_device_eval_batch_size,
+                batch_size=batch_size,
                 norm_query=norm_query,
                 norm_doc=norm_doc,
                 is_main=dist_utils.is_main(),
                 split=split,
                 metric=sim_function,
                 beir_data_path=beir_data_path,
+                add_qd_prompt=(self.training_args.dq_prompt_ratio > 0.0)
             )
 
             if dist_utils.is_main():
@@ -239,7 +245,6 @@ class CLTrainer(Trainer):
         metrics['eval_avg_recall@100'] = np.mean(avg_recall_100)
 
         return metrics
-
 
     def evaluate_senteval(
         self, epoch, output_dir, eval_senteval_transfer: bool = False,
@@ -292,6 +297,11 @@ class CLTrainer(Trainer):
             writer.write(json.dumps(results, indent=4) + "\n")
 
         return metrics
+
+    def _dump_eval_output(self, eval_output, eval_output_path):
+        with open(eval_output_path, 'w') as eval_output_writer:
+            print("Dumping eval outputs to %s" % eval_output_path)
+            eval_output_writer.write(json.dumps(eval_output) + '\n')
 
     def get_eval_dataloader(self, eval_dataset: Optional[Dataset] = None) -> DataLoader:
         """
@@ -365,6 +375,8 @@ class CLTrainer(Trainer):
             # beir-eval
             metrics_beir = self.evaluate_beir(epoch=epoch, output_dir=eval_output_dir,
                                               sim_function=self.model.sim_type,
+                                              batch_size=self.training_args.beir_batch_size,
+                                              # batch_size=self.args.per_device_eval_batch_size,
                                               beir_datasets=self.training_args.beir_datasets)
             metrics.update(metrics_beir)
             # sent-eval
@@ -394,8 +406,7 @@ class CLTrainer(Trainer):
                        ((major_score - self.best_score) / self.best_score) * 100.0 if self.best_score != 0.0 else 0.0,
                        self.best_score))
                 self.best_score = major_score
-                if self.args.save_best:
-                    self.save_model(os.path.join(self.args.output_dir, 'best_ckpt'))
+                self.save_model(os.path.join(self.args.output_dir, 'best_ckpt'))
             else:
                 self.early_stop_counter += 1
                 if self.early_stop_counter >= self.early_stop_patience:
@@ -619,6 +630,17 @@ class CLTrainer(Trainer):
         # number of training epochs: num_train_epochs
         # number of training steps per epoch: num_update_steps_per_epoch
         # total number of training steps to execute: max_steps
+
+        # Train!
+        if is_torch_tpu_available():
+            total_train_batch_size = self.args.train_batch_size * xm.xrt_world_size()
+        else:
+            total_train_batch_size = (
+                self.args.train_batch_size
+                * self.args.gradient_accumulation_steps
+                * (torch.distributed.get_world_size() if self.args.local_rank != -1 else 1)
+            )
+
         if train_dataset_is_sized:
             num_update_steps_per_epoch = len(train_dataloader) // self.args.gradient_accumulation_steps
             num_update_steps_per_epoch = max(num_update_steps_per_epoch, 1)
@@ -687,29 +709,20 @@ class CLTrainer(Trainer):
         # self.model         is the Transformers Model
         # self.model_wrapped is DDP(Transformers Model), DDP(Deepspeed(Transformers Model)), etc.
 
-        # Train!
-        if is_torch_tpu_available():
-            total_train_batch_size = self.args.train_batch_size * xm.xrt_world_size()
-        else:
-            total_train_batch_size = (
-                self.args.train_batch_size
-                * self.args.gradient_accumulation_steps
-                * (torch.distributed.get_world_size() if self.args.local_rank != -1 else 1)
-            )
-
         num_examples = (
             self.num_examples(train_dataloader)
             if train_dataset_is_sized
             else total_train_batch_size * self.args.max_steps
         )
 
-        logger.info("***** Running training *****")
-        logger.info(f"  Num examples = {num_examples}")
-        logger.info(f"  Num Epochs = {num_train_epochs}")
-        logger.info(f"  Instantaneous batch size per device = {self.args.per_device_train_batch_size}")
-        logger.info(f"  Total train batch size (w. parallel, distributed & accumulation) = {total_train_batch_size}")
-        logger.info(f"  Gradient Accumulation steps = {self.args.gradient_accumulation_steps}")
-        logger.info(f"  Total optimization steps = {max_steps}")
+        if self.args.local_rank == 0 or self.args.local_rank == -1:
+            logger.info("***** Running training *****")
+            logger.info(f"  Num examples = {num_examples}")
+            logger.info(f"  Num Epochs = {num_train_epochs}")
+            logger.info(f"  Instantaneous batch size per device = {self.args.per_device_train_batch_size}")
+            logger.info(f"  Total train batch size (w. parallel, distributed & accumulation) = {total_train_batch_size}")
+            logger.info(f"  Gradient Accumulation steps = {self.args.gradient_accumulation_steps}")
+            logger.info(f"  Total optimization steps = {max_steps}")
 
         self.state.epoch = 0
         start_time = time.time()
@@ -778,7 +791,7 @@ class CLTrainer(Trainer):
 
             steps_in_epoch = len(train_dataloader) if train_dataset_is_sized else self.args.max_steps
             self.control = self.callback_handler.on_epoch_begin(self.args, self.state, self.control)
-            assert train_dataset_is_sized, "currently we only support sized dataloader!"
+            # assert train_dataset_is_sized, "currently we only support sized dataloader!"
             # prepare for the warmup for queue size
             if self.model.warmup_queue_size_ratio > 0:
                 fullsize_step = int(self.model.warmup_queue_size_ratio * self.args.max_steps)
@@ -791,13 +804,11 @@ class CLTrainer(Trainer):
             inputs = None
             last_inputs = None
             for step, inputs in enumerate(epoch_iterator):
-                steps_trained_progress_bar.update(1)
-                continue
                 if self.model.warmup_queue_size_ratio > 0 and self.state.global_step in warmup_steps:
                     self.model.active_queue_size = total_train_batch_size * warmup_steps[self.state.global_step]
                     print(f'step={(step + 1)}, model.active_queue_size={self.model.active_queue_size}')
                 inputs['report_metrics'] = True if (step + 1) % self.args.logging_steps == 0 else False
-                # Skip past any already trained steps if resuming training
+                # Skip any already trained steps if resuming training
                 if steps_trained_in_current_epoch > 0:
                     steps_trained_in_current_epoch -= 1
                     continue
@@ -832,7 +843,7 @@ class CLTrainer(Trainer):
                     # Gradient clipping
                     if self.args.max_grad_norm is not None and self.args.max_grad_norm > 0 and not self.deepspeed:
                         # deepspeed does its own clipping
-                        if self.use_amp:
+                        if self.use_cuda_amp:
                             # AMP: gradients need unscaling
                             self.scaler.unscale_(self.optimizer)
                         if hasattr(self.optimizer, "clip_grad_norm"):
@@ -847,7 +858,7 @@ class CLTrainer(Trainer):
                     # Optimizer step
                     if is_torch_tpu_available():
                         xm.optimizer_step(self.optimizer)
-                    elif self.use_amp:
+                    elif self.use_cuda_amp:
                         self.scaler.step(self.optimizer)
                         self.scaler.update()
                     else:

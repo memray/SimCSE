@@ -5,15 +5,32 @@ import torch
 import transformers
 from transformers import BertModel
 
+from simcse.model_utils import GaussianDropout, VariationalDropout
 from src import utils
 
+
+def dropout(p=None, dim=None, method='standard'):
+    if method == 'standard':
+        return torch.nn.Dropout(p)
+    elif method == 'gaussian':
+        return GaussianDropout(p / (1 - p))
+    elif method == 'variational':
+        return VariationalDropout(p / (1 - p), dim)
+
+
 class Contriever(BertModel):
-    def __init__(self, config, pooling="average", **kwargs):
+    def __init__(self, config, moco_config, **kwargs):
         super().__init__(config, add_pooling_layer=False)
         # will be set outside
-        self.pooling = pooling
-        self.num_view = 0
-        self.cls_token_id = None
+        self.pooling = moco_config.pooling
+        self.pooling_dropout = moco_config.pooling_dropout
+        self.pooling_dropout_prob = moco_config.pooling_dropout_prob
+        if self.pooling_dropout in ['standard', 'gaussian', 'variational'] and self.pooling_dropout_prob > 0:
+            self.dropout = dropout(p=self.pooling_dropout, method=self.pooling_dropout_prob, dim=1)
+        else:
+            self.dropout = None
+        self.num_view = 1  # set outside
+        self.cls_token_id = None  # set outside
 
     def forward(
         self,
@@ -34,6 +51,11 @@ class Contriever(BertModel):
         if self.num_view > 1:
             bs, seqlen = input_ids.shape
             extended_len = seqlen + self.num_view - 1
+            if extended_len > self.encoder.config.max_position_embeddings:
+                diff_len = extended_len - self.encoder.config.max_position_embeddings
+                extended_len = self.encoder.config.max_position_embeddings
+                input_ids = input_ids[:,:-diff_len]
+                attention_mask = attention_mask[:,:-diff_len]
             extra_cls_tokens = torch.zeros((bs, self.num_view - 1), device=input_ids.device, dtype=input_ids.dtype) + self.cls_token_id
             extra_mask_tokens = torch.ones((bs, self.num_view - 1), device=input_ids.device, dtype=input_ids.dtype)
             input_ids = torch.cat([extra_cls_tokens, input_ids], dim=1)
@@ -62,7 +84,11 @@ class Contriever(BertModel):
         elif self.pooling == "multiview":
             emb = last_hidden[:, :self.num_view]  # shape=[B,V,H]
         # if normalize: emb = torch.nn.functional.normalize(emb, dim=-1)  # normalized outside
+        if self.dropout:
+            emb = self.dropout(emb)
+
         return emb
+
 
 def load_retriever(model_path):
     #try: #check if model is in a moco wrapper

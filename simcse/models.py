@@ -54,7 +54,6 @@ class ProjectorLayer(nn.Module):
 
     def forward(self, features, **kwargs):
         x = self.projector(features)
-
         return x
 
 
@@ -62,7 +61,6 @@ class Similarity(nn.Module):
     """
     Dot product or cosine similarity
     """
-
     def __init__(self, temp):
         super().__init__()
         self.temp = temp

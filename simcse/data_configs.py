@@ -1,3 +1,5 @@
+import logging
+
 data_pipelines = {
     'psg-32-identical': {
         'context_range': 'paragraph',
@@ -223,9 +225,54 @@ data_pipelines = {
         'dq_prompt_ratio': 1.0,
         'title_as_query_ratio': 1.0,
     },
+    'contriever-256-prompt-Qtitle25%': {
+        'context_range': 'document',
+        'max_context_len': 256,
+        'min_dq_len': 8,
+        'min_q_len': 0.05,
+        'max_q_len': 0.5,
+        'min_d_len': 0.05,
+        'max_d_len': 0.5,
+        'word_del_ratio': 0.1,
+        'query_in_doc': False,
+        'q_retain_ratio': 1,
+        'include_doctitle_ratio': 0.0,
+        'dq_prompt_ratio': 1.0,
+        'title_as_query_ratio': 0.25,
+    },
     'contriever-256-prompt-Qtitle50%': {
         'context_range': 'document',
         'max_context_len': 256,
+        'min_dq_len': 8,
+        'min_q_len': 0.05,
+        'max_q_len': 0.5,
+        'min_d_len': 0.05,
+        'max_d_len': 0.5,
+        'word_del_ratio': 0.1,
+        'query_in_doc': False,
+        'q_retain_ratio': 1,
+        'include_doctitle_ratio': 0.0,
+        'dq_prompt_ratio': 1.0,
+        'title_as_query_ratio': 0.5,
+    },
+    'contriever-256-prompt-Qtitle75%': {
+        'context_range': 'document',
+        'max_context_len': 256,
+        'min_dq_len': 8,
+        'min_q_len': 0.05,
+        'max_q_len': 0.5,
+        'min_d_len': 0.05,
+        'max_d_len': 0.5,
+        'word_del_ratio': 0.1,
+        'query_in_doc': False,
+        'q_retain_ratio': 1,
+        'include_doctitle_ratio': 0.0,
+        'dq_prompt_ratio': 1.0,
+        'title_as_query_ratio': 0.75,
+    },
+    'contriever-512-prompt-Qtitle50%': {
+        'context_range': 'document',
+        'max_context_len': 512,
         'min_dq_len': 8,
         'min_q_len': 0.05,
         'max_q_len': 0.5,
@@ -300,11 +347,13 @@ data_pipelines = {
     },
 }
 
-def load_data_config(data_args):
+def load_data_config(data_args, hftraining_args):
+    logger = logging.getLogger(__name__)
     # prepare for data loader
     if data_args.data_pipeline_name:
         data_prep_config = data_pipelines[data_args.data_pipeline_name]
-        print('Using pre-defined data pipeline: ' + str(data_args.data_pipeline_name))
+        if hftraining_args.local_rank == 0 or hftraining_args.local_rank == -1:
+            logger.info('Using pre-defined data pipeline: ' + str(data_args.data_pipeline_name))
     else:
         data_prep_config = {
             'max_context_len': data_args.max_context_len,
@@ -321,9 +370,10 @@ def load_data_config(data_args):
             'title_as_query_ratio': data_args.title_as_query_ratio,
             'include_doctitle_ratio': data_args.include_doctitle_ratio,
         }
-    print('Data loading parameters:')
-    for k, v in data_prep_config.items():
-        setattr(data_args, k, v)
-        print(f'\t\t{k} = {v}')
+    if hftraining_args.local_rank == 0 or hftraining_args.local_rank == -1:
+        logger.info('Data loading parameters:')
+        for k, v in data_prep_config.items():
+            setattr(data_args, k, v)
+            logger.info(f'\t\t{k} = {v}')
 
     return data_prep_config

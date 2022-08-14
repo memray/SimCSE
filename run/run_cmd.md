@@ -1,22 +1,44 @@
-# eval 4-7: 225584
+# kill all gpu jobs
+fuser -v /dev/nvidia* | awk '{ print $0 }' | xargs -n1 kill -9
+
+# eval 4-5: 1461072
 cd /export/share/ruimeng/project/search/simcse
 nohup bash run/eval/beireval.2gpu.0-1.sh > nohup.beireval.2gpu.0-1.out 2>&1 &
-nohup bash run/eval/beireval.4gpu.4-7.sh > nohup.beireval.4gpu.4-7.out 2>&1 &
-nohup bash run/eval/beireval.4gpu.0-3.sh > nohup.beireval.4gpu.0-3.out 2>&1 &
 nohup bash run/eval/beireval.2gpu.2-3.sh > nohup.beireval.2gpu.2-3.out 2>&1 &
 nohup bash run/eval/beireval.2gpu.4-5.sh > nohup.beireval.2gpu.4-5.out 2>&1 &
 nohup bash run/eval/beireval.2gpu.6-7.sh > nohup.beireval.2gpu.6-7.out 2>&1 &
 
+nohup bash run/eval/beireval.4gpu.4-7.sh > nohup.beireval.4gpu.4-7.out 2>&1 &
+nohup bash run/eval/beireval.4gpu.0-3.sh > nohup.beireval.4gpu.0-3.out 2>&1 &
+
+# MoCo v3
+cd /export/share/ruimeng/project/search/simcse
+sh run/moco_v3/moco.cc.2e14.prompt+title0.5.doc512.gpu8.sh
+sh run/moco_v3/moco.cc.2e14.prompt+title0.5.gpu8.num_worker0.rerunbest.sh
+sh run/moco_v3/moco.cc.2e14.prompt+title0.5.bs1024.gpu16.sh
+sh run/moco_v3/moco.cc.2e14.prompt+title0.5.gpu8.sh
+sh run/moco_v3/moco.cc.2e15.prompt+title0.5.bs1024.gpu8.sh
+sh run/moco_v3/moco.wiki+subpile5.2e14.prompt+title0.5.gpu8.sh
+sh run/moco_v3/moco.cc.2e14.prompt+title0.5.bs1024.gpu8.sh
+sh run/moco_v3/moco.cc.2e14.prompt+title0.5.bs256.gpu8.sh
+sh run/moco_v3/moco.cc.2e14.prompt+title0.5.extrapos2.gpu8.sh
+sh run/moco_v3/moco.cc.2e14.prompt.gpu8.sh
+sh run/moco_v3/moco.wiki+cc+stackex.2e14.prompt+title0.5.gpu8.sh
+sh run/moco_v3/moco.cc.2e17.prompt+title0.5.updatefreq4.gpu8.sh
+sh run/moco_v3/moco.wiki+cc.2e14.prompt+title0.5.gpu8.sh
+sh run/moco_v3/moco.wiki+subpile10.2e14.prompt+title0.5.gpu8.sh
+sh run/moco_v3/moco.cc.2e17.prompt+title0.5.updatefreq8.gpu8.sh
+sh run/moco_v3/moco.wiki.2e14.prompt+title0.5.gpu8.sh
+sh run/moco_v3/moco.cc.2e17.prompt+title0.5.gpu8.sh
 
 # MoCo v2
-cd /export/share/ruimeng/project/search/simcse
+sh run/moco_v2/moco.stackex.2e14.prompt+title0.5.gpu8.sh
+sh run/moco_v2/moco.cc.2e14.prompt+title0.5.gpu8.sh
+sh run/moco_v2/moco.wiki+cc.2e14.prompt+title0.5.gpu8.sh
 sh run/moco_v2/moco.wiki+cc.2e14.prompt.gpu8.sh
 sh run/moco_v2/moco.wiki+subpile10.2e14.prompt+title0.5.gpu8.sh
 sh run/moco_v2/moco.cc.2e14.prompt.gpu8.sh
 sh run/moco_v2/moco.wiki+subpile10.2e14.prompt.gpu8.sh
-sh run/moco_v2/moco.wiki+cc.2e14.prompt+title0.5.gpu8.sh
-sh run/moco_v2/moco.cc.2e14.prompt+title0.5.gpu8.sh
-sh run/moco_v2/moco.wiki+subpile5.2e14.prompt+title0.5.gpu8.sh
 sh run/moco_v2/moco.owt+wiki.2e14.prompt+title0.5.gpu8.sh
 sh run/moco_v2/moco.pile.2e14.prompt+title0.5.gpu8.sh
 sh run/moco_v2/moco.pile.2e14.prompt+title1.gpu8.sh
@@ -29,7 +51,6 @@ sh run/moco_v2/moco.pile+wiki.2e14.prompt+title0.5.gpu8.sh
 sh run/moco_v2/moco.pile+wiki.2e17.gpu8.sh
 sh run/moco_v2/moco.wiki.2e14.q128d512.gpu8.sh
 sh run/moco_v2/moco.wiki+beir.2e14.gpu8.sh
-sh run/moco_v2/moco.wiki.2e14.prompt.gpu8.sh
 sh run/moco_v2/moco.pile+wiki.2e14.gpu8.sh
 
 sh run/moco_v2/moco.beir.2e14.gpu8.sh

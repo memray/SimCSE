@@ -6,21 +6,27 @@ export WORLD_SIZE=2
 EXP_NAMES=(
 #  "wikipedia.contriever-256.moco-2e12.bert-base-uncased.avg.dot.maxlen256.step200k.bs256.lr1e5"
 #  "pile.contriever-256.moco-2e17.bert-base-uncased.avg.dot.maxlen256.step200k.warmup10k.bs256.lr1e5.lr-polynomial-power2"
-  "pile.contriever-256.moco-2e12.bert-base-uncased.avg.dot.maxlen256.step200k.warmup10k.bs256.lr1e5"
+#  "pile.contriever-256.moco-2e12.bert-base-uncased.avg.dot.maxlen256.step200k.warmup10k.bs256.lr1e5"
+#  "stackex.moco-2e14.contriever-256-prompt-Qtitle05.bert-base-uncased.avg.dot.maxlen256.step200k.bs512.lr3e5"
+  "wiki+cc+stackex.uniform.moco-2e14.contriever-256-prompt-Qtitle05.bert-base-uncased.avg.dot.maxlen256.step200k.bs512.lr3e5"
 )
 
-datasets=(quora nq dbpedia-entity hotpotqa fever climate-fever msmarco)
-datasets=(msmarco)
+#datasets=(quora nq dbpedia-entity hotpotqa fever climate-fever msmarco)
+#datasets=(msmarco)
+datasets=(dbpedia-entity hotpotqa fever climate-fever msmarco)
+
+MASTER_PORT=20011
+QUEUE_SIZE=16384
+#    QUEUE_SIZE=131072
+#QUEUE_SIZE=4096
 
 cd /export/share/ruimeng/project/search/simcse
 
 for EXP_NAME in "${EXP_NAMES[@]}"
 do
-    EXP_PATH="/export/home/exp/search/unsup_dr/exp_v1/$EXP_NAME"
+    EXP_PATH="/export/home/exp/search/unsup_dr/exp_v3/$EXP_NAME"
     CKPT_PATH="$EXP_PATH/checkpoints/checkpoint-200000/"
-    MASTER_PORT=20011
-#    QUEUE_SIZE=131072
-    QUEUE_SIZE=4096
+
     echo $EXP_PATH
     for dataset in "${datasets[@]}"
     do

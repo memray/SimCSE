@@ -63,7 +63,9 @@ def main():
         ]
     )
     logger = logging.getLogger(__name__)
-    logger.warning(f"Input arguments: \n\t {' '.join(sys.argv)}")
+
+    if hftraining_args.local_rank == 0 or hftraining_args.local_rank == -1:
+        logger.warning(f"Input arguments: \n\t {' '.join(sys.argv)}")
 
     if (
         os.path.exists(hftraining_args.output_dir)
@@ -89,10 +91,14 @@ def main():
         transformers.utils.logging.set_verbosity_info()
         transformers.utils.logging.enable_default_handler()
         transformers.utils.logging.enable_explicit_format()
-    logger.info("Training/evaluation parameters:\n%s", hftraining_args)
-    logger.info("Custom training parameters:\n%s", training_args)
-    logger.info("Custom model parameters:\n%s", model_args)
-    logger.info("MoCo model parameters:\n%s", moco_args)
+
+    if hftraining_args.local_rank == 0 or hftraining_args.local_rank == -1:
+        logger.info("*" * 50)
+        logger.info("Training/evaluation parameters:\n%s", hftraining_args)
+        logger.info("Custom training parameters:\n%s", training_args)
+        logger.info("Custom model parameters:\n%s", model_args)
+        logger.info("MoCo model parameters:\n%s", moco_args)
+        logger.info("*" * 50)
 
     # Set seed before initializing model.
     set_seed(hftraining_args.seed)
@@ -118,11 +124,11 @@ def main():
 
     # hfconfig = AutoConfig.from_pretrained('bert-base-uncased', **config_kwargs)
     if model_args.config_name:
-        hfconfig = AutoConfig.from_pretrained(model_args.config_name, **config_kwargs)
+        hf_config = AutoConfig.from_pretrained(model_args.config_name, **config_kwargs)
     elif model_args.model_name_or_path:
-        hfconfig = AutoConfig.from_pretrained(model_args.model_name_or_path, **config_kwargs)
+        hf_config = AutoConfig.from_pretrained(model_args.model_name_or_path, **config_kwargs)
     else:
-        hfconfig = CONFIG_MAPPING[model_args.model_type]()
+        hf_config = CONFIG_MAPPING[model_args.model_type]()
         logger.warning("You are instantiating a new config instance from scratch.")
 
     tokenizer_kwargs = {
@@ -141,16 +147,16 @@ def main():
             "You can do it from another script, save it, and load it from here, using --tokenizer_name."
         )
 
-    train_dataset, dev_dataset = load_datasets(tokenizer, training_args, model_args, hftraining_args)
+    train_dataset, dev_dataset = load_datasets(tokenizer, training_args, model_args, hftraining_args, moco_args)
 
     if model_args.arch_type == 'simcl':
         model = PretrainedModelForContrastiveLearning(
-            hfconfig=hfconfig,
+            hfconfig=hf_config,
             model_args=model_args,
             seed=hftraining_args.seed
         )
     elif model_args.arch_type == 'moco':
-        model = MoCo(moco_args, model_args, hfconfig)
+        model = MoCo(moco_args, model_args, hf_config)
     else:
         raise NotImplementedError('Unknown architecture name', model_args.arch_type)
     """""""""""""""""""""
@@ -174,6 +180,10 @@ def main():
     trainer.training_args = training_args
     trainer.hftraining_args = hftraining_args
     trainer.moco_args = moco_args
+    trainer.best_score = -10000.0
+    early_stop_patience = sys.maxsize
+    trainer.early_stop_patience = early_stop_patience
+    trainer.early_stop_counter = 0
     setattr(trainer, 'model_data_training_args', [model_args, training_args, hftraining_args, moco_args])
     torch.save(trainer.model_data_training_args, os.path.join(hftraining_args.output_dir, "model_data_training_args.bin"))
     # if it's a path, reload status
@@ -230,9 +240,10 @@ def main():
         else:
             final_beir_datasets = ['nfcorpus', 'fiqa', 'arguana', 'scidocs', 'scifact', 'webis-touche2020',
                                    'cqadupstack', 'trec-covid',
-                                   'quora', 'nq', 'dbpedia-entity', 'hotpotqa']
+                                   'quora', 'nq', 'dbpedia-entity']
         results = trainer.evaluate_beir(epoch=trainer.state.epoch,
                                         output_dir=hftraining_args.output_dir,
+                                        batch_size=training_args.beir_batch_size,
                                         sim_function=model_args.sim_type,
                                         beir_datasets=final_beir_datasets)
         results_senteval = trainer.evaluate_senteval(epoch=trainer.state.epoch, output_dir=hftraining_args.output_dir)

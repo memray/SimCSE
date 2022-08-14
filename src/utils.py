@@ -207,11 +207,11 @@ class WeightedAvgStats:
         return global_dict
 
 
-def load_hf(object_class, model_name):
+def load_hf(object_class, model_name, config, moco_config):
     try:
-        obj = object_class.from_pretrained(model_name, local_files_only=True)
+        obj = object_class.from_pretrained(model_name, config=config, moco_config=moco_config, local_files_only=True)
     except:
-        obj = object_class.from_pretrained(model_name, local_files_only=False)
+        obj = object_class.from_pretrained(model_name, config=config, moco_config=moco_config, local_files_only=False)
     return obj
 
 
