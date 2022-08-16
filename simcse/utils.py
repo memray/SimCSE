@@ -40,6 +40,7 @@ def wandb_setup(cls, args=None, state=None, model=None, model_args=None, trainin
             cls._wandb.init(
                 project=os.getenv("WANDB_PROJECT", "huggingface"),
                 name=run_name,
+                settings=cls._wandb.Settings(code_dir="."), # for code saving
                 **init_args,
             )
         # add config parameters (run may have been created manually)
@@ -55,3 +56,5 @@ def wandb_setup(cls, args=None, state=None, model=None, model_args=None, trainin
             cls._wandb.watch(
                 model, log=os.getenv("WANDB_WATCH", "gradients"), log_freq=max(100, args.logging_steps)
             )
+
+        wandb.run.log_code(".")
