@@ -396,7 +396,6 @@ def hfdataset_prepare_features(examples, tokenizer, max_seq_length, padding_stra
         print(examples)
         raise e
         return {'input_ids': [[]], 'token_type_ids': [[]], 'attention_mask': [[]]}
-
     try:
         total = len(sents0)
         sentences = sents0 + sents1 + sents2 + sents3
