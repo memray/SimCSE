@@ -193,10 +193,10 @@ class MoCo(PreTrainedModel):
 
     def cl_forward(self, input_ids, attention_mask, stats_prefix='',
                    update_kencoder_queue=True, report_align_unif=False, report_metrics=False, **kwargs):
-        q_tokens = input_ids[:, 1, :]
-        q_mask = attention_mask[:, 1, :]
-        k_tokens = input_ids[:, 0, :]
-        k_mask = attention_mask[:, 0, :]
+        q_tokens = input_ids[:, 0, :]
+        q_mask = attention_mask[:, 0, :]
+        k_tokens = input_ids[:, 1, :]
+        k_mask = attention_mask[:, 1, :]
 
         iter_stats = {}
         bsz = q_tokens.size(0)
@@ -363,6 +363,10 @@ class MoCo(PreTrainedModel):
     ):
         encoder = self.encoder_q
         pooler_output = encoder(input_ids, attention_mask=attention_mask)
+        if is_query and self.norm_query:
+            pooler_output = nn.functional.normalize(pooler_output, dim=-1)
+        elif not is_query and  self.norm_doc:
+            pooler_output = nn.functional.normalize(pooler_output, dim=-1)
 
         return BaseModelOutputWithPoolingAndCrossAttentions(
             pooler_output=pooler_output,
