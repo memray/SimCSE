@@ -9,6 +9,7 @@ nohup bash run/eval/beireval.2gpu.6-7.sh > nohup.beireval.2gpu.6-7.out 2>&1 &
 
 # MoCo v2
 cd /export/share/ruimeng/project/search/simcse
+sh run/moco_v2/moco.cc.prompt+title0.5.bs1024.gpu16.sh
 sh run/moco_v2/moco.cc.2e14.prompt+title0.5.gpu8.sh
 sh run/moco_v2/moco.wiki+cc.2e14.prompt.gpu8.sh
 sh run/moco_v2/moco.wiki+subpile10.2e14.prompt+title0.5.gpu8.sh

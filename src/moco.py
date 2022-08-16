@@ -267,11 +267,15 @@ class MoCo(PreTrainedModel):
             assert get_q_dot_queue.result._version == 0
             return get_q_dot_queue.result
         def get_q_dot_queue_splits():
-            #  split queue to 4 parts, take a slice from each part, same size to q
+            # split queue to 4 parts, take a slice from each part, same size to q
+            # Q0 is oldest portion, Q3 is latest
             if not hasattr(get_q_dot_queue_splits, 'result'):
                 get_q_dot_queue_splits.result = []
+                # organize the key queue to make it in the order of oldest -> latest
+                queue_old2new = torch.concat([self.queue.clone()[:, int(self.queue_ptr): self.active_queue_size],
+                                              self.queue.clone()[:, :int(self.queue_ptr)]], dim=1)
                 for si in range(4):
-                    queue_split = self.queue[:, self.active_queue_size // 4 * si: self.active_queue_size // 4 * (si + 1)]
+                    queue_split = queue_old2new[:, self.active_queue_size // 4 * si: self.active_queue_size // 4 * (si + 1)]
                     get_q_dot_queue_splits.result.append(q @ queue_split)
             return get_q_dot_queue_splits.result
         def get_queue_dot_queue():
