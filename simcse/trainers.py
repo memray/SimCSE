@@ -797,6 +797,8 @@ class CLTrainer(Trainer):
             inputs = None
             last_inputs = None
             for step, inputs in enumerate(epoch_iterator):
+                # print('step=', step, 'inputs.shape=', inputs['input_ids'].shape)
+                # if step < 1100: continue
                 # steps_trained_progress_bar.update(1)
                 # continue
                 if self.model.warmup_queue_size_ratio > 0 and self.state.global_step in warmup_steps:

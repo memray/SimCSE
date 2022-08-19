@@ -25,7 +25,7 @@ from simcse.data_loader import load_datasets
 from simcse.models_v2 import PretrainedModelForContrastiveLearning
 
 from simcse.trainers import CLTrainer
-from simcse.utils import wandb_setup
+from simcse.utils import wandb_setup, wandb_setup_eval
 from simcse.data_process import PassageDataCollatorWithPadding
 from src.arguments import ModelArguments, CustomTrainingArguments, ExtHFTrainingArguments, MoCoArguments
 from src.moco import MoCo
@@ -63,7 +63,9 @@ def main():
         ]
     )
     logger = logging.getLogger(__name__)
-    logger.warning(f"Input arguments: \n\t {' '.join(sys.argv)}")
+
+    if hftraining_args.local_rank == 0 or hftraining_args.local_rank == -1:
+        logger.warning(f"Input arguments: \n\t {' '.join(sys.argv)}")
 
     if (
         os.path.exists(hftraining_args.output_dir)
@@ -89,10 +91,14 @@ def main():
         transformers.utils.logging.set_verbosity_info()
         transformers.utils.logging.enable_default_handler()
         transformers.utils.logging.enable_explicit_format()
-    logger.info("Training/evaluation parameters:\n%s", hftraining_args)
-    logger.info("Custom training parameters:\n%s", training_args)
-    logger.info("Custom model parameters:\n%s", model_args)
-    logger.info("MoCo model parameters:\n%s", moco_args)
+
+    if hftraining_args.local_rank == 0 or hftraining_args.local_rank == -1:
+        logger.info("*" * 50)
+        logger.info("Training/evaluation parameters:\n%s", hftraining_args)
+        logger.info("Custom training parameters:\n%s", training_args)
+        logger.info("Custom model parameters:\n%s", model_args)
+        logger.info("MoCo model parameters:\n%s", moco_args)
+        logger.info("*" * 50)
 
     # Set seed before initializing model.
     set_seed(hftraining_args.seed)
@@ -118,11 +124,11 @@ def main():
 
     # hfconfig = AutoConfig.from_pretrained('bert-base-uncased', **config_kwargs)
     if model_args.config_name:
-        hfconfig = AutoConfig.from_pretrained(model_args.config_name, **config_kwargs)
+        hf_config = AutoConfig.from_pretrained(model_args.config_name, **config_kwargs)
     elif model_args.model_name_or_path:
-        hfconfig = AutoConfig.from_pretrained(model_args.model_name_or_path, **config_kwargs)
+        hf_config = AutoConfig.from_pretrained(model_args.model_name_or_path, **config_kwargs)
     else:
-        hfconfig = CONFIG_MAPPING[model_args.model_type]()
+        hf_config = CONFIG_MAPPING[model_args.model_type]()
         logger.warning("You are instantiating a new config instance from scratch.")
 
     tokenizer_kwargs = {
@@ -141,16 +147,16 @@ def main():
             "You can do it from another script, save it, and load it from here, using --tokenizer_name."
         )
 
-    train_dataset, dev_dataset = load_datasets(tokenizer, training_args, model_args, hftraining_args)
+    train_dataset, dev_dataset = load_datasets(tokenizer, training_args, model_args, hftraining_args, moco_args)
 
     if model_args.arch_type == 'simcl':
         model = PretrainedModelForContrastiveLearning(
-            hfconfig=hfconfig,
+            hfconfig=hf_config,
             model_args=model_args,
             seed=hftraining_args.seed
         )
     elif model_args.arch_type == 'moco':
-        model = MoCo(moco_args, model_args, hfconfig)
+        model = MoCo(moco_args, model_args, hf_config)
     else:
         raise NotImplementedError('Unknown architecture name', model_args.arch_type)
     """""""""""""""""""""
@@ -186,9 +192,7 @@ def main():
             state_dict = torch.load(os.path.join(model_args.model_name_or_path, 'pytorch_model.bin'), map_location="cpu")
             model.load_state_dict(state_dict, strict=True)
         trainer.state.load_from_json(os.path.join(model_args.model_name_or_path, "trainer_state.json"))
-        wandb_resume = True
-    else:
-        wandb_resume = False
+    wandb_resume = True
 
     # override wandb setup to log customized hyperparameters
     wandb_callback = [ch for ch in trainer.callback_handler.callbacks if isinstance(ch, WandbCallback)]
@@ -196,7 +200,7 @@ def main():
         # override wandb_callback's setup method to record our customized hyperparameters
         wandb_callback = wandb_callback[0]
         new_setup = functools.partial(wandb_setup,
-                                      model_args=model_args, training_args=training_args,
+                                      model_args=model_args, hftraining_args=hftraining_args, training_args=training_args,
                                       moco_args=moco_args, resume=wandb_resume)
         wandb_callback.setup =types.MethodType(new_setup, wandb_callback)
 
@@ -229,6 +233,9 @@ def main():
     results = {}
     if hftraining_args.do_eval:
         logger.info("*** Evaluate ***")
+        if trainer.is_world_process_zero() and wandb_callback and wandb_callback._wandb.run is None:
+            wandb_setup_eval(wandb_callback, hftraining_args, wandb_resume)
+
         if training_args.beir_datasets:
             final_beir_datasets = training_args.beir_datasets
         else:
@@ -237,6 +244,7 @@ def main():
                                    'quora', 'nq', 'dbpedia-entity', 'hotpotqa']
         results = trainer.evaluate_beir(epoch=trainer.state.epoch,
                                         output_dir=hftraining_args.output_dir,
+                                        batch_size=training_args.beir_batch_size,
                                         sim_function=model_args.sim_type,
                                         beir_datasets=final_beir_datasets)
         results_senteval = trainer.evaluate_senteval(epoch=trainer.state.epoch, output_dir=hftraining_args.output_dir)

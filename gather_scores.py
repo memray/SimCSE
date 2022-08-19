@@ -7,13 +7,18 @@ import pandas as pd
 2 datasets are not in leaderboards by Mar 19, 2022: 'cqadupstack', 'quora'
 '''
 def main():
-    # exp_base_dir = '/export/home/exp/search/unsup_dr/exp_v1/'
+    exp_base_dir = '/export/home/exp/search/unsup_dr/exp_v3/'
+    exp_names = [
+        'v2code+prompt_in_beir.cc.moco-2e14.contriever-256-prompt-Qtitle05.bert-base-uncased.avg.dot.maxlen256.step200k.bs1024.lr3e5.gpu16'
+    ]
+        # exp_base_dir = '/export/home/exp/search/unsup_dr/exp_v1/'
     # exp_names = [
     #     'wikipedia.contriever-256.moco-2e14.bert-base-uncased.avg.dot.maxlen256.step200k.warmup10k.bs256.lr3e5',
     #     ]
-    exp_base_dir = '/export/home/exp/search/unsup_dr/exp_v2/'
-    exp_names = [
-        'pile.1stlineastitle.moco-2e14.contriever-256-prompt-Qtitle05.bert-base-uncased.avg.dot.maxlen256.step200k.bs512.lr3e5/'
+    # exp_base_dir = '/export/home/exp/search/unsup_dr/exp_v2/'
+    # exp_names = [
+        # 'pile.1stlineastitle.moco-2e14.contriever-256-prompt-Qtitle05.bert-base-uncased.avg.dot.maxlen256.step200k.bs512.lr3e5/'
+        # 'pile.1stlineastitle.moco-2e14.contriever-256-prompt-Qtitle05.bert-base-uncased.avg.dot.maxlen256.step200k.bs512.lr3e5/'
         # 'pile+wiki.moco-2e14.contriever-256-prompt.bert-base-uncased.avg.dot.maxlen256.step200k.bs256.lr3e5'
         # 'pile+wiki.moco-2e14.contriever-256-prompt-Qtitle05.bert-base-uncased.avg.dot.maxlen256.step200k.bs512.lr3e5'
         # 'pile.contriever-256.moco-2e12.bert-base-uncased.avg.dot.maxlen256.step200k.warmup10k.bs256.lr1e5'
@@ -58,7 +63,7 @@ def main():
         # 'cc100.contriever-256.moco-2e14.bert-base-uncased.avg.dot.maxlen256.step200k.bs256.lr1e5',
         # 'cc100.contriever-256.moco-2e17.bert-base-uncased.avg.dot.maxlen256.step200k.warmup10k.bs256.lr1e5',
         # 'cc100.contriever-256.moco-2e17.bert-base-uncased.avg.dot.maxlen256.step200k.warmup10k.bs256.lr5e6',
-    ]
+    # ]
     beir_datasets = [
         'msmarco',
         'trec-covid', 'bioasq', 'nfcorpus', 'nq', 'hotpotqa',
