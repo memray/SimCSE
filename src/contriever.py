@@ -5,7 +5,18 @@ import torch
 import transformers
 from transformers import BertModel
 
+from simcse.model_utils import GaussianDropout, VariationalDropout
 from src import utils
+
+
+def dropout(p=None, dim=None, method='standard'):
+    if method == 'standard':
+        return torch.nn.Dropout(p)
+    elif method == 'gaussian':
+        return GaussianDropout(p / (1 - p))
+    elif method == 'variational':
+        return VariationalDropout(p / (1 - p), dim)
+
 
 class Contriever(BertModel):
     def __init__(self, config, pooling="average", **kwargs):

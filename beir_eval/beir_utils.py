@@ -172,8 +172,8 @@ def evaluate_model(
             maxlength=max_length,
             add_special_tokens=add_special_tokens, 
             norm_query=norm_query, 
-            norm_doc=norm_doc
-        ), 
+            norm_doc=norm_doc,
+        ),
         batch_size=batch_size,
         add_qd_prompt=add_qd_prompt
     )

@@ -8,13 +8,13 @@ export LOCAL_RANK=0
 export WORLD_SIZE=16
 
 export TOKENIZERS_PARALLELISM=true
-export NUM_WORKER=0
+export NUM_WORKER=4
 export MAX_STEPS=200000
 
 export CUDA_LAUNCH_BLOCKING=1
 export NCCL_DEBUG=INFO
 
-export EXP_NAME=v2code+prompt_in_beir.cc.moco-2e14.contriever-256-prompt-Qtitle05.bert-base-uncased.avg.dot.maxlen256.step200k.bs1024.lr3e5.gpu16
+export EXP_NAME=v2code+prompt_in_beir+q0d1_interwave.cc.moco-2e14.contriever-256-prompt-Qtitle05.bert-base-uncased.avg.dot.maxlen256.step200k.bs1024.lr3e5.gpu16
 export PROJECT_DIR=/export/home/exp/search/unsup_dr/exp_v3/$EXP_NAME
 mkdir -p $PROJECT_DIR
 cp "$0" $PROJECT_DIR  # copy bash to project dir
@@ -28,4 +28,3 @@ mkdir -p $WANDB_DIR/wandb
 
 cd /export/share/ruimeng/project/search/simcse
 nohup python -m torch.distributed.launch --nproc_per_node=16 --master_port=1616 --max_restarts=0 train.py --model_name_or_path bert-base-uncased --arch_type moco --train_file pile_Pile-CC --train_prob 1 --dev_file /export/home/data/pretrain/wiki2021_structure/wiki_psgs_w100.dev.tail2e13.tsv --data_type hf --data_pipeline_name contriever-256-prompt-Qtitle50% --remove_unused_columns False --sim_type dot --queue_size 16384 --momentum 0.9995 --output_dir $PROJECT_DIR --cache_dir /export/home/data/pretrain/.cache --max_steps $MAX_STEPS --warmup_steps 10000 --logging_steps 100 --eval_steps 10000 --save_steps 10000 --per_device_train_batch_size 128 --per_device_eval_batch_size 128 --dataloader_num_workers $NUM_WORKER --learning_rate 3e-5 --max_seq_length 256 --evaluation_strategy steps --load_best_model_at_end --overwrite_output_dir --do_train --do_eval --fp16 --run_name $EXP_NAME --beir_datasets nfcorpus fiqa arguana scidocs scifact webis-touche2020 cqadupstack trec-covid quora > $PROJECT_DIR/nohup.log 2>&1 & echo $! > run.pid
-

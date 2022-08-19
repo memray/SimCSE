@@ -322,6 +322,7 @@ def hfdataset_prepare_features(examples, tokenizer, max_seq_length, padding_stra
         titles = examples['title'] if 'title' in examples else [''] * len(texts)
         urls = examples['url'] if 'url' in examples else [''] * len(texts)
 
+        # print(f'[{len(texts[0].split())}]', texts)
         # (Q1) sent0 is title;
         # (D1) sent1 is psg.
         # (Q2) sent2 is another psg, or a section title/class label (if applicable);
@@ -396,6 +397,7 @@ def hfdataset_prepare_features(examples, tokenizer, max_seq_length, padding_stra
         print(examples)
         raise e
         return {'input_ids': [[]], 'token_type_ids': [[]], 'attention_mask': [[]]}
+
     try:
         total = len(sents0)
         sentences = sents0 + sents1 + sents2 + sents3

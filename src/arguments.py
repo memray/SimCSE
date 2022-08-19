@@ -40,7 +40,6 @@ class ModelArguments:
     """
     Arguments pertaining to which model/config/tokenizer we are going to fine-tune, or train from scratch.
     """
-
     # Huggingface's original arguments
     model_name_or_path: Optional[str] = field(default=None, metadata={"help": "The model checkpoint for weights initialization."
                     "Don't set if you want to train a model from scratch."})
@@ -65,7 +64,7 @@ class ModelArguments:
 
     # SimCSE's arguments
     temp: float = field(default=0.05, metadata={"help": "Temperature for softmax."})
-    pooler_type: str = field(default="cls", metadata={"help": "What kind of pooler to use (cls, cls_before_pooler, avg, avg_top2, avg_first_last)."})
+    # pooler_type: str = field(default="cls", metadata={"help": "What kind of pooler to use (cls, cls_before_pooler, avg, avg_top2, avg_first_last)."})
     q_proj_type: str = field(default="none", metadata={"help": "projector MLP setting, format is"
                     "`none`: no projecter"
                     "mlp: a simple D by D dense layer with Tanh activation, no parameter sharing (used in SimCSE)"
@@ -129,6 +128,7 @@ class CustomTrainingArguments:
     beir_path: Optional[str] = field(default="/export/home/data/beir", metadata={ "help": "Base directory of BEIR data."})
     beir_datasets: List[str] = field(default=None, metadata={"help": "Specify what BEIR datasets will be used in evaluation."
                     "Only affect the do_test phrase, not effective for during-training evaluation."})
+    beir_batch_size: int = field(default=16, metadata={"help": "Specify batch size for BEIR datasets."})
     # SimCSE's arguments
     train_file: Optional[str] = field(default=None, metadata={"help": "The training data file (.txt or .csv)."})
     train_prob: Optional[str] = field(default=None, metadata={"help": "The sampling probability for multiple datasets."})
@@ -433,18 +433,22 @@ class MoCoArguments():
         self.parser.add_argument("--num_q_view", type=int, default=1)
         self.parser.add_argument("--num_k_view", type=int, default=1)
         self.parser.add_argument("--queue_strategy", type=str, default='fifo', help="'fifo', 'priority'")
+        self.parser.add_argument("--num_extra_pos", type=int, default=0)
         self.parser.add_argument("--queue_size", type=int, default=65536)
+        self.parser.add_argument('--pooling', type=str, default='average', help='average or cls')
+        self.parser.add_argument("--pooling_dropout", type=str, default='none', help="none, standard, gaussian, variational")
+        self.parser.add_argument("--pooling_dropout_prob", type=float, default=0.0, help="bernoulli, gaussian, variational")
+        self.parser.add_argument('--merger_type', type=str, default=None, help="projector MLP setting, format is "
+           "(1)`none`: no projecter; (2) multiview; (3)`mlp`: a simple D by D dense layer with Tanh activation, no parameter sharing (used in SimCSE) "
+           "(4) `1024-2048`: multi-layer dense connections (D*1024*2048) with BatchNorm1d and ReLU (barlow-twin)")
         self.parser.add_argument("--warmup_queue_size_ratio", type=float, default=0.0, help='linearly increase queue size to 100% until training_steps*warmup_queuesize_ratio.')
         self.parser.add_argument("--queue_update_steps", type=int, default=1, help='we only update the model parameters (backprop) every k step, and but update queue in the rest k-1 steps.')
         self.parser.add_argument("--momentum", type=float, default=0.9995)
-        # self.parser.add_argument("--retriever_model_id", type=str, default='bert-base-uncased')
         self.parser.add_argument("--temperature", type=float, default=0.05)
         self.parser.add_argument('--label_smoothing', type=float, default=0.)
         self.parser.add_argument('--norm_query', action='store_true')
         self.parser.add_argument('--norm_doc', action='store_true')
         self.parser.add_argument('--moco_train_mode_encoder_k', action='store_true')
-        self.parser.add_argument('--pooling', type=str, default='average')
-        # self.parser.add_argument("--score_function", type=str, default='dot')
         self.parser.add_argument('--random_init', action='store_true', help='init model with random weights')
         self.parser.add_argument('--projection_size', type=int, default=768)
         self.parser.add_argument('--indep_encoder_k', type=bool, default=False, help='whether to use an independent/asynchronous encoder.')

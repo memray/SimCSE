@@ -2,8 +2,23 @@ import os
 
 from transformers import is_torch_tpu_available
 
+def wandb_setup_eval(self, args, resume=False):
+    run_name = args.run_name
+    run_id = os.getenv("WANDB_RUN_ID", None)
+    if self._wandb.run is None:
+        self._wandb.init(
+            project=os.getenv("WANDB_PROJECT", "huggingface"),
+            name=run_name,
+            id=run_id,
+            resume=resume
+        )
+    # define default x-axis (for latest wandb versions)
+    if getattr(self._wandb, "define_metric", None):
+        self._wandb.define_metric("train/global_step")
+        self._wandb.define_metric("*", step_metric="train/global_step", step_sync=True)
 
-def wandb_setup(cls, args=None, state=None, model=None, model_args=None, training_args=None, moco_args=None, resume=False, **kwargs):
+
+def wandb_setup(cls, args=None, state=None, model=None, hftraining_args=None, model_args=None, training_args=None, moco_args=None, resume=False, **kwargs):
     """
     Modified based on WandbCallback at L534 of transformers.integration
     to keep track of our customized parameters (moodel_args, data_args)
@@ -17,6 +32,9 @@ def wandb_setup(cls, args=None, state=None, model=None, model_args=None, trainin
         if hasattr(model, "config") and model.config is not None:
             model_config = model.config.to_dict()
             combined_dict = {**model_config, **combined_dict}
+        if hftraining_args is not None:
+            hftraining_args = hftraining_args.to_dict()
+            combined_dict = {**hftraining_args, **combined_dict}
         if model_args is not None:
             model_args = model_args.to_dict()
             combined_dict = {**model_args, **combined_dict}
@@ -57,4 +75,4 @@ def wandb_setup(cls, args=None, state=None, model=None, model_args=None, trainin
                 model, log=os.getenv("WANDB_WATCH", "gradients"), log_freq=max(100, args.logging_steps)
             )
 
-        wandb.run.log_code(".")
+        cls._wandb.run.log_code(".")

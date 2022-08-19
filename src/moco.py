@@ -348,7 +348,9 @@ class MoCo(PreTrainedModel):
         iter_stats[f'{stats_prefix}loss'] = loss
 
         if update_kencoder_queue:
+            # print('Before \t\t queue_ptr', int(self.queue_ptr), 'k.shape=', k.shape, 'l_neg.shape=', l_neg.shape)
             self._dequeue_and_enqueue(k, l_neg)
+            # print('After \t\t queue_ptr', int(self.queue_ptr), 'k.shape=', k.shape, 'l_neg.shape=', l_neg.shape)
 
         return ContrastiveLearningOutput(
             loss=loss,
