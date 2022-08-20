@@ -2,10 +2,12 @@ import os
 
 from transformers import is_torch_tpu_available
 
-def wandb_setup_eval(self, args, resume=False):
+def wandb_setup_eval(self, args, resume=True):
     run_name = args.run_name
     run_id = os.getenv("WANDB_RUN_ID", None)
     if self._wandb.run is None:
+        if run_id:
+            resume = 'must'
         self._wandb.init(
             project=os.getenv("WANDB_PROJECT", "huggingface"),
             name=run_name,

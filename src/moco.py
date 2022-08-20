@@ -236,6 +236,7 @@ class MoCo(PreTrainedModel):
 
         if report_metrics:
             predicted_idx = torch.argmax(logits, dim=-1)
+            labels = torch.zeros(bsz, dtype=torch.long).to(logits.device)  # shape=[B]
             accuracy = 100 * (predicted_idx == labels).float()
             stdq = torch.std(q, dim=0).mean()  # q=[Q,D], std(q)=[D], std(q).mean()=[1]
             stdk = torch.std(k, dim=0).mean()

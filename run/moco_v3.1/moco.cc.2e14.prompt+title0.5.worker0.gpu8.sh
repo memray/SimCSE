@@ -14,7 +14,7 @@ export MAX_STEPS=200000
 export CUDA_LAUNCH_BLOCKING=1
 export NCCL_DEBUG=INFO
 
-export EXP_NAME=rerun.v2code+prompt_in_beir+q0d1.cc.moco-2e14.contriever-256-prompt-Qtitle05.bert-base-uncased.avg.dot.maxlen256.step200k.bs512.lr3e5
+export EXP_NAME=v1.2_amend3.worker0.cc.moco-2e14.contriever-256-prompt-Qtitle05.bert-base-uncased.avg.dot.maxlen256.step200k.bs512.lr3e5
 export PROJECT_DIR=/export/home/exp/search/unsup_dr/exp_v3/$EXP_NAME
 mkdir -p $PROJECT_DIR
 cp "$0" $PROJECT_DIR  # copy bash to project dir

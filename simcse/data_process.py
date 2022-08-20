@@ -33,7 +33,15 @@ class PassageDataCollatorWithPadding:
         special_keys = ['input_ids', 'attention_mask', 'token_type_ids', 'mlm_input_ids', 'mlm_labels']
         features = [f for f in features if len(f['input_ids']) > 0]
         bs = len(features)
+        # ids = sorted([int(f['id']) for f in features])
+        # titles = sorted([f['titles'] for f in features])
+        # for i in range(len(features)):
+        #     del features[i]['id']
+        #     del features[i]['titles']
+        # print('*' * 50)
         # print(f'bs={bs}')
+        # print(ids)
+        # print(titles)
         if bs > 0:
             # (IMPORTANT) pad batch to batch_size to avoid hanging in distributed training
             if bs < self.batch_size:
@@ -416,6 +424,8 @@ def hfdataset_prepare_features(examples, tokenizer, max_seq_length, padding_stra
             features[key] = [[sent_features[key][i], sent_features[key][i + total],
                               sent_features[key][i + 2 * total], sent_features[key][i + 3 * total]]
                              for i in range(total)]
+        features['titles'] = titles
+        features['id'] = examples['id']
         return features
     except Exception as e:
         print('Error in tokenizing and tensorizing Q/D')

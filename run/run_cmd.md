@@ -9,10 +9,14 @@ nohup bash run/eval/beireval.2gpu.2-3.sh > nohup.beireval.2gpu.2-3.out 2>&1 &
 nohup bash run/eval/beireval.2gpu.4-5.sh > nohup.beireval.2gpu.4-5.out 2>&1 &
 nohup bash run/eval/beireval.2gpu.6-7.sh > nohup.beireval.2gpu.6-7.out 2>&1 &
 
-# MoCo v2
+# MoCo v3
 cd /export/share/ruimeng/project/search/simcse
-sh run/moco_v2/moco.wiki+subpile5.2e14.prompt+title0.5.gpu8.sh
-sh run/moco_v2/moco.wiki+subpile5-dup.2e14.prompt+title0.5.gpu8.sh
+sh run/moco_v3.1/moco.cc.2e14.prompt+title0.5.worker0.gpu8.sh
+sh run/moco_v3.1/moco.cc.2e14.prompt+title0.5.gpu8.sh
+sh run/moco_v3.1/moco.wiki+subpile5.2e14.prompt+title0.5.gpu8.sh
+sh run/moco_v3.1/moco.wiki+subpile5-dup.2e14.prompt+title0.5.gpu8.sh
+
+# MoCo v2
 sh run/moco_v2/moco.cc.prompt+title0.5.bs1024.gpu16.sh
 sh run/moco_v2/moco.cc.2e14.prompt+title0.5.gpu8.bs1024-v3.sh
 sh run/moco_v2/moco.cc.2e14.prompt+title0.5.gpu8-v3.sh

@@ -150,8 +150,9 @@ def load_datasets(tokenizer, training_args, model_args, hftraining_args, moco_ar
                 # https://huggingface.co/datasets/wikipedia
                 # size=6,458,670, columns=['id', 'url', 'title', 'text']
                 loaded_dataset = datasets.load_dataset("wikipedia", "20220301.en",
-                                                       split='train', cache_dir=model_args.cache_dir,
-                                                       streaming=streaming)
+                                                       cache_dir=model_args.cache_dir,
+                                                       split='train', streaming=streaming)
+                                                       # split=datasets.ReadInstruction('train', from_=0, to=10000, unit='abs'))
                 title_field, text_field = 'title', 'text'
             elif dataset_name == 'pile':
                 # https://huggingface.co/datasets/the_pile
@@ -226,9 +227,9 @@ def load_datasets(tokenizer, training_args, model_args, hftraining_args, moco_ar
         train_dataset = interleave_datasets(train_datasets,
                                             num_step=num_examples, probabilities=sample_probs,
                                             seed=hftraining_args.seed, new_fingerprint=fingerprint_name[:64])
-        # interleave_datasets() samples examples in sequence, so still need to shuffle its order for batching
-        train_dataset = train_dataset.shuffle(seed=hftraining_args.seed)
-
+        # interleave_datasets() samples examples in sequence
+        #   shuffle/drop_last is done by torch.util.data.distributed.DistributedSampler, default: shuffle=True, drop_last=False
+        # train_dataset = train_dataset.shuffle(seed=hftraining_args.seed)
         data_prep_config = load_data_config(training_args, hftraining_args)
         parse_fn = partial(hfdataset_prepare_features, tokenizer=tokenizer,
                            padding_strategy='max_length' if training_args.pad_to_max_length else 'longest',

@@ -19,7 +19,7 @@ from transformers import (
     set_seed,
 )
 from transformers.trainer_utils import is_main_process
-from transformers.integrations import WandbCallback
+from transformers.integrations import WandbCallback, rewrite_logs
 
 from simcse.data_loader import load_datasets
 from simcse.models_v2 import PretrainedModelForContrastiveLearning
@@ -188,26 +188,24 @@ def main():
     torch.save(trainer.model_data_training_args, os.path.join(hftraining_args.output_dir, "model_data_training_args.bin"))
     # if it's a path, reload status
     if os.path.isdir(model_args.model_name_or_path):
-        if model_args.arch_type == 'moco':
-            state_dict = torch.load(os.path.join(model_args.model_name_or_path, 'pytorch_model.bin'), map_location="cpu")
-            model.load_state_dict(state_dict, strict=True)
-        trainer.state.load_from_json(os.path.join(model_args.model_name_or_path, "trainer_state.json"))
-    wandb_resume = True
-
+        state_dict = torch.load(os.path.join(model_args.model_name_or_path, 'pytorch_model.bin'), map_location="cpu")
+        model.load_state_dict(state_dict, strict=True)
+        trainer.state = trainer.state.load_from_json(os.path.join(model_args.model_name_or_path, "trainer_state.json"))
     # override wandb setup to log customized hyperparameters
-    wandb_callback = [ch for ch in trainer.callback_handler.callbacks if isinstance(ch, WandbCallback)]
-    if wandb_callback:
-        # override wandb_callback's setup method to record our customized hyperparameters
-        wandb_callback = wandb_callback[0]
-        new_setup = functools.partial(wandb_setup,
-                                      model_args=model_args, hftraining_args=hftraining_args, training_args=training_args,
-                                      moco_args=moco_args, resume=wandb_resume)
-        wandb_callback.setup =types.MethodType(new_setup, wandb_callback)
-
+    wandb_callbacks = [ch for ch in trainer.callback_handler.callbacks if isinstance(ch, WandbCallback)]
+    wandb_callback = wandb_callbacks[0] if wandb_callbacks else None
     """""""""""""""""""""
     Start Training
     """""""""""""""""""""
     if hftraining_args.do_train:
+        if trainer.is_world_process_zero() and wandb_callback:
+            # override wandb_callback's setup method to record our customized hyperparameters
+            new_setup = functools.partial(wandb_setup,
+                                          model_args=model_args, hftraining_args=hftraining_args,
+                                          training_args=training_args,
+                                          moco_args=moco_args, resume=True)
+            wandb_callback.setup = types.MethodType(new_setup, wandb_callback)
+
         model_path = (
             model_args.model_name_or_path
             if (model_args.model_name_or_path is not None and os.path.isdir(model_args.model_name_or_path))
@@ -233,9 +231,9 @@ def main():
     results = {}
     if hftraining_args.do_eval:
         logger.info("*** Evaluate ***")
-        if trainer.is_world_process_zero() and wandb_callback and wandb_callback._wandb.run is None:
-            wandb_setup_eval(wandb_callback, hftraining_args, wandb_resume)
-
+        if trainer.is_world_process_zero() and wandb_callback and \
+                (not wandb_callback._initialized or wandb_callback._wandb.run is None):
+            wandb_setup_eval(wandb_callback, hftraining_args)
         if training_args.beir_datasets:
             final_beir_datasets = training_args.beir_datasets
         else:
@@ -249,9 +247,13 @@ def main():
                                         beir_datasets=final_beir_datasets)
         results_senteval = trainer.evaluate_senteval(epoch=trainer.state.epoch, output_dir=hftraining_args.output_dir)
         results.update(results_senteval)
-
-        output_eval_file = os.path.join(hftraining_args.output_dir, "eval_results.txt")
         if trainer.is_world_process_zero():
+            if wandb_callback and wandb_callback._wandb.run:
+                results = rewrite_logs(results)
+                if trainer.state.global_step:
+                    results['train/global_step'] = trainer.state.global_step
+                wandb_callback._wandb.log({**results})
+            output_eval_file = os.path.join(hftraining_args.output_dir, "eval_results.txt")
             with open(output_eval_file, "a") as writer:
                 logger.info("***** Eval results *****")
                 for key, value in sorted(results.items()):
