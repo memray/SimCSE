@@ -1,0 +1,653 @@
+import json
+import random
+import numpy as np
+from dataclasses import dataclass, field
+from transformers.tokenization_utils_base import BatchEncoding, PaddingStrategy, PreTrainedTokenizerBase
+from typing import Optional, Union, List, Dict, Tuple
+import torch
+
+# Prepare features
+from src import utils
+
+sent2_cname = None
+# Unsupervised datasets
+title_cname = 'title'
+sectitle_cname = 'sectitles'
+sent0_cname = 'text'
+sent1_cname = 'text'
+
+
+# Data collator
+@dataclass
+class PassageDataCollatorWithPadding:
+    tokenizer: PreTrainedTokenizerBase
+    batch_size: int
+    padding_strategy: Union[bool, str, PaddingStrategy]
+    max_length: Optional[int] = None
+    pad_to_multiple_of: Optional[int] = None
+    cap_qd_tokens: bool = False  # if true, limit len(q)+len(d) <= max_length
+    max_q_tokens: Union[tuple] = None  # used if cap_qd_len==True, it's max length of q, and d_len=cap_qd_len-q_len
+
+    def __call__(self, features: List[Dict[str, Union[List[int], List[List[int]], torch.Tensor]]]) -> Dict[
+        str, torch.Tensor]:
+        special_keys = ['input_ids', 'attention_mask', 'token_type_ids', 'mlm_input_ids', 'mlm_labels']
+        features = [f for f in features if len(f['input_ids']) > 0]
+        bs = len(features)
+        # print(f'bs={bs}')
+        if bs > 0:
+            # (IMPORTANT) pad batch to batch_size to avoid hanging in distributed training
+            if bs < self.batch_size:
+                features.extend([features[0]] * (self.batch_size - len(features)))
+            num_sent = len(features[0]['input_ids'])
+            bs = len(features)
+        else:
+            print('Empty batch?!')
+            return
+        flat_features = []
+        for feature in features:
+            for i in range(num_sent):
+                flat_features.append({k: feature[k][i] if k in special_keys else feature[k] for k in feature})
+
+        batch = self.tokenizer.pad(
+            flat_features,
+            padding=self.padding_strategy,
+            max_length=self.max_length,
+            pad_to_multiple_of=self.pad_to_multiple_of,
+            return_tensors="pt",
+        )
+        batch = {k: batch[k].view(bs, num_sent, -1) if k in special_keys
+                    else batch[k].view(bs, num_sent, -1)[:, 0] for k in batch}
+
+        if "label" in batch:
+            batch["labels"] = batch["label"]
+            del batch["label"]
+        if "label_ids" in batch:
+            batch["labels"] = batch["label_ids"]
+            del batch["label_ids"]
+
+        sent_lens = [len(f['attention_mask']) - f['attention_mask'][::-1].index(1) for f in flat_features]
+        batch['length'] = torch.Tensor([[sent_lens[bi*num_sent + si] for si in range(num_sent)] for bi in range(bs)]).type(torch.int32)
+
+        return batch
+
+
+def passage_prepare_features(examples, tokenizer, max_seq_length, padding_strategy):
+    # padding = longest (default)
+    #   If no sentence in the batch exceed the max length, then use
+    #   the max sentence length in the batch, otherwise use the
+    #   max sentence length in the argument and truncate those that
+    #   exceed the max length.
+    # padding = max_length (when pad_to_max_length, for pressure test)
+    #   All sentences are padded/truncated to data_args.max_seq_length.
+    # Avoid "None" fields
+    valid_ids = [i for i in range(len(examples[sent0_cname]))
+                 if examples[sent0_cname][i] is not None]
+    total = len(valid_ids)
+    if total == 0:
+        return {
+            'input_ids': [[]],
+            'token_type_ids': [[]],
+            'attention_mask': [[]]
+        }
+    # sent0 is doc, sent1 is query
+    sents0, sents1 = [], []
+    # random crop 1st sentence as query
+    for sid in valid_ids:
+        sent = examples[sent0_cname][sid]
+        tokens = sent.split()
+        q_tokens = crop_sequence(tokens, max_len=128, min_len=8, min_dq_len=8, crop_to_maxlen=False)
+        d_tokens = crop_sequence(tokens, max_len=128, min_len=8, min_dq_len=8, crop_to_maxlen=False)
+        sents0.append(' '.join(d_tokens))  # cropped psg as doc
+        sents1.append(' '.join(q_tokens))  # cropped psg as query
+        # sents0.append(' '.join(tokens))
+        # sents1.append(examples[sent0_cname][sid])
+
+    # print(f'[id={examples["id"][-1]}][DOC]', len(d_tokens), sents0[-1])
+    # print(f'[id={examples["id"][-1]}][QUERY]', len(q_tokens), sents1[-1])
+    sentences = sents0 + sents1
+    # print(f'len(sentences)={len(sentences)}')
+
+    # If hard negative exists
+    if sent2_cname is not None:
+        for idx in valid_ids:
+            if examples[sent2_cname][idx] is None:
+                examples[sent2_cname][idx] = " "
+        sentences += examples[sent2_cname]
+
+    sent_features = tokenizer(
+        sentences,
+        max_length=max_seq_length,
+        truncation=True,
+        padding=padding_strategy,
+    )
+
+    features = {}
+    if sent2_cname is not None:
+        for key in sent_features:
+            features[key] = [[sent_features[key][i], sent_features[key][i + total], sent_features[key][i + total * 2]]
+                             for i in range(total)]
+    else:
+        for key in sent_features:
+            features[key] = [[sent_features[key][i], sent_features[key][i + total]] for i in range(total)]
+
+    return features
+
+
+def word_replace(tokens, replace_ratio=0.0, replace_with_mask=False):
+    '''
+    if replace_with_mask=True, tokens will be replaced with [MASK] randomly
+    else it works as token deletion
+    '''
+    if replace_ratio <= 0.0:
+        return tokens
+    if replace_with_mask:
+        _tokens = ['[MASK]' if np.random.uniform() < replace_ratio else t for t in tokens]
+    else:
+        _tokens = [t for t in tokens if np.random.uniform() > replace_ratio]
+    return _tokens
+
+
+def crop_sequence(tokens, max_len, min_len=0, min_dq_len=0,
+                  crop_to_maxlen=False, return_index=False):
+    '''
+    if crop_to_maxlen is True, we crop the sequence to max_len, at a random position
+    otherwise, the length of the cropped sequence is sampled from [min_len, max_len]
+    '''
+    # directly return if sequence is shorter than max_len
+    if crop_to_maxlen and len(tokens) <= max_len:
+        if return_index:
+            return tokens, 0, len(tokens)
+        else:
+            return tokens
+    if 0 < max_len <= 1:
+        max_len = int(len(tokens) * max_len)
+    if 0 < min_len <= 1:
+        min_len = int(len(tokens) * min_len)
+    min_len = min(len(tokens), max(min_dq_len, min_len))
+    max_len = min(len(tokens), max(max_len, min_len))
+    if crop_to_maxlen:
+        cropped_len = max_len
+    else:
+        cropped_len = np.random.randint(min_len, max_len + 1)
+    start_idx = np.random.randint(0, len(tokens) - cropped_len + 1)
+    _tokens = tokens[start_idx: start_idx + cropped_len]
+
+    if return_index:
+        return _tokens, start_idx, start_idx + cropped_len
+    else:
+        return _tokens
+
+
+def simple_document_prepare_features(examples, tokenizer, max_seq_length, padding_strategy):
+    # padding = longest (default)
+    #   If no sentence in the batch exceed the max length, then use
+    #   the max sentence length in the batch, otherwise use the
+    #   max sentence length in the argument and truncate those that
+    #   exceed the max length.
+    # padding = max_length (when pad_to_max_length, for pressure test)
+    #   All sentences are padded/truncated to data_args.max_seq_length.
+    # Avoid "None" fields
+    docs = []
+    try:
+        docs = [json.loads(e) for e in examples['text']]
+        docs = [d for d in docs if len(d['sections']) > 0]
+    except Exception as e:
+        # print('Error in loading text from json')
+        # print(e)
+        return {'input_ids': [[]], 'token_type_ids': [[]], 'attention_mask': [[]]}
+
+    if len(docs) == 0:
+        return {
+            'input_ids': [[]],
+            'token_type_ids': [[]],
+            'attention_mask': [[]]
+        }
+
+    total = len(docs)
+    # sent0 is doc, sent1 is query
+    sents0, sents1 = [], []
+
+    try:
+        for doc in docs:
+            doc['sections'] = [s for s in doc['sections'] if len(s[0].strip()) > 0]
+            if len(doc['sections']) == 0:
+                continue
+            sent = doc['sections'][0][0]
+            tokens = sent.split()
+            q_tokens = crop_sequence(tokens, max_len=128, min_len=8, min_dq_len=8, crop_to_maxlen=False)
+            d_tokens = crop_sequence(tokens, max_len=128, min_len=8, min_dq_len=8, crop_to_maxlen=False)
+            sents0.append(' '.join(d_tokens))  # cropped psg as doc
+            sents1.append(' '.join(q_tokens))  # cropped psg as query
+    except Exception as e:
+        print('Error in processing text to D/Q')
+        print(e)
+        return {'input_ids': [[]], 'token_type_ids': [[]], 'attention_mask': [[]]}
+
+    if len(sents0) == 0 or len(sents1) == 0:
+        print('No valid text for D/Q')
+        return {'input_ids': [[]], 'token_type_ids': [[]], 'attention_mask': [[]]}
+
+    sentences = sents0 + sents1
+    sent_features = tokenizer(
+        sentences,
+        max_length=max_seq_length,
+        truncation=True,
+        padding=padding_strategy,
+    )
+
+    features = {}
+    if sent2_cname is not None:
+        for key in sent_features:
+            features[key] = [[sent_features[key][i], sent_features[key][i + total], sent_features[key][i + total * 2]]
+                             for i in range(total)]
+    else:
+        for key in sent_features:
+            features[key] = [[sent_features[key][i], sent_features[key][i + total]] for i in range(total)]
+
+    return features
+
+
+def _parse_wiki(text, title):
+    sec_title = title
+    sections = []
+    sec_lines = []
+    for l in text.split('\n\n'):
+        l = l.strip()
+        if l.startswith('See also') or l.startswith('Notes') or l.startswith('References') or l.startswith('Further reading') or l.startswith('External links'):
+            break
+        if len(sec_lines) > 0 and '\n' in l[:30]:
+            sections.append((sec_title, '\n'.join(sec_lines)))
+            sec_title = l[: l.index('\n')]
+            sec_lines = [l[l.index('\n') + 1:]]
+        else:
+            sec_lines.append(l)
+    sections.append((sec_title, '\n'.join(sec_lines)))
+    return sections
+
+
+def hfdataset_prepare_features(examples, tokenizer, max_seq_length, padding_strategy,
+                               text_field,
+                               max_context_len=256, min_dq_len=10,
+                               min_q_len=0.05, max_q_len=0.5,
+                               min_d_len=0.05, max_d_len=0.5,
+                               dq_prompt_ratio=0.0,
+                               title_as_query_ratio=0.0,
+                               word_del_ratio=0.0,
+                               q_retain_ratio=1.0,
+                               **config_kwargs
+                               ):
+    ''' examples only contain one element, if using HF_dataset.set_transform() '''
+    try:
+        examples = examples['data'] if 'data' in examples else examples
+        texts = examples[text_field]
+        metas = examples['meta'] if 'meta' in examples else [None] * len(texts)
+        titles = examples['title'] if 'title' in examples else [''] * len(texts)
+        urls = examples['url'] if 'url' in examples else [''] * len(texts)
+
+        # print(f'[{len(texts[0].split())}]', texts)
+        # (Q1) sent0 is title;
+        # (D1) sent1 is psg.
+        # (Q2) sent2 is another psg, or a section title/class label (if applicable);
+        # (D2) sent3 is another psg.
+        sents0, sents1, sents2, sents3 = [], [], [], []
+        for text, title, meta, url in zip(texts, titles, metas, urls):
+            if not text: continue
+            text = text.encode('utf-8', 'ignore').decode()
+            title = title.encode('utf-8', 'ignore').decode() if title else ''
+            if url and 'wikipedia' in url:
+                source = 'Wikipedia'
+            elif meta and 'pile_set_name' in meta:
+                source = meta['pile_set_name']
+                if 'wikipedia' in source.lower(): source = 'Wikipedia'
+            else:
+                source = None
+            if not title:
+                if source in ['Wikipedia', 'Pile-CC', 'OpenWebText2']:
+                    lines = [l for l in text.split('\n') if len(l.strip()) > 0]
+                    if len(lines) > 0: title = lines[0]
+                else:
+                    lines = [l for l in text.split('\n') if len(l.strip().split()) > 3]
+                    if len(lines) > 0: title = lines[0]
+                title = ' '.join(title.split()[:64])  # truncate titles, no longer than 64 words
+            # print('[title]', title)
+            context_tokens = text.split()
+            if max_context_len > 0:
+                context_tokens = crop_sequence(context_tokens, max_len=max_context_len, crop_to_maxlen=True)
+
+            # prepare for Q1/D1
+            d_tokens = crop_sequence(context_tokens, max_len=max_d_len, min_len=min_d_len, min_dq_len=min_dq_len)
+            d_tokens = word_replace(d_tokens, replace_ratio=word_del_ratio, replace_with_mask=False)
+            d = ' '.join(d_tokens)
+            if title and np.random.uniform() < title_as_query_ratio:
+                title_tokens = title.split()
+                q_tokens = crop_sequence(title_tokens, max_len=max_q_len, min_len=min_q_len, min_dq_len=min_dq_len)
+                q_tokens = word_replace(q_tokens, replace_ratio=word_del_ratio, replace_with_mask=False)
+                q = ' '.join(q_tokens)
+            else:
+                q_tokens = crop_sequence(context_tokens, max_len=max_q_len, min_len=min_q_len, min_dq_len=min_dq_len)
+                q_tokens = word_replace(q_tokens, replace_ratio=word_del_ratio, replace_with_mask=False)
+                q = ' '.join(q_tokens)
+            if np.random.uniform() < dq_prompt_ratio:
+                q = '[Q]' + q
+                # d = '[D]' + source + '[SEP]' + d if source else '[D]' + d
+                d = '[D]' + d
+            sents0.append(q)
+            sents1.append(d)
+            # print('*' * 50)
+            # print('[title]', title.replace('\n', '\t'))
+            # print('[text]', text[:256].replace('\n', '\t'))
+            # print('[Q]', q.replace('\n', '\t'))
+            # print('[D]', d[:256].replace('\n', '\t'))
+
+            # prepare for Q2/D2
+            if source == 'Wikipedia':
+                sections = _parse_wiki(text, title)
+                q, d = sections[np.random.randint(len(sections))]
+                q_tokens = crop_sequence(q.split(), max_len=max_d_len, min_len=min_d_len, min_dq_len=min_dq_len)
+                d_tokens = crop_sequence(d.split(), max_len=max_d_len, min_len=min_d_len, min_dq_len=min_dq_len)
+            else:
+                q_tokens = crop_sequence(context_tokens, max_len=max_d_len, min_len=min_d_len, min_dq_len=min_dq_len)
+                d_tokens = crop_sequence(context_tokens, max_len=max_d_len, min_len=min_d_len, min_dq_len=min_dq_len)
+            q_tokens = word_replace(q_tokens, replace_ratio=word_del_ratio, replace_with_mask=False)
+            d_tokens = word_replace(d_tokens, replace_ratio=word_del_ratio, replace_with_mask=False)
+            q = ' '.join(q_tokens)
+            d = ' '.join(d_tokens)
+            if np.random.uniform() < dq_prompt_ratio:
+                q = '[Q]' + q
+                # d = '[D]' + source + '[SEP]' + d if source else '[D]' + d
+                d = '[D]' + d
+            sents2.append(q)
+            sents3.append(d)
+    except Exception as e:
+        print('Error in processing text to D/Q')
+        print(e)
+        print(examples)
+        raise e
+        return {'input_ids': [[]], 'token_type_ids': [[]], 'attention_mask': [[]]}
+    try:
+        total = len(sents0)
+        sentences = sents0 + sents1 + sents2 + sents3
+        if len(sentences) == 0 or len(sentences) != 4 * total:
+            print('No valid text for D/Q')
+            print(examples)
+            return {'input_ids': [[]], 'token_type_ids': [[]], 'attention_mask': [[]]}
+        sent_features = tokenizer(
+            sentences,
+            max_length=max_seq_length,
+            truncation=True,
+            padding=padding_strategy,
+        )
+        features = {}
+        for key in sent_features:
+            features[key] = [[sent_features[key][i], sent_features[key][i + total],
+                              sent_features[key][i + 2 * total], sent_features[key][i + 3 * total]]
+                             for i in range(total)]
+        return features
+    except Exception as e:
+        print('Error in tokenizing and tensorizing Q/D')
+        print(e)
+        print(examples)
+        raise e
+        return {'input_ids': [[]], 'token_type_ids': [[]], 'attention_mask': [[]]}
+
+
+def hfdataset_prepare_features_single(examples, tokenizer, max_seq_length, padding_strategy,
+                               text_field, title_field=None,
+                               max_context_len=256, min_dq_len=10,
+                               min_q_len=0.05, max_q_len=0.5,
+                               min_d_len=0.05, max_d_len=0.5,
+                               dq_prompt_ratio=0.0,
+                               title_as_query_ratio=0.0,
+                               word_del_ratio=0.0,
+                               q_retain_ratio=1.0,
+                               **config_kwargs
+                               ):
+    '''
+    examples only contain one element, if using HF_dataset.set_transform(), not compatible with map()
+    has issues with mixed data of wiki+pile-subsets
+    and it has bottleneck on tokenization, since no parallelism to help (one text each time).
+    It becomes slow if text to be tokenized is long or batch size is large.
+    '''
+    try:
+        examples = examples['data'] if 'data' in examples else examples
+        texts = examples[text_field]
+        sources = [''] * len(texts)
+        titles = [''] * len(texts)
+
+        # sent0 is query, sent1 is doc
+        sents0, sents1 = [], []
+        for text, title, source in zip(texts, titles, sources):
+            text = text.encode('utf-8', 'ignore').decode()
+            title = title.encode('utf-8', 'ignore').decode()
+            context_tokens = text.split()
+            if max_context_len > 0:
+                context_tokens = crop_sequence(context_tokens, max_len=max_context_len, crop_to_maxlen=True)
+            d_tokens = crop_sequence(context_tokens, max_len=max_d_len, min_len=min_d_len, min_dq_len=min_dq_len, crop_to_maxlen=False)
+            d_tokens = word_replace(d_tokens, replace_ratio=word_del_ratio, replace_with_mask=False)
+            d = ' '.join(d_tokens)
+            if title and np.random.uniform() < title_as_query_ratio:
+                title_tokens = title.split()
+                q_tokens = crop_sequence(title_tokens, max_len=max_q_len, min_len=min_q_len, min_dq_len=min_dq_len, crop_to_maxlen=False)
+                q_tokens = word_replace(q_tokens, replace_ratio=word_del_ratio, replace_with_mask=False)
+                q = ' '.join(q_tokens)
+            else:
+                q_tokens = crop_sequence(context_tokens, max_len=max_q_len, min_len=min_q_len, min_dq_len=min_dq_len, crop_to_maxlen=False)
+                q_tokens = word_replace(q_tokens, replace_ratio=word_del_ratio, replace_with_mask=False)
+                q = ' '.join(q_tokens)
+            if np.random.uniform() < dq_prompt_ratio:
+                q = '[Q]' + q
+                d = '[D]' + source + '[SEP]' + d if source else '[D]' + d
+            sents0.append(q)  # cropped psg as query
+            sents1.append(d)  # cropped psg as doc
+            # prepare for additional positive examples
+    except Exception as e:
+        print('Error in processing text to D/Q')
+        print(e)
+        print(examples)
+        raise e
+        return {'input_ids': [[]], 'token_type_ids': [[]], 'attention_mask': [[]]}
+    if len(sents0) == 0 or len(sents1) == 0:
+        print('No valid text for D/Q')
+        print(examples)
+        return {'input_ids': [[]], 'token_type_ids': [[]], 'attention_mask': [[]]}
+    try:
+        total = len(sents0)
+        sentences = sents0 + sents1
+        sent_features = tokenizer(
+            sentences,
+            max_length=max_seq_length,
+            truncation=True,
+            padding=padding_strategy,
+        )
+        features = {}
+        if sent2_cname is not None:
+            for key in sent_features:
+                features[key] = [[sent_features[key][i], sent_features[key][i + total], sent_features[key][i + total * 2]]
+                                 for i in range(total)]
+        else:
+            for key in sent_features:
+                features[key] = [[sent_features[key][i], sent_features[key][i + total]] for i in range(total)]
+        return features
+    except Exception as e:
+        print('Error in tokenizing and tensorizing Q/D')
+        print(e)
+        print(examples)
+        raise e
+        return {'input_ids': [[]], 'token_type_ids': [[]], 'attention_mask': [[]]}
+
+
+def document_prepare_features(examples,
+                              tokenizer, max_seq_length, padding_strategy,
+                              max_context_len=256, min_dq_len=10,
+                              min_q_len=0.05, max_q_len=0.5,
+                              min_d_len=0.05, max_d_len=0.5,
+                              query_in_doc=False, q_retain_ratio=0.0,
+                              word_del_ratio=0.0,
+                              context_range='paragraph',
+                              include_doctitle_ratio=0.0,
+                              include_nbr_negative=False,
+                              include_title2ctx=False,
+                              seed=67
+                              ):
+    '''
+    context_range: ['paragraph', 'section', 'document']
+    for each doc in wiki, randomly sample a section as doc, and generate corresponding queries
+        Tuple 1, psg2psg CL
+          D+: sents[0], anchor passage, cropped ver1;
+          Q+: sents[1], anchor passage, cropped ver2;
+          D-: sents[2], another passage in the same doc, cropped ver1;
+          Q-: sents[3], another passage in the same doc, cropped ver2;
+        Tuple 2, phrs2psg CL
+          D+: sents[0], anchor passage, cropped ver1;
+          Q+: sents[1], section titles of anchor passage
+          D-: sents[2], another passage (cropped) in the same doc
+          Q-: sents[3], titles of another section in the same doc
+    '''
+    try:
+        docs = [json.loads(e) for e in examples['text']]
+        docs = [d for d in docs if len(d['sections']) > 0]
+    except Exception as e:
+        # print('Error in loading text to json')
+        # print(e)
+        return {'input_ids': [[]], 'token_type_ids': [[]], 'attention_mask': [[]]}
+    if len(docs) == 0:
+        # print('Empty lines')
+        return {'input_ids': [[]], 'token_type_ids': [[]], 'attention_mask': [[]]}
+    
+    def _sample_D_Q(psg_tokens):
+        d_tokens = crop_sequence(psg_tokens, max_len=max_d_len, min_len=min_d_len, min_dq_len=min_dq_len, crop_to_maxlen=False)
+        if query_in_doc:
+            q_tokens, q_start, q_end = crop_sequence(d_tokens, max_len=max_q_len, min_len=min_q_len, min_dq_len=min_dq_len,
+                                                 crop_to_maxlen=False, return_index=True)
+            if q_retain_ratio < 1.0 and np.random.uniform() > q_retain_ratio:
+                d_tokens = d_tokens[:q_start] + ['[MASK]'] + d_tokens[q_end:]
+        else:
+            q_tokens = crop_sequence(psg_tokens, max_len=max_q_len, min_len=min_q_len, min_dq_len=min_dq_len, crop_to_maxlen=False)
+        return d_tokens, q_tokens
+
+    def _sample_context(_doc):
+        ''' given context_range, sample a piece of context, used for sampling Q/D later'''
+        if context_range == 'paragraph':
+            # sample a passage from the section, passages are delimited using ' | '
+            sec, titles = random.sample(_doc['sections'], 1)[0]
+            psgs = [p.strip() for p in sec.split(' | ') if len(p.strip()) > 0 and len(p.split()) > min_dq_len]
+            if len(psgs) == 0:
+                return None
+            context = random.sample(psgs, k=1)[0]
+        elif context_range == 'section':
+            context, titles = random.sample(_doc['sections'], 1)[0]
+        elif context_range == 'document':
+            titles = [_doc['title']]
+            context = ' || '.join([t[0] for t in _doc['sections']])
+        else:
+            raise NotImplementedError(f'context_range not supported: {context_range}')
+        title_tokens = (' ; '.join(random.sample(titles, len(titles)))).split()
+        ctx_tokens = context.split()
+        return title_tokens, ctx_tokens
+
+    if include_title2ctx:
+        sents = [[] for _ in range(8)]
+    elif include_nbr_negative:
+        sents = [[] for _ in range(4)]
+    else:
+        sents = [[] for _ in range(2)]
+
+    try:
+        for doc in docs:  # there's only one doc if this method is called by datasets.set_transform()
+            # Tuple 1, cropped wiki passage as Q/D, randomly select two sections
+            doc['sections'] = [s for s in doc['sections'] if s and s[0] and len(s[0].strip()) > 0 and len(s[0].split()) > min_dq_len]
+            if len(doc['sections']) == 0:
+                continue
+
+            # Tuple 1 D+/Q+, sample a contiguous span from the passage
+            title_tokens, ctx_full_tokens = _sample_context(doc)
+            # shorten texts to max_psg_len
+            context_tokens = crop_sequence(ctx_full_tokens, max_len=max_context_len, crop_to_maxlen=True)
+            d, q = _sample_D_Q(context_tokens)
+            if word_del_ratio:
+                d = word_replace(d, replace_ratio=word_del_ratio, replace_with_mask=False)
+                q = word_replace(q, replace_ratio=word_del_ratio, replace_with_mask=False)
+            d = doc['title'] + ' # ' + ' '.join(d) if np.random.uniform() <= include_doctitle_ratio else ' '.join(d)
+            q = doc['title'] + ' # ' + ' '.join(q) if np.random.uniform() <= include_doctitle_ratio else ' '.join(q)
+            # print(f'[title,len={len(title_tokens)}]', title_tokens)
+            # print(f'[ctx_full,len={len(ctx_full_tokens)}]', ' '.join(ctx_full_tokens))
+            # print(f'[ctx_cropped,len={len(context_tokens)}]', ' '.join(context_tokens))
+            # print(f'[Doc,len={len(d.split())}]', d)
+            # print(f'[Query,len={len(q.split())}]', q)
+            sents[0].append(d)
+            sents[1].append(q)
+
+            if include_nbr_negative or include_title2ctx:
+                _, nbr_ctx_tokens = _sample_context(doc)
+                # shorten texts to max_psg_len
+                nbr_ctx_tokens = crop_sequence(nbr_ctx_tokens, max_len=max_context_len, crop_to_maxlen=True)
+                # Tuple 1 D-/Q-, sample a contiguous span from the neighbor passage
+                d, q = _sample_D_Q(nbr_ctx_tokens)
+                if word_del_ratio:
+                    d = word_replace(d, replace_ratio=word_del_ratio, replace_with_mask=False)
+                    q = word_replace(q, replace_ratio=word_del_ratio, replace_with_mask=False)
+                d = doc['title'] + ' # ' + ' '.join(d) if np.random.uniform() <= include_doctitle_ratio else ' '.join(d)
+                q = doc['title'] + ' # ' + ' '.join(q) if np.random.uniform() <= include_doctitle_ratio else ' '.join(q)
+                sents[2].append(d)
+                sents[3].append(q)
+
+            # Tuple 2, use section titles as query, will be sents[4-7]
+            if include_title2ctx:
+                title_tokens, context_tokens = _sample_context(doc)
+                if len(context_tokens) < min_dq_len or len(title_tokens) == 0:
+                    continue
+                # Tuple 2 D+/Q+
+                q = ' '.join(title_tokens)
+                d = crop_sequence(context_tokens, max_len=max_d_len, min_len=min_d_len, min_dq_len=min_dq_len, crop_to_maxlen=False)
+                if word_del_ratio:
+                    d = word_replace(d, replace_ratio=word_del_ratio, replace_with_mask=False)
+                d = doc['title'] + ' # ' + ' '.join(d) if np.random.uniform() <= include_doctitle_ratio else ' '.join(d)
+                sents[4].append(d)
+                sents[5].append(q)
+                # Tuple 2 D-/Q-
+                title_tokens, context_tokens = _sample_context(doc)
+                if len(context_tokens) < min_dq_len or len(title_tokens) == 0:
+                    continue
+                q = ' '.join(title_tokens)
+                d = crop_sequence(context_tokens, max_len=max_d_len, min_len=min_d_len, min_dq_len=min_dq_len,
+                                  crop_to_maxlen=False)
+                if word_del_ratio:
+                    d = word_replace(d, replace_ratio=word_del_ratio, replace_with_mask=False)
+                d = doc['title'] + ' # ' + ' '.join(d) if np.random.uniform() <= include_doctitle_ratio else ' '.join(d)
+                sents[6].append(d)
+                sents[7].append(q)
+    except Exception as e:
+        pass
+
+    sentences = [s for slist in sents for s in slist]
+    if len(sentences) == 0 or (include_nbr_negative and not include_title2ctx and len(sentences) != 4) or (include_title2ctx and len(sentences) != 8):  # no valid inputs
+        # print('No valid data points for Q/D')
+        return {
+            'input_ids': [[]],
+            'token_type_ids': [[]],
+            'attention_mask': [[]]
+        }
+    # for i, sent_list in enumerate(sents):
+    #     print(f'[sent#{i}]', f'len={len(sent_list[0].split())},', sent_list[0])
+    # print('=' * 30)
+    try:
+        sent_features = tokenizer(
+            sentences,
+            max_length=max_seq_length,
+            truncation=True,
+            padding=padding_strategy,
+            return_length=True
+        )
+        features = {}
+        num_doc = len(docs)
+        num_sent = len(sents)
+        # flatten the features, feature.shape=num_doc * num_sent -> [num_doc, num_sent]
+        for key in sent_features:
+            features[key] = [[sent_features[key][i + num_doc*j] for j in range(num_sent)]
+                             for i in range(num_doc)]
+    except Exception as e:
+        # print('Error in tokenizing D/Q')
+        # print(e)
+        return {'input_ids': [[]], 'token_type_ids': [[]], 'attention_mask': [[]]}
+
+    return features
