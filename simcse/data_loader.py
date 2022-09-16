@@ -1,11 +1,103 @@
 import os.path
 from functools import partial
 import datasets
-import torch
 from datasets import concatenate_datasets, interleave_datasets, Features
 from simcse.data_configs import load_data_config
-from simcse.data_process import passage_prepare_features, hfdataset_prepare_features, document_prepare_features
+from simcse.data_process import prepare_wiki4valid_features, hfdataset_prepare_features
+import torch
 
+'''
+import numpy as np
+from datetime import datetime
+from datasets.arrow_dataset import Dataset, _concatenate_map_style_datasets, _interleave_map_style_datasets
+from datasets import concatenate_datasets
+from typing import List, Optional, TypeVar
+from datasets.info import DatasetInfo
+from datasets.splits import NamedSplit
+DatasetType = TypeVar("DatasetType", "Dataset", "IterableDataset")
+
+def _interleave_map_style_datasets(
+    datasets: List["Dataset"],
+    num_step: int,
+    probabilities: Optional[List[float]] = None,
+    seed: Optional[int] = None,
+    info: Optional[DatasetInfo] = None,
+    split: Optional[NamedSplit] = None,
+    new_fingerprint: str = None,
+    **kwargs,
+) -> "Dataset":
+    """
+    Modified based on _interleave_map_style_datasets() in datasets.arrow_dataset.py
+    """
+    # To interleave the datasets, we concatenate them and then we re-order the indices
+    concatenated_datasets = _concatenate_map_style_datasets(datasets, info=info, split=split)
+
+    # Let's now build the indices to pass to .select()
+    lengths = [len(dset) for dset in datasets]
+    offsets = np.cumsum([0] + lengths[:-1])
+    start = datetime.now()
+    if probabilities is None:
+        # Example:: If lengths of the datasets are [3, 4, 5]
+        # Then the resulting indices should be [0, 3, 7, 1, 4, 8, 2, 6, 9]
+        # Note that we only have 3 examples per dataset since the first dataset ran out of examples
+        indices = (offsets.reshape(1, -1) + np.arange(min(lengths)).reshape(-1, 1)).flatten().tolist()
+    elif len(probabilities) == 1:
+        indices = np.tile(np.arange(lengths[0]), reps=(num_step // lengths[0])+1)[:num_step].tolist()
+    else:
+        def iter_random_indices():
+            """Get an infinite iterator that randomly samples the index of the source to pick examples from."""
+            rng = np.random.default_rng(seed)
+            while True:
+                yield from (int(i) for i in rng.choice(len(datasets), size=10000000, p=probabilities))
+        current_index = [0] * len(datasets)
+        indices = []
+
+        for source_idx in iter_random_indices():
+            # keep sampling until we have enough number of training indices
+            if len(indices) >= num_step:
+                break
+            # let's add the example at the current index of the `source_idx`-th dataset
+            indices.append(current_index[source_idx] + offsets[source_idx])
+            current_index[source_idx] = (current_index[source_idx] + 1) % lengths[source_idx]
+    end = datetime.now()
+    print('Time used for indices sampling', end - start)
+    print('#indices=', len(indices))
+
+    start = datetime.now()
+    merged_dataset = concatenated_datasets.select(indices, keep_in_memory=True,
+                                                  writer_batch_size=10000000,
+                                                  new_fingerprint=new_fingerprint,
+                                                  **kwargs)
+    end = datetime.now()
+    print('Time used for datasets.select()', end - start)
+    return merged_dataset
+
+
+def interleave_datasets(
+    datasets: List[DatasetType],
+    num_step: int,
+    probabilities: Optional[List[float]] = None,
+    seed: Optional[int] = None,
+    info: Optional[DatasetInfo] = None,
+    split: Optional[NamedSplit] = None,
+    new_fingerprint: str = None,
+) -> DatasetType:
+    """
+    Modified based on interleave_datasets() in datasets.combine.py
+    Interleave several datasets (sources) into a single dataset.
+    The new dataset is constructed by alternating between the sources to get the examples.
+    """
+    from datasets.arrow_dataset import Dataset
+    map_style = isinstance(datasets[0], Dataset)
+    for dataset in datasets[1:]:
+        if (map_style and not isinstance(dataset, Dataset)):
+            raise ValueError(
+                f"Unable to interleave a {type(datasets[0])} with a {type(dataset)}. Expected a list of Dataset objects or a list of IterableDataset objects."
+            )
+    return _interleave_map_style_datasets(datasets, num_step, probabilities, seed,
+                                          info=info, split=split,
+                                          new_fingerprint=new_fingerprint)
+'''
 
 def load_datasets(tokenizer, training_args, model_args, hftraining_args, moco_args):
     if hftraining_args.do_train and training_args.train_file:
@@ -28,9 +120,8 @@ def load_datasets(tokenizer, training_args, model_args, hftraining_args, moco_ar
                 title_field, text_field = 'title', 'text'
             elif dataset_name.startswith('pile_'):
                 pile_dataset = dataset_name[5:]
-                # corpus_jsonl_path = os.path.join('/export/home/data/pretrain/pile/10k/', f'{pile_dataset}.json')
                 corpus_jsonl_path = os.path.join('/export/home/data/pretrain/pile/', f'{pile_dataset}.json')
-                print(corpus_jsonl_path)
+                # corpus_jsonl_path = os.path.join('/export/home/data/pretrain/pile/10k/', f'{pile_dataset}.json')
                 loaded_dataset = datasets.load_dataset("json",
                                                         data_files=corpus_jsonl_path,
                                                         keep_in_memory=False,
@@ -52,8 +143,8 @@ def load_datasets(tokenizer, training_args, model_args, hftraining_args, moco_ar
                 # https://huggingface.co/datasets/wikipedia
                 # size=6,458,670, columns=['id', 'url', 'title', 'text']
                 loaded_dataset = datasets.load_dataset("wikipedia", "20220301.en",
-                                                       cache_dir=model_args.cache_dir,
-                                                       split='train', streaming=streaming)
+                                                       split='train', cache_dir=model_args.cache_dir,
+                                                       streaming=streaming)
                                                        # split=datasets.ReadInstruction('train', from_=0, to=10000, unit='abs'))
                 title_field, text_field = 'title', 'text'
             elif dataset_name == 'pile':
@@ -80,11 +171,22 @@ def load_datasets(tokenizer, training_args, model_args, hftraining_args, moco_ar
                 loaded_dataset = datasets.load_dataset("the_pile_books3", cache_dir=model_args.cache_dir, split='train', streaming=streaming)
                 title_field, text_field = None, 'text'
             else:
-                loaded_dataset = datasets.load_dataset("text",
-                                                        data_files=dataset_name,
-                                                        keep_in_memory=False,
-                                                        cache_dir=model_args.cache_dir,
-                                                        streaming=streaming)
+                assert os.path.isfile(dataset_name), f'{dataset_name} does not exist.'
+                print(dataset_name)
+                if dataset_name.endswith('.json') or dataset_name.endswith('.jsonl'):
+                    loaded_dataset = datasets.load_dataset("json",
+                                                            data_files=dataset_name,
+                                                            keep_in_memory=False,
+                                                            cache_dir=model_args.cache_dir,
+                                                            streaming=streaming)
+                else:
+                    loaded_dataset = datasets.load_dataset("text",
+                                                            data_files=dataset_name,
+                                                            keep_in_memory=False,
+                                                            cache_dir=model_args.cache_dir,
+                                                            streaming=streaming)
+                title_field, text_field = None, 'text'
+                loaded_dataset = loaded_dataset['train']
             train_datasets.append(loaded_dataset)
 
         if training_args.train_prob:
@@ -95,12 +197,48 @@ def load_datasets(tokenizer, training_args, model_args, hftraining_args, moco_ar
             probs = [1 for _ in train_dataset_names]
         prob_sum = sum(probs)
         probs = [p / prob_sum for p in probs]
+
+        total_train_batch_size = (
+                hftraining_args.train_batch_size
+                * hftraining_args.gradient_accumulation_steps
+                * (torch.distributed.get_world_size() if hftraining_args.local_rank != -1 else 1)
+                * moco_args.queue_update_steps
+        )
+        num_examples = total_train_batch_size * (hftraining_args.max_steps + 100)
+
+        prob_sum = sum(probs)
+        sample_probs = [p / prob_sum for p in probs]
+        fingerprint_name = '-'.join(['data_['+str(training_args.train_file).replace('pile_', '')+']', 'prob_'+str(probs), 'num_'+str(num_examples)]).replace(':', ',')
+        # train_dataset = train_datasets[0]
+        if hftraining_args.local_rank == 0 or hftraining_args.local_rank == -1:
+            print(f"  - Fingerprint_name = {fingerprint_name}")
+            print(f"  - train_datasets = {training_args.train_file}")
+            for d_id, dataset in enumerate(train_datasets):
+                print(f"  Num examples in dataset {d_id + 1} = {len(dataset)}")
+            print(f"  - prob style = {training_args.train_prob}")
+            print(f"  - prob = {probs}")
+            print(f"  - Total train_batch_size = {total_train_batch_size}")
+            print(f"  \t train_batch_size = {hftraining_args.train_batch_size}")
+            print(f"  \t gradient_accumulation_steps = {hftraining_args.gradient_accumulation_steps}")
+            print(f"  \t world_size = {(torch.distributed.get_world_size() if hftraining_args.local_rank != -1 else 1)}")
+            print(f"  \t queue_update_steps = {moco_args.queue_update_steps}")
+            print(f"  - Total optimization steps = {hftraining_args.max_steps}")
+            print(f"  \t max_steps = {hftraining_args.max_steps}")
+            print(f"  - Total training examples = {num_examples}")
+
+        sum_len = sum([len(dset) for dset in train_datasets])
+        if sum_len < num_examples:
+            train_datasets = train_datasets * (num_examples // sum_len + 1)
+
         if len(train_datasets) == 1:
             train_dataset = train_datasets[0]
         else:
             train_dataset = concatenate_datasets(train_datasets)
             # train_dataset = interleave_datasets(train_datasets, probabilities=probs, seed=hftraining_args.seed)
-        data_prep_config = load_data_config(training_args)
+        # train_dataset = interleave_datasets(train_datasets,
+        #                                     num_step=num_examples, probabilities=sample_probs,
+        #                                     seed=hftraining_args.seed, new_fingerprint=fingerprint_name[:64])
+        data_prep_config = load_data_config(training_args, hftraining_args)
         parse_fn = partial(hfdataset_prepare_features, tokenizer=tokenizer,
                            padding_strategy='max_length' if training_args.pad_to_max_length else 'longest',
                            max_seq_length=training_args.max_seq_length,
@@ -108,9 +246,9 @@ def load_datasets(tokenizer, training_args, model_args, hftraining_args, moco_ar
                            text_field=text_field,
                            **data_prep_config
                            )
-        # train_dataset = train_dataset.shuffle(seed=hftraining_args.seed)
+        train_dataset = train_dataset.shuffle(seed=hftraining_args.seed)
         train_dataset.set_transform(parse_fn)
-        psg_parse_fn = partial(passage_prepare_features, tokenizer=tokenizer,
+        psg_parse_fn = partial(prepare_wiki4valid_features, tokenizer=tokenizer,
                                max_seq_length=training_args.max_seq_length,
                                padding_strategy='max_length' if training_args.pad_to_max_length else 'longest')
 
@@ -130,3 +268,4 @@ def load_datasets(tokenizer, training_args, model_args, hftraining_args, moco_ar
         dev_dataset = None
 
     return train_dataset, dev_dataset
+

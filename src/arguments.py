@@ -129,8 +129,6 @@ class CustomTrainingArguments:
     max_d_len: float = field(default=None, metadata={"help": "max Doc len. If less 1.0, it denotes a length ratio."})
     word_del_ratio: float = field(default=0.0, metadata={"help": "Ratio for applying word deletion, for both Q and D."})
     query_in_doc: bool = field(default=False, metadata={"help": "Whether sampled query must appear in doc. "})
-    q_retain_ratio: float = field(default=0.0, metadata={"help": "For ICT Q is taken and removed from D, this ratio controls by which rate Q is retained in D."})
-    context_range: str = field(default='paragraph', metadata={"help": "Sample a chunk from a document/section/paragraph while loading wiki data."})
     dq_prompt_ratio: float = field(default=0.0, metadata={"help": "Randomly add a prefix to indicate the input is Q/D."})
     title_as_query_ratio: float = field(default=0.0, metadata={"help": "randomly use title as query."})
     include_title_ratio: float = field(default=0.0, metadata={"help": "whether doc title is added (at the beginning)."})

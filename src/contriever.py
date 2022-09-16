@@ -64,6 +64,7 @@ class Contriever(BertModel):
         # if normalize: emb = torch.nn.functional.normalize(emb, dim=-1)  # normalized outside
         return emb
 
+
 def load_retriever(model_path):
     #try: #check if model is in a moco wrapper
     path = os.path.join(model_path, "checkpoint.pth")

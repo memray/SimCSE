@@ -5,7 +5,7 @@ import torch.nn as nn
 import logging
 import copy
 import transformers
-from transformers import PreTrainedModel
+from transformers import PreTrainedModel, T5EncoderModel
 from transformers.modeling_outputs import BaseModelOutputWithPoolingAndCrossAttentions
 
 from simcse.models import ContrastiveLearningOutput, gather_norm
@@ -81,20 +81,19 @@ class MoCo(PreTrainedModel):
         self.unif_t = moco_config.unif_t
 
     def _load_retriever(self, model_id, hf_config, moco_config):
-        cfg = utils.load_hf(transformers.AutoConfig, model_id, config=hf_config, moco_config=moco_config)
-        tokenizer = utils.load_hf(transformers.AutoTokenizer, model_id, hf_config, moco_config)
+        cfg = utils.load_hf(transformers.AutoConfig, model_id)
+        tokenizer = utils.load_hf(transformers.AutoTokenizer, model_id)
 
         if moco_config.random_init:
             retriever = contriever.Contriever(cfg)
         else:
-            retriever = utils.load_hf(contriever.Contriever, model_id, config=hf_config, moco_config=moco_config)
+            retriever = utils.load_hf(contriever.Contriever, model_id)
 
-        if 'bert-' in model_id:
+        if 'bert' in model_id:
             if tokenizer.bos_token_id is None:
                 tokenizer.bos_token = "[CLS]"
             if tokenizer.eos_token_id is None:
                 tokenizer.eos_token = "[SEP]"
-
         retriever.cls_token_id = tokenizer.cls_token_id
 
         return retriever, tokenizer
@@ -193,10 +192,14 @@ class MoCo(PreTrainedModel):
 
     def cl_forward(self, input_ids, attention_mask, stats_prefix='',
                    update_kencoder_queue=True, report_align_unif=False, report_metrics=False, **kwargs):
-        q_tokens = input_ids[:, 0, :]
-        q_mask = attention_mask[:, 0, :]
-        k_tokens = input_ids[:, 1, :]
-        k_mask = attention_mask[:, 1, :]
+        # q_tokens = input_ids[:, 0, :]
+        # q_mask = attention_mask[:, 0, :]
+        # k_tokens = input_ids[:, 1, :]
+        # k_mask = attention_mask[:, 1, :]
+        q_tokens = input_ids[0]
+        q_mask = attention_mask[0]
+        k_tokens = input_ids[1]
+        k_mask = attention_mask[1]
 
         iter_stats = {}
         bsz = q_tokens.size(0)
@@ -239,6 +242,9 @@ class MoCo(PreTrainedModel):
             labels = torch.zeros(bsz, dtype=torch.long).cuda()  # shape=[B]
             # contrastive, 1 positive out of Q negatives (in-batch examples are not used)
             loss = torch.nn.functional.cross_entropy(logits, labels, label_smoothing=self.label_smoothing)
+
+        # print(q_tokens.device, 'q_shape=', q_tokens.shape, 'k_shape=', k_tokens.shape)
+        # print('loss=', loss.item(), 'logits.mean=', logits.mean().item())
 
         if len(stats_prefix) > 0:
             stats_prefix = stats_prefix + '/'

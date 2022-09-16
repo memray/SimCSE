@@ -2,6 +2,7 @@ import collections
 import math
 import os
 import json
+import re
 import time
 import warnings
 
@@ -146,6 +147,10 @@ class CLTrainer(Trainer):
                 if isinstance(v, torch.Tensor):
                     v = v.detach()
                     v = self._nested_gather(v)
+                    if v.dim() == 0:  # 1gpu case
+                        _v = torch.Tensor(1)
+                        _v[0] = v
+                        v = _v
                 else:
                     _v = torch.Tensor(1)
                     _v[0] = v
@@ -175,6 +180,8 @@ class CLTrainer(Trainer):
 
         metrics = {'epoch': epoch}
         avg_ndcg_10 = []
+        avg_recall_10 = []
+        avg_recall_20 = []
         avg_recall_100 = []
 
         for dataset in beir_datasets:
@@ -205,10 +212,16 @@ class CLTrainer(Trainer):
                 # logger.info(dataset + ' ' + str(recall_cap))
                 # logger.info(dataset + ' ' + str(hole))
                 ndcg10 = ndcg['NDCG@10']
+                recall10 = recall['Recall@10'] if dataset != 'trec-covid' else recall_cap['R_cap@10']
+                recall20 = recall['Recall@20'] if dataset != 'trec-covid' else recall_cap['R_cap@20']
                 recall100 = recall['Recall@100'] if dataset != 'trec-covid' else recall_cap['R_cap@100']
                 metrics[f'eval_{dataset}_ndcg@10'] = ndcg10
+                metrics[f'eval_{dataset}_recall@10'] = recall10
+                metrics[f'eval_{dataset}_recall@20'] = recall20
                 metrics[f'eval_{dataset}_recall@100'] = recall100
                 avg_ndcg_10.append(ndcg10)
+                avg_recall_10.append(recall10)
+                avg_recall_20.append(recall20)
                 avg_recall_100.append(recall100)
 
                 result_dict = {
@@ -230,7 +243,7 @@ class CLTrainer(Trainer):
                 logger.info(f"Dump results of {dataset} to {output_dir}/{dataset}.json")
                 with open(f"{output_dir}/{dataset}.json", 'w') as writer:
                     writer.write(json.dumps(result_dict, indent=4) + "\n")
-                rows = ['metric,@1,@3,@5,@10,@100,@1000']
+                rows = ['metric,@1,@3,@5,@10,@20,@50,@100,@200,@1000']
                 for metric_name, scores in result_dict['scores'].items():
                     row = ','.join([str(s) for s in ([metric_name] + list(scores.values()))])
                     rows.append(row)
@@ -239,6 +252,8 @@ class CLTrainer(Trainer):
                         writer.write(row + "\n")
 
         metrics['eval_avg_ndcg@10'] = np.mean(avg_ndcg_10)
+        metrics['eval_avg_recall@10'] = np.mean(avg_recall_10)
+        metrics['eval_avg_recall@20'] = np.mean(avg_recall_20)
         metrics['eval_avg_recall@100'] = np.mean(avg_recall_100)
 
         return metrics
@@ -836,19 +851,34 @@ class CLTrainer(Trainer):
                     if (step + 1) % self.args.logging_steps == 0:
                         total_norm = 0.0
                         n_parameter = 0
-                        for p in model.parameters():
-                            if p.grad is not None:
-                                param_norm = p.grad.detach().data.norm(2)
+                        group_norm = collections.defaultdict(float)
+                        for n, p in model.named_parameters():
+                            if p.requires_grad and p.grad is not None:
+                                param_norm = p.grad.detach().data.norm(p=2)
+                                # param_norm = p.grad.detach().data.norm(p=float('inf'))
                                 total_norm += param_norm.item() ** 2
                                 n_parameter += torch.numel(p.grad)
+                                module_name = 'encoder_q' if 'encoder_q' in n else 'encoder_k'
+                                if 'embeddings' in n:
+                                    part_name = 'embeddings'
+                                else:
+                                    part_name = re.search('layer.\d+', n)
+                                    if part_name:
+                                        part_name = part_name.group(0)
+                                    else:
+                                        part_name = 'unknown_group'
+                                group_norm[f'{module_name}-{part_name}'] += param_norm
                         total_norm = total_norm ** 0.5
                         extra_logs['preclip_grad_norm'] = total_norm
                         extra_logs['preclip_grad_norm_avg'] = total_norm / n_parameter
+                        extra_logs.update(group_norm)
                         # if self.args.local_rank == 0 or self.args.local_rank == -1:
-                            # print()
-                            # print('preclip_grad_norm=', total_norm)
-                            # print('preclip_grad_norm_avg=', total_norm / n_parameter)
-                            # pass
+                        #     print()
+                        #     print('preclip_grad_norm=', total_norm)
+                        #     print('preclip_grad_norm_avg=', total_norm / n_parameter)
+                        #     for k, v in group_norm.items():
+                        #         print(k, v)
+                        #     pass
 
                     # Gradient clipping
                     if self.args.max_grad_norm is not None and self.args.max_grad_norm > 0 and not self.deepspeed:
