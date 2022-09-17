@@ -1,16 +1,14 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
-
-import os
 import torch
-import transformers
-from transformers import BertModel
+from torch import nn
 
-from src import utils
 
-class Contriever(BertModel):
-    def __init__(self, config, pooling="average", **kwargs):
-        super().__init__(config, add_pooling_layer=False)
-        # will be set outside
+class Contriever(nn.Module):
+    def __init__(self, tokenizer, encoder, config, pooling="average", **kwargs):
+        super(Contriever, self).__init__()
+        self.tokenizer = tokenizer
+        self.encoder = encoder
+        self.config = config
         self.pooling = pooling
         self.num_view = 0
         self.cls_token_id = None
@@ -26,8 +24,7 @@ class Contriever(BertModel):
         encoder_hidden_states=None,
         encoder_attention_mask=None,
         output_attentions=None,
-        output_hidden_states=None,
-        normalize=False,
+        output_hidden_states=None
     ):
         # append CLS special tokens to input
         # if self.num_view == 1, just use the default CLS
@@ -40,7 +37,7 @@ class Contriever(BertModel):
             attention_mask = torch.cat([extra_mask_tokens, attention_mask], dim=1)
             position_ids = torch.arange(extended_len, device=input_ids.device).expand(1, -1)
 
-        model_output = super().forward(
+        model_output = self.encoder.forward(
             input_ids=input_ids,
             attention_mask=attention_mask,
             token_type_ids=token_type_ids,
@@ -61,28 +58,5 @@ class Contriever(BertModel):
             emb = last_hidden[:, 0]  # shape=[B,H]
         elif self.pooling == "multiview":
             emb = last_hidden[:, :self.num_view]  # shape=[B,V,H]
-        # if normalize: emb = torch.nn.functional.normalize(emb, dim=-1)  # normalized outside
         return emb
 
-
-def load_retriever(model_path):
-    #try: #check if model is in a moco wrapper
-    path = os.path.join(model_path, "checkpoint.pth")
-    if os.path.exists(path):
-        pretrained_dict = torch.load(path, map_location="cpu")
-        opt = pretrained_dict['opt']
-        #retriever_model_id = opt.retriever_model_id
-        retriever_model_id = 'bert-base-multilingual-cased'
-        tokenizer = utils.load_hf(transformers.AutoTokenizer, retriever_model_id)
-        cfg = utils.load_hf(transformers.AutoConfig, retriever_model_id)
-        retriever = Contriever(cfg)
-        pretrained_dict = pretrained_dict["model"]
-        if any("encoder_q." in key for key in pretrained_dict.keys()):
-            pretrained_dict = {k.replace("encoder_q.", ""): v for k, v in pretrained_dict.items() if "encoder_q" in k}
-        retriever.load_state_dict(pretrained_dict)
-    else:
-        cfg = utils.load_hf(transformers.AutoConfig, model_path)
-        tokenizer = utils.load_hf(transformers.AutoTokenizer, model_path)
-        retriever = utils.load_hf(Contriever, model_path)
-
-    return retriever, tokenizer

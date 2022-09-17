@@ -4,12 +4,13 @@ import sys
 import torch
 from typing import Dict, List
 
+import torch.distributed as dist
 logger = logging.getLogger(__name__)
 
 #Parent class for any dense model
 class DenseRetrievalExactSearch:
 
-    def __init__(self, model, batch_size: int = 128, corpus_chunk_size: int = 50000, add_qd_prompt=False, **kwargs):
+    def __init__(self, model, batch_size: int = 128, corpus_chunk_size: int = 20000, add_qd_prompt=False, **kwargs):
         #model is class that provides encode_corpus() and encode_queries()
         self.model = model
         self.batch_size = batch_size
@@ -63,7 +64,10 @@ class DenseRetrievalExactSearch:
         itr = range(0, len(corpus), self.corpus_chunk_size)
 
         for batch_num, corpus_start_idx in enumerate(itr):
-            logger.info("Encoding Batch {}/{}...".format(batch_num+1, len(itr)))
+            if dist.is_initialized():
+                logger.info(f"Rank {dist.get_rank()}, Encoding Batch {batch_num+1}/{len(itr)}...")
+            else:
+                logger.info("Encoding Batch {}/{}...".format(batch_num+1, len(itr)))
             corpus_end_idx = min(corpus_start_idx + self.corpus_chunk_size, len(corpus))
 
             #Encode chunk of corpus    
@@ -71,14 +75,22 @@ class DenseRetrievalExactSearch:
                 corpus[corpus_start_idx:corpus_end_idx],
                 batch_size=self.batch_size,
                 show_progress_bar=self.show_progress_bar, 
-                convert_to_tensor = self.convert_to_tensor
+                convert_to_tensor=self.convert_to_tensor
                 )
 
             #Compute similarites using either cosine-similarity or dot product
+            # if dist.is_initialized():
+            #     logger.info(f"Rank {dist.get_rank()}, Computing similarity, q={query_embeddings.shape}, d={sub_corpus_embeddings.shape}...")
+            # else:
+            #     logger.info(f'Computing similarity, q={query_embeddings.shape}, d={sub_corpus_embeddings.shape}...')
             cos_scores = self.score_functions[score_function](query_embeddings, sub_corpus_embeddings)
             cos_scores[torch.isnan(cos_scores)] = -1
 
             #Get top-k values
+            # if dist.is_initialized():
+            #     logger.info(f"Rank {dist.get_rank()}, Get top-k values...")
+            # else:
+            #     logger.info(f'Get top-k values...')
             cos_scores_top_k_values, cos_scores_top_k_idx = torch.topk(cos_scores, min(top_k+1, len(cos_scores[0])), dim=1, largest=True, sorted=return_sorted)
             cos_scores_top_k_values = cos_scores_top_k_values.cpu().tolist()
             cos_scores_top_k_idx = cos_scores_top_k_idx.cpu().tolist()
@@ -89,5 +101,15 @@ class DenseRetrievalExactSearch:
                     corpus_id = corpus_ids[corpus_start_idx+sub_corpus_id]
                     if corpus_id != query_id:
                         self.results[query_id][corpus_id] = score
-        
-        return self.results 
+                # print('before shortening', len(self.results[query_id]))
+                _results = {}
+                for cid, score in sorted(self.results[query_id].items(), key=lambda k: k[1], reverse=True)[:top_k]:
+                    _results[cid] = score
+                self.results[query_id] = _results
+                # print('after shortening', len(self.results[query_id]))
+            # if dist.is_initialized():
+            #     logger.info(f"Rank {dist.get_rank()}, #score={len(self.results[query_id])}...")
+            # else:
+            #     logger.info(f'#score={len(self.results[query_id])}...')
+        return self.results
+

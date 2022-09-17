@@ -185,6 +185,7 @@ class CLTrainer(Trainer):
         avg_recall_100 = []
 
         for dataset in beir_datasets:
+            torch.cuda.empty_cache()
             logger.info(f"Start evaluating with dataset={dataset}")
             split = 'dev' if dataset == 'msmarco' else 'test'
             add_qd_prompt = (self.training_args.dq_prompt_ratio > 0.0)
@@ -200,7 +201,8 @@ class CLTrainer(Trainer):
                 split=split,
                 metric=sim_function,
                 beir_data_path=beir_data_path,
-                add_qd_prompt=add_qd_prompt
+                add_qd_prompt=add_qd_prompt,
+                corpus_chunk_size=20480
             )
 
             if dist_utils.is_main():
@@ -383,7 +385,7 @@ class CLTrainer(Trainer):
                     metrics.update(metrics_dev)
             # beir-eval
             metrics_beir = self.evaluate_beir(epoch=epoch, output_dir=eval_output_dir,
-                                              sim_function=self.model.sim_type,
+                                              sim_function=self.model.sim_metric,
                                               batch_size=self.training_args.beir_batch_size,
                                               # batch_size=self.args.per_device_eval_batch_size,
                                               beir_datasets=self.training_args.beir_datasets)

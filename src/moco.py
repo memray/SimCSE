@@ -15,15 +15,37 @@ import torch.nn.functional as F
 
 logger = logging.getLogger(__name__)
 
-class MoCo(PreTrainedModel):
-    def __init__(self, moco_config, model_config, hf_config):
-        super(MoCo, self).__init__(hf_config)
+
+class MergerLayer(nn.Module):
+    """
+    Advanced dense layers for getting sentence representations over pooled representation.
+    """
+    def __init__(self, merger_type, hidden_size):
+        super().__init__()
+        sizes = [hidden_size] + list(map(int, merger_type.split('-')))
+        layers = []
+        for i in range(len(sizes) - 2):
+            layers.append(nn.Linear(sizes[i], sizes[i + 1], bias=False))
+            layers.append(nn.BatchNorm1d(sizes[i + 1]))
+            layers.append(nn.ReLU(inplace=True))
+        layers.append(nn.Linear(sizes[-2], sizes[-1], bias=False))
+
+        self.projector = nn.Sequential(*layers)
+
+    def forward(self, features, **kwargs):
+        x = self.projector(features)
+        return x
+
+
+class MoCo(nn.Module):
+    def __init__(self, moco_config, hf_config):
+        super(MoCo, self).__init__()
         self.moco_config = moco_config
-        self.model_config = model_config
         self.hf_config = hf_config
 
-        self.use_inbatch_negatives = False
-        self.num_extra_pos = 0
+        self.model_name_or_path = getattr(moco_config, 'model_name_or_path', 'bert-base-uncased')
+        self.use_inbatch_negatives = getattr(moco_config, 'use_inbatch_negatives', False)
+        self.num_extra_pos =getattr(moco_config, 'num_extra_pos', 0)
         self.queue_size = moco_config.queue_size
         self.active_queue_size = moco_config.queue_size
         self.warmup_queue_size_ratio = moco_config.warmup_queue_size_ratio
@@ -35,15 +57,14 @@ class MoCo(PreTrainedModel):
         self.norm_doc = moco_config.norm_doc
         self.norm_query = moco_config.norm_query
         self.moco_train_mode_encoder_k = moco_config.moco_train_mode_encoder_k  #apply the encoder on keys in train mode
-        self.sim_type = model_config.sim_type
+
+        self.sim_metric = getattr(moco_config, 'sim_metric', 'dot')
         self.cosine = nn.CosineSimilarity(dim=-1)
 
         self.pooling = moco_config.pooling
-        # self.num_q_view = 1
-        # self.num_k_view = 1
-        retriever, tokenizer = self._load_retriever(model_config.model_name_or_path,
-                                                    hf_config=self.hf_config,
-                                                    moco_config=self.moco_config)
+        # self.num_q_view = moco_config.num_q_view
+        # self.num_k_view = moco_config.num_k_view
+        retriever, tokenizer = self._load_retriever(self.model_name_or_path, moco_config.pooling)
         self.tokenizer = tokenizer
         self.encoder_q = retriever
 
@@ -51,15 +72,17 @@ class MoCo(PreTrainedModel):
         if not self.indep_encoder_k:
             # MoCo
             self.encoder_k = copy.deepcopy(retriever)
-            for param_q, param_k in zip(self.encoder_q.parameters(), self.encoder_k.parameters()):
+            for param_q, param_k in zip(self.encoder_q.encoder.parameters(), self.encoder_k.encoder.parameters()):
                 param_k.data.copy_(param_q.data)
                 param_k.requires_grad = False
         else:
             # independent q/k encoder
-            retriever, _ = self._load_retriever(model_config.model_name_or_path,
-                                                hf_config=self.hf_config,
-                                                moco_config=self.moco_config)
+            retriever, _ = self._load_retriever(moco_config.model_name_or_path, moco_config.pooling)
             self.encoder_k = retriever
+
+        self.merger_type = getattr(moco_config, 'merger_type', None)
+        if self.merger_type and '-' in self.merger_type:
+            self.merger = MergerLayer(moco_config.merger_type, hf_config.hidden_size)
 
         # create the queue
         if self.queue_size > 0:
@@ -80,20 +103,20 @@ class MoCo(PreTrainedModel):
         self.unif_weight = moco_config.unif_weight
         self.unif_t = moco_config.unif_t
 
-    def _load_retriever(self, model_id, hf_config, moco_config):
-        cfg = utils.load_hf(transformers.AutoConfig, model_id)
+    def _load_retriever(self, model_id, pooling):
+        hf_config = utils.load_hf(transformers.AutoConfig, model_id)
         tokenizer = utils.load_hf(transformers.AutoTokenizer, model_id)
+        encoder = transformers.AutoModel.from_pretrained(model_id, add_pooling_layer=False)
 
-        if moco_config.random_init:
-            retriever = contriever.Contriever(cfg)
-        else:
-            retriever = utils.load_hf(contriever.Contriever, model_id)
+        retriever = contriever.Contriever(tokenizer, encoder, hf_config, pooling)
 
         if 'bert' in model_id:
             if tokenizer.bos_token_id is None:
                 tokenizer.bos_token = "[CLS]"
             if tokenizer.eos_token_id is None:
                 tokenizer.eos_token = "[SEP]"
+        elif 't5' in model_id:
+            raise NotImplementedError()
         retriever.cls_token_id = tokenizer.cls_token_id
 
         return retriever, tokenizer
@@ -108,7 +131,7 @@ class MoCo(PreTrainedModel):
         """
         Update of the key encoder
         """
-        for param_q, param_k in zip(self.encoder_q.parameters(), self.encoder_k.parameters()):
+        for param_q, param_k in zip(self.encoder_q.encoder.parameters(), self.encoder_k.encoder.parameters()):
             param_k.data = param_k.data * self.momentum + param_q.data * (1. - self.momentum)
 
     @torch.no_grad()
@@ -131,7 +154,7 @@ class MoCo(PreTrainedModel):
             raise NotImplementedError('Unsupported update_strategy: ', self.queue_strategy)
 
     def _compute_logits(self, q, k):
-        if self.sim_type == 'dot':
+        if self.sim_metric == 'dot':
             assert len(q.shape) == len(k.shape), 'shape(k)!=shape(q)'
             if self.pooling != 'multiview':  # single view
                 l_pos = torch.einsum('nc,nc->n', [q, k]).unsqueeze(-1)  # [B,H],[B,H] -> [B,1]
@@ -153,13 +176,13 @@ class MoCo(PreTrainedModel):
                 logits = torch.cat([l_pos, l_neg], dim=1)  # [B*V, 1+Q*V]
                 logits = logits.reshape(q.shape[0], q.shape[1], -1)  # [B*V, 1+Q*V] -> [B,V,1+Q*V]
                 logits = logits.max(dim=1)  # TODO, take rest views as negatives as well?
-        elif self.sim_type == 'cosine':
+        elif self.sim_metric == 'cosine':
             assert self.pooling != 'multiview', 'multi-view only works with dot-product (you can normalize vectors first)'
             l_pos = self.cosine(q, k).unsqueeze(-1)  # [B,1]
             l_neg = self.cosine(q.unsqueeze(1), self.queue.T.clone().detach())  # [B,Q]
             logits = torch.cat([l_pos, l_neg], dim=1)  # [B, 1+Q]
         else:
-            raise NotImplementedError('Not supported similarity:', self.sim_type)
+            raise NotImplementedError('Not supported similarity:', self.sim_metric)
         return logits, l_neg
 
     def forward(self,

@@ -34,74 +34,17 @@ logger = logging.get_logger(__name__)
 log_levels = logging.get_log_levels_dict().copy()
 trainer_log_levels = dict(**log_levels, passive=-1)
 
-
 @dataclass
 class ModelArguments:
-    """
-    Arguments pertaining to which model/config/tokenizer we are going to fine-tune, or train from scratch.
-    """
-    # Huggingface's original arguments
-    model_name_or_path: Optional[str] = field(default=None, metadata={"help": "The model checkpoint for weights initialization."
-                    "Don't set if you want to train a model from scratch."})
-    model_type: Optional[str] = field(default=None, metadata={"help": "If training from scratch, pass a model type from the list: " + ", ".join(MODEL_TYPES)})
-    arch_type: Optional[str] = field(default=None, metadata={"help": "moco or simcl"})
-    config_name: Optional[str] = field(default=None, metadata={"help": "Pretrained config name or path if not the same as model_name"})
-    tokenizer_name: Optional[str] = field(default=None, metadata={"help": "Pretrained tokenizer name or path if not the same as model_name"})
-    cache_dir: Optional[str] = field(default=None, metadata={"help": "Where do you want to store the pretrained models downloaded from huggingface.co"})
-    use_fast_tokenizer: bool = field(default=True, metadata={"help": "Whether to use one of the fast tokenizer (backed by the tokenizers library) or not."})
-    model_revision: str = field(default="main", metadata={"help": "The specific model version to use (can be a branch name, tag name or commit id)."})
-    use_auth_token: bool = field(default=False, metadata={"help": "Will use the token generated when running `transformers-cli login` (necessary to use this script "
-            "with private models)."})
-    # @memray
-    cl_loss_weights: str = field(default=None, metadata={"help": "Whether the parameters of query/doc encoder are shared."})
-    shared_encoder: bool = field(default=False, metadata={"help": "Whether the parameters of query/doc encoder are shared."})
-    hidden_dropout_prob: float = field(default=0.10, metadata={"help": "."})
-    attention_probs_dropout_prob: float = field(default=0.10, metadata={"help": "."})
-
-
-    # MoCo related arguments
-    memory_type: str = field(default=None, metadata={"help": ""})
-    memory_size: int = field(default=0, metadata={"help": ""})
-
-    # SimCSE's arguments
-    temp: float = field(default=0.05, metadata={"help": "Temperature for softmax."})
-    # pooler_type: str = field(default="cls", metadata={"help": "What kind of pooler to use (cls, cls_before_pooler, avg, avg_top2, avg_first_last)."})
-    q_proj_type: str = field(default="none", metadata={"help": "projector MLP setting, format is"
-                    "`none`: no projecter"
-                    "mlp: a simple D by D dense layer with Tanh activation, no parameter sharing (used in SimCSE)"
-                    "1024-2048: three dense layers (D*1024*2048) with BatchNorm1d and ReLU (barlow-twin)"})
-    d_proj_type: str = field(default="none", metadata={"help": "projector MLP setting, format is"
-                    "shared: use the same parameters as q_proj"
-                    "`none`: no projecter"
-                    "mlp: a simple D by D dense layer with Tanh activation, no parameter sharing (used in SimCSE)"
-                    "1024-2048: three dense layers (D*1024*2048) with BatchNorm1d and ReLU (barlow-twin)"})
-    sim_type: str = field(default="dot", metadata={"help": "What similarity metric function to use (dot, cosine)."})
-    hard_negative_weight: float = field(default=0, metadata={"help": "The **logit** of weight for hard negatives (only effective if hard negatives are used)."})
-    do_mlm: bool = field(default=False, metadata={"help": "Whether to use MLM auxiliary objective."})
-    mlm_weight: float = field(default=0.1, metadata={"help": "Weight for MLM auxiliary objective (only effective if --do_mlm)."})
-    mlp_only_train: bool = field(default=False, metadata={"help": "Use MLP only during training"})
-
-    def to_dict(self):
-        """
-        Serializes this instance while replace `Enum` by their values (for JSON serialization support). It obfuscates
-        the token values by removing their value.
-        """
-        d = asdict(self)
-        for k, v in d.items():
-            if isinstance(v, Enum):
-                d[k] = v.value
-            if isinstance(v, list) and len(v) > 0 and isinstance(v[0], Enum):
-                d[k] = [x.value for x in v]
-            if k.endswith("_token"):
-                d[k] = f"<{k.upper()}>"
-        return d
-
+    dummy: Optional[str] = field(default=None, metadata={"help": "for back compatibility."})
 
 @dataclass
 class CustomTrainingArguments:
     """
     Arguments pertaining to what data we are going to input our model for training and eval.
     """
+    cache_dir: Optional[str] = field(default=None, metadata={
+        "help": "Where do you want to store the pretrained models downloaded from huggingface.co"})
     # dataset arguments
     train_file: Optional[str] = field(default=None, metadata={"help": "The training data file (.txt or .csv)."})
     train_prob: Optional[str] = field(default=None, metadata={"help": "The sampling probability for multiple datasets."})
@@ -425,12 +368,16 @@ class MoCoArguments():
 
     def initialize(self):
         # basic parameters
+        self.parser.add_argument("--model_name_or_path", type=str, default='bert-base-uncased', help="backbone")
+        self.parser.add_argument("--hidden_dropout_prob", type=float, default=0.1)
+        self.parser.add_argument("--attention_probs_dropout_prob", type=float, default=0.1)
         self.parser.add_argument("--num_q_view", type=int, default=1)
         self.parser.add_argument("--num_k_view", type=int, default=1)
         self.parser.add_argument("--queue_strategy", type=str, default='fifo', help="'fifo', 'priority'")
         self.parser.add_argument("--num_extra_pos", type=int, default=0)
         self.parser.add_argument("--use_inbatch_negatives", type=bool, default=False, help='whether to include negative data in current batch for loss')
         self.parser.add_argument("--queue_size", type=int, default=65536)
+        self.parser.add_argument("--sim_metric", type=str, default='dot', help='What similarity metric function to use (dot, cosine).')
         self.parser.add_argument('--pooling', type=str, default='average', help='average or cls')
         self.parser.add_argument("--pooling_dropout", type=str, default='none', help="none, standard, gaussian, variational")
         self.parser.add_argument("--pooling_dropout_prob", type=float, default=0.0, help="bernoulli, gaussian, variational")

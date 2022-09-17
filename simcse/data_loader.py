@@ -99,7 +99,7 @@ def interleave_datasets(
                                           new_fingerprint=new_fingerprint)
 '''
 
-def load_datasets(tokenizer, training_args, model_args, hftraining_args, moco_args):
+def load_datasets(tokenizer, training_args, hftraining_args, moco_args):
     if hftraining_args.do_train and training_args.train_file:
         # wikipedia is implemented in Apache Beam and it's not streamable
         streaming = False # if 'wiki' in training_args.train_file else True
@@ -112,7 +112,7 @@ def load_datasets(tokenizer, training_args, model_args, hftraining_args, moco_ar
                 loaded_dataset = datasets.load_dataset("json",
                                                         data_files=corpus_jsonl_path,
                                                         keep_in_memory=False,
-                                                        cache_dir=model_args.cache_dir,
+                                                        cache_dir=training_args.cache_dir,
                                                         streaming=streaming)
                 loaded_dataset = loaded_dataset['train']
                 if 'metadata' in loaded_dataset.column_names:
@@ -125,14 +125,14 @@ def load_datasets(tokenizer, training_args, model_args, hftraining_args, moco_ar
                 loaded_dataset = datasets.load_dataset("json",
                                                         data_files=corpus_jsonl_path,
                                                         keep_in_memory=False,
-                                                        cache_dir=model_args.cache_dir,
+                                                        cache_dir=training_args.cache_dir,
                                                         streaming=streaming)
                 loaded_dataset = loaded_dataset['train']
                 title_field, text_field = None, 'text'
             elif dataset_name == 'c4':
                 # https://huggingface.co/datasets/c4
                 # #en=364,868,892, #realnewslike=13,799,838, columns=['url', 'timestamp', 'text']
-                loaded_dataset = datasets.load_dataset("c4", "en", cache_dir=model_args.cache_dir,
+                loaded_dataset = datasets.load_dataset("c4", "en", cache_dir=training_args.cache_dir,
                                                        split='train',
                                                        # split='validation',
                                                        streaming=streaming,
@@ -143,32 +143,32 @@ def load_datasets(tokenizer, training_args, model_args, hftraining_args, moco_ar
                 # https://huggingface.co/datasets/wikipedia
                 # size=6,458,670, columns=['id', 'url', 'title', 'text']
                 loaded_dataset = datasets.load_dataset("wikipedia", "20220301.en",
-                                                       split='train', cache_dir=model_args.cache_dir,
+                                                       split='train', cache_dir=training_args.cache_dir,
                                                        streaming=streaming)
                                                        # split=datasets.ReadInstruction('train', from_=0, to=10000, unit='abs'))
                 title_field, text_field = 'title', 'text'
             elif dataset_name == 'pile':
                 # https://huggingface.co/datasets/the_pile
-                loaded_dataset = datasets.load_dataset("the_pile", cache_dir=model_args.cache_dir, split='train', streaming=streaming)
+                loaded_dataset = datasets.load_dataset("the_pile", cache_dir=training_args.cache_dir, split='train', streaming=streaming)
                 title_field, text_field = None, 'text'
             elif dataset_name == 'owt2':
                 # dataset_size=63.8G
                 # train=17,103,059, columns=['title', 'text', 'reddit_scores']
-                loaded_dataset = datasets.load_dataset("the_pile_openwebtext2", cache_dir=model_args.cache_dir, split='train', streaming=streaming, features=['title', 'text'])
+                loaded_dataset = datasets.load_dataset("the_pile_openwebtext2", cache_dir=training_args.cache_dir, split='train', streaming=streaming, features=['title', 'text'])
                 title_field, text_field = 'title', 'text'
             elif dataset_name == 'pmc':
                 # 180.55 GiB
-                loaded_dataset = datasets.load_dataset("the_pile", subsets=['pubmed_central'], cache_dir=model_args.cache_dir, split='train', streaming=streaming)
+                loaded_dataset = datasets.load_dataset("the_pile", subsets=['pubmed_central'], cache_dir=training_args.cache_dir, split='train', streaming=streaming)
                 title_field, text_field = None, 'text'
             elif dataset_name == 'stackex':
                 # https://huggingface.co/datasets/the_pile_stack_exchange
                 # train=5,096,117, columns=['domain', 'text']
-                loaded_dataset = datasets.load_dataset("the_pile_stack_exchange", cache_dir=model_args.cache_dir, split='train', streaming=streaming)
+                loaded_dataset = datasets.load_dataset("the_pile_stack_exchange", cache_dir=training_args.cache_dir, split='train', streaming=streaming)
                 title_field, text_field = None, 'text'
             elif dataset_name == 'books3':
                 # https://huggingface.co/datasets/the_pile_books3
                 # train=196,640, columns=['title', 'text']
-                loaded_dataset = datasets.load_dataset("the_pile_books3", cache_dir=model_args.cache_dir, split='train', streaming=streaming)
+                loaded_dataset = datasets.load_dataset("the_pile_books3", cache_dir=training_args.cache_dir, split='train', streaming=streaming)
                 title_field, text_field = None, 'text'
             else:
                 assert os.path.isfile(dataset_name), f'{dataset_name} does not exist.'
@@ -177,13 +177,13 @@ def load_datasets(tokenizer, training_args, model_args, hftraining_args, moco_ar
                     loaded_dataset = datasets.load_dataset("json",
                                                             data_files=dataset_name,
                                                             keep_in_memory=False,
-                                                            cache_dir=model_args.cache_dir,
+                                                            cache_dir=training_args.cache_dir,
                                                             streaming=streaming)
                 else:
                     loaded_dataset = datasets.load_dataset("text",
                                                             data_files=dataset_name,
                                                             keep_in_memory=False,
-                                                            cache_dir=model_args.cache_dir,
+                                                            cache_dir=training_args.cache_dir,
                                                             streaming=streaming)
                 title_field, text_field = None, 'text'
                 loaded_dataset = loaded_dataset['train']
@@ -257,7 +257,7 @@ def load_datasets(tokenizer, training_args, model_args, hftraining_args, moco_ar
             dev_dataset = datasets.load_dataset("csv",
                                                 data_files={"dev": training_args.dev_file},
                                                 keep_in_memory=False,
-                                                cache_dir=model_args.cache_dir,
+                                                cache_dir=training_args.cache_dir,
                                                 delimiter="\t" if "tsv" in training_args.dev_file else ",",
                                                 split='dev')
             dev_dataset.set_transform(psg_parse_fn)

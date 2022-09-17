@@ -150,6 +150,7 @@ def evaluate_model(
         metric='dot',
         beir_data_path="BEIR/datasets",
         add_qd_prompt=False,
+        corpus_chunk_size=50000
     ):
     if metric == 'cosine':
         metric = 'cos_sim'
@@ -175,9 +176,13 @@ def evaluate_model(
             norm_doc=norm_doc,
         ),
         batch_size=batch_size,
-        add_qd_prompt=add_qd_prompt
+        add_qd_prompt=add_qd_prompt,
+        corpus_chunk_size=corpus_chunk_size
     )
-    retriever = EvaluateRetrieval(dmodel, score_function=metric)
+    retriever = EvaluateRetrieval(dmodel,
+                                  score_function=metric,
+                                  k_values=[1, 3, 5, 10, 20, 50, 100, 200, 1000]
+                                  )
     url = "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/{}.zip".format(dataset)
     data_path = beir.util.download_and_unzip(url, beir_data_path)
     if dataset == 'cqadupstack':
