@@ -4,15 +4,11 @@ import os
 import sys
 import types
 
-from functools import partial
-
-import datasets
 import torch
 
 import transformers
 from torch.distributed.elastic.multiprocessing.errors import record
 from transformers import (
-    CONFIG_MAPPING,
     AutoConfig,
     AutoTokenizer,
     HfArgumentParser,
@@ -21,13 +17,13 @@ from transformers import (
 from transformers.trainer_utils import is_main_process
 from transformers.integrations import WandbCallback, rewrite_logs
 
-from simcse.data_loader import load_datasets
+from src.data_loader import load_datasets
 
-from simcse.trainers import CLTrainer
-from simcse.utils import wandb_setup, wandb_setup_eval
-from simcse.data_process import PassageDataCollatorWithPadding
-from src.arguments import CustomTrainingArguments, ExtHFTrainingArguments, MoCoArguments
-# from src.finetune.finetuning import load_finetuning_datasets
+from src.trainer import DenseRetrievalTrainer
+
+from src.utils import wandb_setup, wandb_setup_eval
+from src.data_process import PassageDataCollatorWithPadding
+from src.arguments import CustomTrainingArguments, HFTrainingArguments, MoCoArguments
 from src.moco import MoCo
 
 logger = logging.getLogger(__name__)
@@ -39,7 +35,7 @@ def main():
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
 
-    parser = HfArgumentParser((CustomTrainingArguments, ExtHFTrainingArguments))
+    parser = HfArgumentParser((CustomTrainingArguments, HFTrainingArguments))
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
         # let's parse it to get our arguments.
@@ -137,7 +133,7 @@ def main():
     """""""""""""""""""""
     Set up trainer
     """""""""""""""""""""
-    trainer = CLTrainer(
+    trainer = DenseRetrievalTrainer(
         model=model,
         args=hftraining_args,
         train_dataset=train_dataset if hftraining_args.do_train else None,
@@ -205,7 +201,8 @@ def main():
         if training_args.beir_datasets:
             final_beir_datasets = training_args.beir_datasets
         else:
-            final_beir_datasets = ['msmarco', 'trec-covid', 'nfcorpus', 'nq', 'hotpotqa', 'fiqa', 'arguana', 'webis-touche2020', 'dbpedia-entity', 'scidocs', 'fever', 'climate-fever', 'scifact', 'quora', 'cqadupstack']
+            final_beir_datasets = ['trec-covid', 'nfcorpus', 'nq', 'hotpotqa', 'fiqa', 'arguana', 'webis-touche2020', 'dbpedia-entity', 'scidocs', 'fever', 'scifact', 'quora', 'cqadupstack']
+            # full 15 test, ['msmarco', 'trec-covid', 'nfcorpus', 'nq', 'hotpotqa', 'fiqa', 'arguana', 'webis-touche2020', 'dbpedia-entity', 'scidocs', 'fever', 'climate-fever', 'scifact', 'quora', 'cqadupstack']
             # 11 tests, ['nfcorpus', 'fiqa', 'arguana', 'scidocs', 'scifact', 'webis-touche2020', 'cqadupstack', 'trec-covid', 'quora', 'nq', 'dbpedia-entity']
 
         results = trainer.evaluate_beir(epoch=trainer.state.epoch,

@@ -4,10 +4,10 @@ from torch import nn
 
 
 class Contriever(nn.Module):
-    def __init__(self, tokenizer, encoder, config, pooling="average", **kwargs):
+    def __init__(self, tokenizer, model, config, pooling="average", **kwargs):
         super(Contriever, self).__init__()
         self.tokenizer = tokenizer
-        self.encoder = encoder
+        self.model = model
         self.config = config
         self.pooling = pooling
         self.num_view = 0
@@ -37,7 +37,7 @@ class Contriever(nn.Module):
             attention_mask = torch.cat([extra_mask_tokens, attention_mask], dim=1)
             position_ids = torch.arange(extended_len, device=input_ids.device).expand(1, -1)
 
-        model_output = self.encoder.forward(
+        model_output = self.model.forward(
             input_ids=input_ids,
             attention_mask=attention_mask,
             token_type_ids=token_type_ids,
@@ -53,9 +53,9 @@ class Contriever(nn.Module):
         last_hidden = last_hidden.masked_fill(~attention_mask[..., None].bool(), 0.)
 
         if self.pooling == "average":
-            emb = last_hidden.sum(dim=1) / attention_mask.sum(dim=1)[..., None]  # shape=[B,H]
+            emb = last_hidden.sum(dim=1) / attention_mask.sum(dim=1)[..., None]  # [B,L,H] -> [B,H]
         elif self.pooling == "cls":
-            emb = last_hidden[:, 0]  # shape=[B,H]
+            emb = last_hidden[:, 0]  # [B,L,H] -> [B,H]
         elif self.pooling == "multiview":
             emb = last_hidden[:, :self.num_view]  # shape=[B,V,H]
         return emb

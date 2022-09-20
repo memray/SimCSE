@@ -18,7 +18,7 @@ from transformers.file_utils import cached_property, torch_required, is_torch_av
 from transformers.trainer_utils import EvaluationStrategy, HubStrategy, ShardedDDPOption
 from transformers.training_args import default_logdir, trainer_log_levels, OptimizerNames
 
-from simcse.trainers import TYPE_TO_SCHEDULER_FUNCTION, SchedulerType
+from src.trainer import TYPE_TO_SCHEDULER_FUNCTION, SchedulerType
 
 MODEL_CONFIG_CLASSES = list(MODEL_FOR_MASKED_LM_MAPPING.keys())
 MODEL_TYPES = tuple(conf.model_type for conf in MODEL_CONFIG_CLASSES)
@@ -36,6 +36,9 @@ trainer_log_levels = dict(**log_levels, passive=-1)
 
 @dataclass
 class ModelArguments:
+    dummy: Optional[str] = field(default=None, metadata={"help": "for back compatibility."})
+@dataclass
+class ExtHFTrainingArguments(TrainingArguments):
     dummy: Optional[str] = field(default=None, metadata={"help": "for back compatibility."})
 
 @dataclass
@@ -62,7 +65,6 @@ class CustomTrainingArguments:
     validation_split_percentage: Optional[int] = field(default=5, metadata={"help": "The percentage of the train set used as validation set in case there's no validation split"})
     # parameters used in data transformation (data_process.hfdataset_prepare_features)
     resume_training: str = field(default=None, metadata={"help": "resume training."})
-    data_type: str = field(default=None, metadata={"help": "document or passage."})
     data_pipeline_name: str = field(default=None, metadata={"help": "Pre-defined data pipeline name. If set, all data hyper-parameters below will be overwritten."})
     max_context_len: int = field(default=None, metadata={"help": "if data_type is document and max_context_len is given, we first randomly crop a contiguous span, and Q/D will be sampled from it."})
     min_dq_len: int = field(default=None, metadata={"help": "The minimal number of words for sampled query and doc."})
@@ -102,7 +104,7 @@ class CustomTrainingArguments:
 
 
 @dataclass
-class ExtHFTrainingArguments(TrainingArguments):
+class HFTrainingArguments(TrainingArguments):
     # Evaluation
     ## By default, we evaluate STS (dev) during training (for selecting best checkpoints) and evaluate
     ## both STS and transfer tasks (dev) at the end of training. Using --eval_transfer will allow evaluating
@@ -305,61 +307,6 @@ class ExtHFTrainingArguments(TrainingArguments):
         elif ShardedDDPOption.ZERO_DP_2 in self.sharded_ddp and ShardedDDPOption.ZERO_DP_3 in self.sharded_ddp:
             raise ValueError("`--sharded_ddp zero_dp_2` is not compatible with `--sharded_ddp zero_dp_3`.")
 
-        if self.tpu_metrics_debug:
-            warnings.warn(
-                "using `--tpu_metrics_debug` is deprecated and will be removed in version 5 of 🤗 Transformers. Use `--debug tpu_metrics_debug` instead",
-                FutureWarning,
-            )
-            self.debug += " tpu_metrics_debug"
-            self.tpu_metrics_debug = False
-        if isinstance(self.debug, str):
-            self.debug = [DebugOption(s) for s in self.debug.split()]
-
-        if self.deepspeed:
-            # - must be run very last in arg parsing, since it will use a lot of these settings.
-            # - must be run before the model is created.
-            from transformers.deepspeed import HfTrainerDeepSpeedConfig
-
-            # will be used later by the Trainer
-            # note: leave self.deepspeed unmodified in case a user relies on it not to be modified)
-            self.hf_deepspeed_config = HfTrainerDeepSpeedConfig(self.deepspeed)
-            self.hf_deepspeed_config.trainer_config_process(self)
-
-        if self.push_to_hub_token is not None:
-            warnings.warn(
-                "`--push_to_hub_token` is deprecated and will be removed in version 5 of 🤗 Transformers. Use "
-                "`--hub_token` instead.",
-                FutureWarning,
-            )
-            self.hub_token = self.push_to_hub_token
-
-        if self.push_to_hub_model_id is not None:
-            self.hub_model_id = get_full_repo_name(
-                self.push_to_hub_model_id, organization=self.push_to_hub_organization, token=self.hub_token
-            )
-            if self.push_to_hub_organization is not None:
-                warnings.warn(
-                    "`--push_to_hub_model_id` and `--push_to_hub_organization` are deprecated and will be removed in "
-                    "version 5 of 🤗 Transformers. Use `--hub_model_id` instead and pass the full repo name to this "
-                    f"argument (in this case {self.hub_model_id}).",
-                    FutureWarning,
-                )
-            else:
-                warnings.warn(
-                    "`--push_to_hub_model_id` is deprecated and will be removed in version 5 of 🤗 Transformers. Use "
-                    "`--hub_model_id` instead and pass the full repo name to this argument (in this case "
-                    f"{self.hub_model_id}).",
-                    FutureWarning,
-                )
-        elif self.push_to_hub_organization is not None:
-            self.hub_model_id = f"{self.push_to_hub_organization}/{Path(self.output_dir).name}"
-            warnings.warn(
-                "`--push_to_hub_organization` is deprecated and will be removed in version 5 of 🤗 Transformers. Use "
-                "`--hub_model_id` instead and pass the full repo name to this argument (in this case "
-                f"{self.hub_model_id}).",
-                FutureWarning,
-            )
-
 
 class MoCoArguments():
     def __init__(self):
@@ -371,12 +318,18 @@ class MoCoArguments():
         self.parser.add_argument("--model_name_or_path", type=str, default='bert-base-uncased', help="backbone")
         self.parser.add_argument("--hidden_dropout_prob", type=float, default=0.1)
         self.parser.add_argument("--attention_probs_dropout_prob", type=float, default=0.1)
+        self.parser.add_argument('--projection_size', type=int, default=768)
+        self.parser.add_argument('--indep_encoder_k', type=bool, default=False, help='whether to use an independent/asynchronous encoder.')
         self.parser.add_argument("--num_q_view", type=int, default=1)
         self.parser.add_argument("--num_k_view", type=int, default=1)
+        self.parser.add_argument("--q_proj", type=str, default='none', help="Q projector MLP setting, format is 1.`` or none: no projecter; 2.mlp: a simple D by D dense layer with Tanh activation, no parameter sharing (used in SimCSE); 3. 1024-2048: three dense layers (D*1024*2048) with BatchNorm1d and ReLU (barlow-twin)")
+        self.parser.add_argument("--k_proj", type=str, default='none', help="D projector MLP setting")
         self.parser.add_argument("--queue_strategy", type=str, default='fifo', help="'fifo', 'priority'")
         self.parser.add_argument("--num_extra_pos", type=int, default=0)
         self.parser.add_argument("--use_inbatch_negatives", type=bool, default=False, help='whether to include negative data in current batch for loss')
         self.parser.add_argument("--queue_size", type=int, default=65536)
+        self.parser.add_argument("--q_queue_size", type=int, default=0)
+        self.parser.add_argument("--symmetric_loss", type=bool, default=False)
         self.parser.add_argument("--sim_metric", type=str, default='dot', help='What similarity metric function to use (dot, cosine).')
         self.parser.add_argument('--pooling', type=str, default='average', help='average or cls')
         self.parser.add_argument("--pooling_dropout", type=str, default='none', help="none, standard, gaussian, variational")
@@ -393,8 +346,6 @@ class MoCoArguments():
         self.parser.add_argument('--norm_doc', action='store_true')
         self.parser.add_argument('--moco_train_mode_encoder_k', action='store_true')
         self.parser.add_argument('--random_init', action='store_true', help='init model with random weights')
-        self.parser.add_argument('--projection_size', type=int, default=768)
-        self.parser.add_argument('--indep_encoder_k', type=bool, default=False, help='whether to use an independent/asynchronous encoder.')
         # alignment+uniformity
         self.parser.add_argument('--align_unif_loss', type=bool, default=False)
         self.parser.add_argument('--align_weight', type=float, default=0.0)
