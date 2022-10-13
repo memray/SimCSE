@@ -32,6 +32,7 @@ class BM25Search:
         # Index the corpus within elastic-search
         # False, if the corpus has been already indexed
         if self.initialize:
+            print('Building BM25 index...')
             self.index(corpus)
             # Sleep for few seconds so that elastic-search indexes the docs properly
             if kwargs.get("sleep_for", None): time.sleep(kwargs.get("sleep_for"))
@@ -39,17 +40,18 @@ class BM25Search:
         #retrieve results from BM25 
         query_ids = list(queries.keys())
         queries = [queries[qid] for qid in query_ids]
-        
-        for start_idx in tqdm.trange(0, len(queries), self.batch_size, desc='que'):
+
+        print(f'Retrieving with query, batch size={self.batch_size}, #batch={len(queries) // self.batch_size}')
+        for start_idx in tqdm.trange(0, len(queries), self.batch_size, desc='\t Retrieving batch'):
             query_ids_batch = query_ids[start_idx:start_idx+self.batch_size]
             results = self.es.lexical_multisearch(
                 texts=queries[start_idx:start_idx+self.batch_size], 
                 top_hits=top_k + 1) # Add 1 extra if query is present with documents
-            
+
             for (query_id, hit) in zip(query_ids_batch, results):
                 scores = {}
                 for corpus_id, score in hit['hits']:
-                    if corpus_id != query_id: # query doesnt return in results
+                    if corpus_id != query_id:  # query doesnt return in results
                         scores[corpus_id] = score
                     self.results[query_id] = scores
         

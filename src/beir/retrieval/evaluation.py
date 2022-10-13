@@ -7,8 +7,10 @@ from .search.lexical import BM25Search as BM25
 from .search.sparse import SparseSearch as SS
 from .custom_metrics import mrr, recall_cap, hole, top_k_accuracy
 
+logging.basicConfig(level=logging.INFO,
+    format='%(asctime)s.%(msecs)03d %(levelname)s %(module)s - %(funcName)s: %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S')
 logger = logging.getLogger(__name__)
-
 
 class EvaluateRetrieval:
 
@@ -92,9 +94,9 @@ class EvaluateRetrieval:
             precision[f"P@{k}"] = round(precision[f"P@{k}"] / len(scores), 5)
 
         for eval in [ndcg, _map, recall, precision]:
-            logging.info("\n")
+            logger.info("\n")
             for k in eval.keys():
-                logging.info("{}: {:.4f}".format(k, eval[k]))
+                logger.info("{}: {:.4f}".format(k, eval[k]))
 
         return ndcg, _map, recall, precision
 

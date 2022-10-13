@@ -1,3 +1,4 @@
+import collections
 import copy
 import json
 import random
@@ -29,8 +30,8 @@ class PassageDataCollatorWithPadding:
     batch_size: int
     padding_strategy: Union[bool, str, PaddingStrategy]
     max_length: Optional[int] = None
-    cap_qd_tokens: bool = False  # if true, limit len(q)+len(d) <= max_length
-    max_q_tokens: Union[tuple] = None  # used if cap_qd_len==True, it's max length of q, and d_len=cap_qd_len-q_len
+    max_q_tokens: Union[tuple, int] = None  # used if cap_qd_len==True, it's max length of q, and d_len=cap_qd_len-q_len
+    max_d_tokens: Optional[int] = None  # cap the max length of d
 
     def __call__(self, batch_data) -> Dict[str, torch.Tensor]:
         batch_data = [e for e in batch_data if e and 'sentences' in e and len(e['sentences']) > 0]
@@ -55,19 +56,24 @@ class PassageDataCollatorWithPadding:
         if num_sent_per_example == 2:  # validation
             flat_q_sents = [s for e in sentences for s in [e[0]]]
             flat_d_sents = [s for e in sentences for s in [e[1]]]
-        else:  # training
+        else:  # training, flat_q_sents=q+/q-/q+/q-...
             flat_q_sents = [s for e in sentences for s in [e[0], e[2]]]
             flat_d_sents = [s for e in sentences for s in [e[1], e[3]]]
-        if self.cap_qd_tokens:
-            assert isinstance(self.max_q_tokens, list)
-            if self.max_q_tokens[0] > 0:
-                max_q_len = np.random.randint(self.max_q_tokens[0], self.max_q_tokens[1])
-            else:
-                max_q_len = self.max_q_tokens[1]
+        max_q_len = self.max_length
+        max_d_len = self.max_length
+        if self.max_q_tokens and len(self.max_q_tokens) == 2 and self.max_q_tokens[0] > 0:
+            max_q_len = np.random.randint(self.max_q_tokens[0], self.max_q_tokens[1])
             max_d_len = self.max_length - max_q_len
-        else:
-            max_q_len = self.max_length
-            max_d_len = self.max_length
+        elif self.max_q_tokens and len(self.max_q_tokens) == 2 and self.max_q_tokens[0] == 0:
+            max_q_len = self.max_q_tokens[1]
+        elif self.max_q_tokens and len(self.max_q_tokens) == 1:
+            max_q_len = self.max_q_tokens[0]
+        if self.max_d_tokens and len(self.max_d_tokens) == 2 and self.max_d_tokens[0] > 0:
+            max_d_len = np.random.randint(self.max_d_tokens[0], self.max_d_tokens[1])
+        elif self.max_d_tokens and len(self.max_d_tokens) == 2 and self.max_d_tokens[0] == 0:
+            max_d_len = self.max_d_tokens[1]
+        elif self.max_d_tokens and len(self.max_d_tokens) == 1:
+            max_d_len = self.max_d_tokens[0]
         q_feats = self.tokenizer(
             flat_q_sents,
             max_length=max_q_len,
@@ -75,10 +81,6 @@ class PassageDataCollatorWithPadding:
             padding=self.padding_strategy,
             return_tensors="pt",
         )
-        # to allow longer D sequences if actual Q is shorter
-        if self.cap_qd_tokens and q_feats['input_ids'].shape[1] < max_q_len:
-            max_q_len = q_feats['input_ids'].shape[1]
-            max_d_len = self.max_length - max_q_len
         k_feats = self.tokenizer(
             flat_d_sents,
             max_length=max_d_len,
@@ -118,7 +120,6 @@ class PassageDataCollatorWithPaddingQDTogether:
     batch_size: int
     padding_strategy: Union[bool, str, PaddingStrategy]
     max_length: Optional[int] = None
-    cap_qd_tokens: bool = False  # if true, limit len(q)+len(d) <= max_length
     max_q_tokens: Union[tuple] = None  # used if cap_qd_len==True, it's max length of q, and d_len=cap_qd_len-q_len
 
     def __call__(self, batch_data) -> Dict[str, torch.Tensor]:

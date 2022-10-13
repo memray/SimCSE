@@ -21,7 +21,9 @@ def cos_sim(a: torch.Tensor, b: torch.Tensor):
 
     a_norm = torch.nn.functional.normalize(a, p=2, dim=1)
     b_norm = torch.nn.functional.normalize(b, p=2, dim=1)
-    return torch.mm(a_norm, b_norm.transpose(0, 1))
+
+    return torch.mm(a_norm.cuda(), b_norm.cuda().transpose(0, 1))
+    # return torch.mm(a_norm, b_norm.transpose(0, 1))
 
 def dot_score(a: torch.Tensor, b: torch.Tensor):
     """
@@ -40,7 +42,8 @@ def dot_score(a: torch.Tensor, b: torch.Tensor):
     if len(b.shape) == 1:
         b = b.unsqueeze(0)
 
-    return torch.mm(a, b.transpose(0, 1))
+    return torch.mm(a.cuda(), b.cuda().transpose(0, 1))
+    # return torch.mm(a, b.transpose(0, 1))
 
 def normalize(a: np.ndarray) -> np.ndarray:
     return a/np.linalg.norm(a, ord=2, axis=1, keepdims=True)

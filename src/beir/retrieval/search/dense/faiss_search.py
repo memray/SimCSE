@@ -1,5 +1,6 @@
 import copy
 
+from src import dist_utils
 from .util import cos_sim, dot_score, normalize, save_dict_to_tsv, load_tsv_to_dict
 from .faiss_index import FaissBinaryIndex, FaissTrainIndex, FaissHNSWIndex, FaissIndex
 import logging
@@ -10,20 +11,27 @@ import numpy as np
 import os
 from typing import Dict, List
 from tqdm.autonotebook import tqdm
+import torch.distributed as dist
 
 logger = logging.getLogger(__name__)
 
 #Parent class for any faiss search
 class DenseRetrievalFaissSearch:
     
-    def __init__(self, model, batch_size: int = 128, corpus_chunk_size: int = 50000, add_qd_prompt=False, **kwargs):
+    def __init__(self, model, batch_size: int = 128, query_batch_size=16,
+                 corpus_chunk_size: int = 50000,
+                 index_save_path=None,
+                 use_gpu=False, add_qd_prompt=False, **kwargs):
         self.model = model
         self.batch_size = batch_size
+        self.query_batch_size = query_batch_size
         self.corpus_chunk_size = corpus_chunk_size
         self.score_functions = ['cos_sim','dot']
         self.mapping_tsv_keys = ["beir-docid", "faiss-docid"]
         self.faiss_index = None
+        self.index_save_path = index_save_path
         self.dim_size = 0
+        self.use_gpu = use_gpu
         self.results = {}
         self.mapping = {}
         self.rev_mapping = {}
@@ -51,15 +59,14 @@ class DenseRetrievalFaissSearch:
         return input_faiss_path, passage_ids
 
     def save(self, output_dir: str, prefix: str, ext: str):
-        
         # Save BEIR -> Faiss ids mappings
         save_mappings_path = os.path.join(output_dir, "{}.{}.tsv".format(prefix, ext))
-        logger.info("Saving Faiss ID-mappings to path: {}".format(save_mappings_path))
+        logger.info("Saving Faiss ID-mappings (#doc={}) to path: {}".format(len(self.mapping), save_mappings_path))
         save_dict_to_tsv(self.mapping, save_mappings_path, keys=self.mapping_tsv_keys)
 
         # Save Faiss Index to disk
         save_faiss_path = os.path.join(output_dir, "{}.{}.faiss".format(prefix, ext))
-        logger.info("Saving Faiss Index to path: {}".format(save_faiss_path))
+        logger.info("Saving Faiss Index (ntotal={}, d={}) to path: {}".format(self.faiss_index.index.ntotal, self.faiss_index.index.d, save_faiss_path))
         self.faiss_index.save(save_faiss_path)
         logger.info("Index size: {:.2f}MB".format(os.path.getsize(save_faiss_path)*0.000001))
     
@@ -85,7 +92,7 @@ class DenseRetrievalFaissSearch:
         itr = range(0, len(corpus), self.corpus_chunk_size)
 
         for batch_num, corpus_start_idx in enumerate(itr):
-            logger.info("Encoding Batch {}/{}...".format(batch_num+1, len(itr)))
+            logger.info("Encoding corpus batch {}/{}...".format(batch_num+1, len(itr)))
             corpus_end_idx = min(corpus_start_idx + self.corpus_chunk_size, len(corpus))
             
             #Encode chunk of corpus    
@@ -93,7 +100,8 @@ class DenseRetrievalFaissSearch:
                 corpus[corpus_start_idx:corpus_end_idx],
                 batch_size=self.batch_size,
                 show_progress_bar=True, 
-                normalize_embeddings=normalize_embeddings)
+                normalize_embeddings=normalize_embeddings
+            )
             
             if not batch_num: 
                 corpus_embeddings = sub_corpus_embeddings
@@ -101,10 +109,9 @@ class DenseRetrievalFaissSearch:
                 corpus_embeddings = np.vstack([corpus_embeddings, sub_corpus_embeddings])
         
         #Index chunk of corpus into faiss index
-        logger.info("Indexing Passages into Faiss...") 
-        
         faiss_ids = [self.mapping.get(corpus_id) for corpus_id in corpus_ids]
         self.dim_size = corpus_embeddings.shape[1]
+        logger.info(f"Indexing Passages into Faiss, #Doc={len(faiss_ids)}, Dim={self.dim_size}...")
 
         del sub_corpus_embeddings
 
@@ -114,11 +121,11 @@ class DenseRetrievalFaissSearch:
                corpus: Dict[str, Dict[str, str]],
                queries: Dict[str, str], 
                top_k: int,
-               score_function = str, **kwargs) -> Dict[str, Dict[str, float]]:
-        
+               score_function=str, **kwargs) -> Dict[str, Dict[str, float]]:
         assert score_function in self.score_functions
 
-        if not self.faiss_index: self.index(corpus, score_function)
+        if not self.faiss_index:
+            self.index(corpus, score_function)
 
         logger.info("Encoding Queries...")
         query_ids = list(queries.keys())
@@ -128,10 +135,14 @@ class DenseRetrievalFaissSearch:
             queries = [queries[qid] for qid in queries]
         query_embeddings = self.model.encode_queries(
             queries, show_progress_bar=True, batch_size=self.batch_size)
+        if not dist_utils.is_main():
+            return
+        logger.info("Start Faiss search...")
+        if self.use_gpu:
+            self.faiss_index.to_gpu()
+        faiss_scores, faiss_doc_ids = self.faiss_index.search(query_embeddings, top_k, self.query_batch_size, **kwargs)
 
-        # self.faiss_index = self.faiss_index.to_gpu()
-        faiss_scores, faiss_doc_ids = self.faiss_index.search(query_embeddings, top_k, **kwargs)
-        
+        logger.info("Post-processing search results...")
         for idx in range(len(query_ids)):
             scores = [float(score) for score in faiss_scores[idx]]
             if len(self.rev_mapping) != 0:
@@ -263,6 +274,8 @@ class FlatIPFaissSearch(DenseRetrievalFaissSearch):
 
     def index(self, corpus: Dict[str, Dict[str, str]], score_function: str = None, **kwargs):
         faiss_ids, corpus_embeddings = super()._index(corpus, score_function, **kwargs)
+        if isinstance(corpus_embeddings, torch.Tensor):
+            corpus_embeddings = corpus_embeddings.cpu().numpy()
         if corpus_embeddings.dtype != 'float32':
             corpus_embeddings = corpus_embeddings.astype('float32')
         base_index = faiss.IndexFlatIP(self.dim_size)

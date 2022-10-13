@@ -1,5 +1,5 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
-
+import numpy as np
 import torch
 import torch.nn as nn
 import logging
@@ -7,10 +7,11 @@ import copy
 import transformers
 from transformers.modeling_outputs import BaseModelOutputWithPoolingAndCrossAttentions
 
-from simcse.models import ContrastiveLearningOutput, gather_norm
-from src import contriever, dist_utils, utils
+from src import contriever, dist_utils
 
 import torch.nn.functional as F
+
+from src.model_utils import load_retriever, load_hf, gather_norm, ContrastiveLearningOutput
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,7 @@ class MLPLayer(nn.Module):
     def __init__(self, hidden_size):
         super().__init__()
         self.dense = nn.Linear(hidden_size, hidden_size)
+        # self.dense = weight_norm(nn.Linear(hidden_size, hidden_size))
         self.activation = nn.Tanh()
 
     def forward(self, features, **kwargs):
@@ -81,12 +83,15 @@ class MoCo(nn.Module):
 
         self.model_name_or_path = getattr(moco_config, 'model_name_or_path', 'bert-base-uncased')
         self.use_inbatch_negatives = getattr(moco_config, 'use_inbatch_negatives', False)
+        self.same_qd_ratio = getattr(moco_config, 'same_qd_ratio', 0.0)
         self.num_extra_pos = getattr(moco_config, 'num_extra_pos', 0)
+        self.neg_indices = getattr(moco_config, 'neg_indices', None)
+        self.projection_size = moco_config.projection_size
         self.queue_size = moco_config.queue_size
         self.q_queue_size = getattr(moco_config, 'q_queue_size', 0)
         self.active_queue_size = moco_config.queue_size
-        self.warmup_queue_size_ratio = moco_config.warmup_queue_size_ratio
-        self.queue_update_steps = moco_config.queue_update_steps
+        self.warmup_queue_size_ratio = moco_config.warmup_queue_size_ratio  # probably
+        self.queue_update_steps = moco_config.queue_update_steps  # not useful
 
         self.momentum = moco_config.momentum
         self.temperature = moco_config.temperature
@@ -98,11 +103,12 @@ class MoCo(nn.Module):
         self.pooling = moco_config.pooling
         self.sim_metric = getattr(moco_config, 'sim_metric', 'dot')
         self.symmetric_loss = getattr(moco_config, 'symmetric_loss', False)
+        self.qk_norm_diff_lambda = getattr(moco_config, 'symmetric_loss', 0.0)
         self.cosine = nn.CosineSimilarity(dim=-1)
 
         # self.num_q_view = moco_config.num_q_view
         # self.num_k_view = moco_config.num_k_view
-        retriever, tokenizer = self._load_retriever(self.model_name_or_path, moco_config.pooling)
+        retriever, tokenizer = load_retriever(self.model_name_or_path, moco_config.pooling, hf_config)
         self.tokenizer = tokenizer
         self.encoder_q = retriever
 
@@ -115,7 +121,7 @@ class MoCo(nn.Module):
                 param_k.requires_grad = False
         else:
             # independent q/k encoder
-            retriever, _ = self._load_retriever(moco_config.model_name_or_path, moco_config.pooling)
+            retriever, _ = load_retriever(moco_config.model_name_or_path, moco_config.pooling, hf_config)
             self.encoder_k = retriever
 
         # print('q_proj=', moco_config.q_proj)
@@ -137,7 +143,7 @@ class MoCo(nn.Module):
                 self.k_mlp = self.q_mlp
             elif self.k_proj == "mlp":
                 self.k_mlp = MLPLayer(self.projection_size)
-            elif self.k_proj == "projector":
+            elif '-' in self.q_proj:
                 self.k_mlp = ProjectorLayer(self.projection_size, self.q_proj)
             else:
                 raise NotImplementedError('Unknown k_proj ' + self.k_proj)
@@ -148,26 +154,28 @@ class MoCo(nn.Module):
         self.merger_type = getattr(moco_config, 'merger_type', None)
         if self.merger_type and '-' in self.merger_type:
             self.merger = MergerLayer(moco_config.merger_type, hf_config.hidden_size)
+            self._init_weights(self.merger)
+        else:
+            self.merger = None
 
         # create the queue
         # update_strategy = ['fifo', 'priority']
         # self.queue_strategy = moco_config.queue_strategy
+        self.register_buffer("queue_ptr", torch.zeros(1, dtype=torch.long))
         if self.queue_size > 0:
             self.register_buffer("queue_k", torch.randn(moco_config.projection_size, self.queue_size))
             self.queue_k = nn.functional.normalize(self.queue_k, dim=0)  # L2 norm
-            self.register_buffer("queue_ptr", torch.zeros(1, dtype=torch.long))
         else:
-            self.queue_k, self.queue_ptr = None, None
+            self.queue_k = None
         if self.q_queue_size > 0:
             self.register_buffer("queue_q", torch.randn(moco_config.projection_size, self.q_queue_size))
             self.queue_q = nn.functional.normalize(self.queue_q, dim=0)  # L2 norm
-            if not self.queue_ptr:
-                self.register_buffer("queue_ptr", torch.zeros(1, dtype=torch.long))
         else:
             self.queue_q = None
 
         # https://github.com/SsnL/moco_align_uniform/blob/align_uniform/moco/builder.py
         self.align_unif_loss = moco_config.align_unif_loss
+        self.align_unif_cancel_step = getattr(moco_config, 'align_unif_cancel_step', 0)
         # l_align. 2 align_weight = 3, align_alpha = 2 is used in SimCSE/moco_align_uniform by default
         self.align_weight = moco_config.align_weight
         self.align_alpha = moco_config.align_alpha
@@ -175,23 +183,22 @@ class MoCo(nn.Module):
         self.unif_weight = moco_config.unif_weight
         self.unif_t = moco_config.unif_t
 
-    def _load_retriever(self, model_id, pooling):
-        hf_config = utils.load_hf(transformers.AutoConfig, model_id)
-        tokenizer = utils.load_hf(transformers.AutoTokenizer, model_id)
-        model = transformers.AutoModel.from_pretrained(model_id, add_pooling_layer=False)
+    def _init_weights(self, module):
+        """Initialize the weights"""
+        if isinstance(module, nn.Linear):
+            # Slightly different from the TF version which uses truncated_normal for initialization
+            # cf https://github.com/pytorch/pytorch/pull/5617
+            module.weight.data.normal_(mean=0.0, std=self.config.initializer_range)
+            if module.bias is not None:
+                module.bias.data.zero_()
+        elif isinstance(module, nn.Embedding):
+            module.weight.data.normal_(mean=0.0, std=self.config.initializer_range)
+            if module.padding_idx is not None:
+                module.weight.data[module.padding_idx].zero_()
+        elif isinstance(module, nn.LayerNorm):
+            module.bias.data.zero_()
+            module.weight.data.fill_(1.0)
 
-        retriever = contriever.Contriever(tokenizer, model, hf_config, pooling)
-
-        if 'bert' in model_id:
-            if tokenizer.bos_token_id is None:
-                tokenizer.bos_token = "[CLS]"
-            if tokenizer.eos_token_id is None:
-                tokenizer.eos_token = "[SEP]"
-        elif 't5' in model_id:
-            raise NotImplementedError()
-        retriever.cls_token_id = tokenizer.cls_token_id
-
-        return retriever, tokenizer
 
     def get_encoder(self, return_encoder_k=False):
         if return_encoder_k:
@@ -216,17 +223,23 @@ class MoCo(nn.Module):
         # replace the keys at ptr (dequeue and enqueue)
         queue[:, ptr:ptr + batch_size] = keys.T
 
+    def _compute_norm_loss(self, q, k):
+        q_norm = gather_norm(q)
+        k_norm = gather_norm(k)
+        norm_diff = (q_norm - k_norm)**2
+        return norm_diff
+
     def _compute_loss(self, q, k, queue=None):
         bsz = q.shape[0]
         if self.use_inbatch_negatives:
             labels = torch.arange(0, bsz, dtype=torch.long, device=q.device)  # [B]
             labels = labels + dist_utils.get_rank() * len(k)  # positive indices offset=local_rank*B
-            logits = self._compute_logits_inbatch(q, k, queue)
+            logits = self._compute_logits_inbatch(q, k, queue)  # shape=[B,k*n_gpu] or [B,k*n_gpu+Q]
         else:
-            logits = self._compute_logits(q, k)
+            logits = self._compute_logits(q, k)  # shape=[B,1+Q]
             labels = torch.zeros(bsz, dtype=torch.long).cuda()  # shape=[B]
         # contrastive, 1 positive out of Q negatives (in-batch examples are not used)
-        logits = logits / self.temperature  # shape=[B,1+Q]
+        logits = logits / self.temperature
         loss = torch.nn.functional.cross_entropy(logits, labels, label_smoothing=self.label_smoothing)
         # print(q_tokens.device, 'q_shape=', q_tokens.shape, 'k_shape=', k_tokens.shape)
         # print('loss=', loss.item(), 'logits.mean=', logits.mean().item())
@@ -234,16 +247,19 @@ class MoCo(nn.Module):
 
     def _compute_logits_inbatch(self, q, k, queue):
         k = k.contiguous()
-        gather_kemb = dist_utils.gather(k)  # [B,D] -> [B*n_gpu,D]
+        gather_k = dist_utils.gather(k)  # [B,D] -> [B*n_gpu,D]
         if self.sim_metric == 'dot':
-            logits = torch.einsum("id,jd->ij", q, gather_kemb)  # # [B,D] x [B*n_gpu,D] = [B,B*n_gpu]
+            logits = torch.einsum("id,jd->ij", q, gather_k)  # # [B,D] x [B*n_gpu,D] = [B,B*n_gpu]
             if queue is not None:
                 l_neg = torch.einsum('bd,dn->bn', [q, queue.clone().detach()])  # [B,H],[H,Q] -> [B,Q]
                 logits = torch.cat([logits, l_neg], dim=1)  # [B,B*n_gpu]+[B,Q] = [B,B*n_gpu+Q]
         else:
-            l_pos = self.cosine(q, k).unsqueeze(-1)  # [B,1]
-            l_neg = self.cosine(q.unsqueeze(1), queue.T.clone().detach())  # [B,Q]
-            logits = torch.cat([l_pos, l_neg], dim=1)  # [B, 1+Q]
+            # cast to q.shape=[B,1,H], gather_k.shape=[B*n_device,H] -> [B,B*n_device]
+            logits = self.cosine(q.unsqueeze(1), gather_k)
+            if queue is not None:
+                # cast to q.shape=[B,1,H], queue.shape=[Q,H] -> [B,Q]
+                l_neg = self.cosine(q.unsqueeze(1), queue.T.clone().detach())  # [B,Q]
+                logits = torch.cat([logits, l_neg], dim=1)  # [B, B*n_device+Q]
         return logits
 
     def _compute_logits(self, q, k):
@@ -282,6 +298,7 @@ class MoCo(nn.Module):
         logits = logits.max(dim=1)  # TODO, take rest views as negatives as well?
         return logits
 
+
     def forward(self,
         input_ids=None,
         attention_mask=None,
@@ -317,12 +334,44 @@ class MoCo(nn.Module):
         k_tokens = input_ids[1]
         k_mask = attention_mask[1]
 
+        # print('q_tokens.shape=', q_tokens.shape)
+        # print('k_tokens.shape=', k_tokens.shape)
+
+        # prone to OOM, and size is messy, commented out for now
+        # if self.neg_indices is not None and max(self.neg_indices) < len(input_ids):
+        #     k_tokens = torch.cat([k_tokens]+[input_ids[i] for i in self.neg_indices])
+        #     k_mask = torch.cat([k_mask]+[attention_mask[i] for i in self.neg_indices])
+
         iter_stats = {}
         bsz = q_tokens.size(0)
+        q_len = q_tokens.shape[1]
+        k_len = k_tokens.shape[1]
 
         q = self.encoder_q(input_ids=q_tokens, attention_mask=q_mask)  # queries: B,D
-        if self.norm_query:
-            q = nn.functional.normalize(q, dim=-1)
+        if self.norm_query: q = nn.functional.normalize(q, dim=-1)
+
+        def _replace_k_with_q(k_tokens, k_mask):
+            coins = np.random.binomial(size=bsz, p=self.same_qd_ratio, n=1)
+            q_indices = torch.Tensor([i for i in range(bsz) if coins[i]]).long().to(q.device)
+            k_indices = torch.Tensor([i for i in range(bsz) if not coins[i]]).long().to(q.device)
+            max_len = max(q_len, k_len)
+            new_k = torch.zeros(bsz, max_len).long().to(q.device)
+            new_k_mask = torch.zeros(bsz, max_len).long().to(q.device)
+            # mask the unselected indices by zero-out
+            q_selected = q_tokens.clone().index_fill_(dim=0, index=k_indices, value=0).long()
+            qmask_selected = q_mask.clone().index_fill_(0, k_indices, 0).long()
+            k_selected = k_tokens.clone().index_fill_(0, q_indices, 0).long()
+            kmask_selected = k_mask.clone().index_fill_(0, q_indices, 0).long()
+            # merge unmasked part of q and k
+            new_k[q_indices, :q_len] = q_selected[q_indices]
+            new_k[k_indices, :k_len] = k_selected[k_indices]
+            new_k_mask[q_indices, :q_len] = qmask_selected[q_indices]
+            new_k_mask[k_indices, :k_len] = kmask_selected[k_indices]
+            return new_k, new_k_mask
+
+        # randomly replace some D with Q, similar to SimCSE
+        if self.same_qd_ratio > 0:
+            k_tokens, k_mask = _replace_k_with_q(k_tokens, k_mask)
 
         # compute key features
         if self.indep_encoder_k:
@@ -340,14 +389,19 @@ class MoCo(nn.Module):
                 k = self.encoder_k(input_ids=k_tokens, attention_mask=k_mask)  # keys: B,D
                 if self.norm_doc:
                     k = nn.functional.normalize(k, dim=-1)
-        if self.k_mlp:
-            k = self.k_mlp(k)
-        if self.q_mlp:
-            q = self.q_mlp(q)
+
+        if self.k_mlp:  k = self.k_mlp(k)
+        if self.q_mlp:  q = self.q_mlp(q)
+
         loss, logits, labels = self._compute_loss(q, k.detach(), self.queue_k)
         if self.symmetric_loss:
             _loss, _logits, _labels = self._compute_loss(k, q.detach(), self.queue_q)
             loss = (loss + _loss) / 2
+        if self.qk_norm_diff_lambda > 0:
+            norm_loss = self._compute_norm_loss(q, k)
+            loss += self.qk_norm_diff_lambda * norm_loss
+        else:
+            norm_loss = 0.0
         if len(stats_prefix) > 0:
             stats_prefix = stats_prefix + '/'
         iter_stats[f'{stats_prefix}cl_loss'] = torch.clone(loss)
@@ -356,21 +410,31 @@ class MoCo(nn.Module):
             accuracy = 100 * (predicted_idx == labels).float()
             stdq = torch.std(q, dim=0).mean()  # q=[Q,D], std(q)=[D], std(q).mean()=[1]
             stdk = torch.std(k, dim=0).mean()
-            stdqueue = torch.std(self.queue_k.T, dim=0).mean()
+            stdqueue_k = torch.std(self.queue_k.T, dim=0).mean() if self.queue_k is not None else 0.0
+            stdqueue_q = torch.std(self.queue_q.T, dim=0).mean() if self.queue_q is not None else 0.0
             # print(accuracy.detach().cpu().numpy())
             iter_stats[f'{stats_prefix}accuracy'] = accuracy.mean()
             iter_stats[f'{stats_prefix}stdq'] = stdq
             iter_stats[f'{stats_prefix}stdk'] = stdk
-            iter_stats[f'{stats_prefix}stdqueue'] = stdqueue
+            iter_stats[f'{stats_prefix}stdqueue_k'] = stdqueue_k
+            iter_stats[f'{stats_prefix}stdqueue_q'] = stdqueue_q
             iter_stats[f'{stats_prefix}queue_ptr'] = self.queue_ptr
             iter_stats[f'{stats_prefix}active_queue_size'] = self.active_queue_size
 
             doc_norm = gather_norm(k)
             query_norm = gather_norm(q)
-            queue_norm = gather_norm(self.queue_k.T)
+            queue_k_norm = gather_norm(self.queue_k.T) if self.queue_k is not None else 0.0
+            queue_q_norm = gather_norm(self.queue_q.T) if self.queue_q is not None else 0.0
             iter_stats[f'{stats_prefix}doc_norm'] = doc_norm
             iter_stats[f'{stats_prefix}query_norm'] = query_norm
-            iter_stats[f'{stats_prefix}queue_norm'] = queue_norm
+            iter_stats[f'{stats_prefix}norm_diff'] = torch.abs(doc_norm - query_norm)
+            iter_stats[f'{stats_prefix}queue_k_norm'] = queue_k_norm
+            iter_stats[f'{stats_prefix}queue_q_norm'] = queue_q_norm
+            iter_stats[f'{stats_prefix}norm_loss'] = norm_loss
+
+            # compute on each device, only dot-product
+            iter_stats[f'{stats_prefix}inbatch_pos_score'] = torch.einsum('bd,bd->b', q, k).detach().mean()
+            iter_stats[f'{stats_prefix}inbatch_neg_score'] = torch.einsum('id,jd->ij', q, k).detach().fill_diagonal_(0).sum() / (bsz*bsz-bsz)
 
         # loss of alignment/uniformity
         # lazyily computed & cached!
@@ -381,7 +445,7 @@ class MoCo(nn.Module):
             return get_q_bdot_k.result
         def get_q_dot_queue():
             if not hasattr(get_q_dot_queue, 'result'):
-                get_q_dot_queue.result = (q @ self.queue_k).flatten()
+                get_q_dot_queue.result = (q @ self.queue_k.detach()).flatten()
             assert get_q_dot_queue.result._version == 0
             return get_q_dot_queue.result
         def get_q_dot_queue_splits():
@@ -403,7 +467,7 @@ class MoCo(nn.Module):
             return get_queue_dot_queue.result
 
         if (report_metrics and report_align_unif) or self.align_unif_loss:
-            if self.active_queue_size >= bsz * 4 and self.active_queue_size % 4 == 0:
+            if self.queue_q is not None and self.active_queue_size >= bsz * 4 and self.active_queue_size % 4 == 0:
                 qqueuesplits_dists = get_q_dot_queue_splits()  # [q*queue_split]
                 for i in range(4):
                     # mean/min/max distance between q and (k in queue_splits)
@@ -417,7 +481,7 @@ class MoCo(nn.Module):
             if self.align_alpha is not None:
                 if self.align_alpha == 2:
                     loss_align = (q - k).norm(dim=1, p=2).pow(2).mean()
-                    # the line below is only equivalent to (q-k).norm(p=2, dim=1).pow(2).mean() when k/q are normalized!
+                    # the line below is equivalent to (q-k).norm(p=2, dim=1).pow(2).mean() only when k/q are normalized!
                     # iter_stats[f'{stats_prefix}loss_align'] = 2 - 2 * get_q_bdot_k().mean()
                 elif self.align_alpha == 1:
                     loss_align = (q - k).norm(dim=1, p=2).mean()
@@ -426,22 +490,22 @@ class MoCo(nn.Module):
             # l_uniform
             if self.unif_t is not None:
                 # [q*queue]
-                qqueue_dists = get_q_dot_queue().pow(2)
-                # add 2*self.unif_t to make it non-negative, near zero at optimum
-                iter_stats[f'{stats_prefix}loss_unif_q@queue'] = \
-                    2 * self.unif_t + qqueue_dists.mul(-self.unif_t).exp().mean().log()
-                loss_unif = iter_stats[f'{stats_prefix}loss_unif_q@queue']
-
+                if self.queue_k is not None:
+                    qqueue_dists = get_q_dot_queue().pow(2)
+                    # add 2*self.unif_t to make it non-negative, near zero at optimum
+                    loss_unif = 2 * self.unif_t + qqueue_dists.mul(-self.unif_t).exp().mean().log()
+                    iter_stats[f'{stats_prefix}loss_unif_q@queue'] = loss_unif.item()
+                '''
                 if report_align_unif:
                     # [q*queue_splits]
-                    if self.active_queue_size >= bsz * 4 and self.active_queue_size % 4 == 0:
+                    if self.queue_q is not None and self.active_queue_size >= bsz * 4 and self.active_queue_size % 4 == 0:
                         qqueuesplits_dists = get_q_dot_queue_splits()  # [q*queue_split]
                         for i in range(4):
                             iter_stats[f'{stats_prefix}loss_unif_q@queue-Q{i}'] = \
                                 2 * self.unif_t + qqueuesplits_dists[i].flatten().pow(2).mul(-self.unif_t).exp().mean().log()
                     else:
                         for i in range(4):
-                            iter_stats[f'{stats_prefix}loss_unif_q@queue-Q{i}'] = torch.tensor(0.0)
+                            iter_stats[f'{stats_prefix}loss_unif_q@queue-Q{i}'] = 0.0
                     # loss_unif_intra_batch is used in moco_align_uniform by default, where the negative pair distances include
                     # both the distance between samples in each batch and features in queue, as well as pairwise distances within each batch
                     # [q*q]
@@ -452,16 +516,16 @@ class MoCo(nn.Module):
                     # queueself_dists = get_queue_dot_queue().pow(2)
                     # iter_stats[f'{stats_prefix}loss_unif_queue@queue'] = \
                     #     2 * self.unif_t + queueself_dists.mul(-self.unif_t).exp().mean().log()
+            '''
             if self.align_unif_loss:
                 if self.align_weight > 0.0:
-                    iter_stats[f'{stats_prefix}loss_align'] = self.align_weight * loss_align
-                    loss += iter_stats[f'{stats_prefix}loss_align']
+                    loss += self.align_weight * loss_align
                 if self.unif_weight > 0.0:
-                    iter_stats[f'{stats_prefix}loss_unif'] = self.unif_weight * loss_unif
-                    loss += iter_stats[f'{stats_prefix}loss_unif']
-            else:
-                if loss_align: iter_stats[f'{stats_prefix}loss_align'] = loss_align
-                if loss_unif: iter_stats[f'{stats_prefix}loss_unif'] = loss_align
+                    loss += self.unif_weight * loss_unif
+            if loss_align:
+                iter_stats[f'{stats_prefix}loss_align'] = loss_align
+            if loss_unif:
+                iter_stats[f'{stats_prefix}loss_unif'] = loss_unif
 
         iter_stats[f'{stats_prefix}loss'] = loss
 
@@ -469,11 +533,11 @@ class MoCo(nn.Module):
             # print('Before \t\t queue_ptr', int(self.queue_ptr), 'queue_k.shape=', self.queue_k.shape)
             if self.queue_k is not None: self._dequeue_and_enqueue(k, self.queue_k)
             if self.queue_q is not None: self._dequeue_and_enqueue(q, self.queue_q)
-            ptr = int(self.queue_ptr)
-            ptr = (ptr + bsz * dist_utils.get_world_size()) % self.active_queue_size  # move pointer
-            self.queue_ptr[0] = ptr
+            if self.queue_k is not None or self.queue_q is not None:
+                ptr = int(self.queue_ptr)
+                ptr = (ptr + bsz * dist_utils.get_world_size()) % self.active_queue_size  # move pointer
+                self.queue_ptr[0] = ptr
             # print('After \t\t queue_ptr', int(self.queue_ptr), 'self.queue_k.shape=', self.queue_k.shape)
-
         return ContrastiveLearningOutput(
             loss=loss,
             specific_losses=iter_stats
@@ -486,6 +550,7 @@ class MoCo(nn.Module):
         attention_mask=None,
     ):
         encoder = self.encoder_q
+        # self.encoder_k is momentum during training, so be cautious
         if self.indep_encoder_k and not is_query:
             encoder = self.encoder_k
         pooler_output = encoder(input_ids, attention_mask=attention_mask)

@@ -3,6 +3,7 @@
 #
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
+import logging
 import os
 import inspect
 
@@ -11,13 +12,15 @@ import torch.distributed as dist
 from typing import List, Dict
 import numpy as np
 
-import beir.util
-from beir.datasets.data_loader import GenericDataLoader
-from beir.retrieval.evaluation import EvaluateRetrieval
-from beir.retrieval.search.dense import DenseRetrievalExactSearch
+from src.beir.util import download_and_unzip
+from src.beir.datasets.data_loader import GenericDataLoader
+from src.beir.retrieval.evaluation import EvaluateRetrieval
+from src.beir.retrieval.search.dense import DenseRetrievalExactSearch
 
+from src.beireval import dist_utils
 from src.dist_utils import varsize_gather_nograd
 
+logger = logging.getLogger(__name__)
 
 class DenseEncoderModel:
     def __init__(
@@ -38,8 +41,8 @@ class DenseEncoderModel:
         self.add_special_tokens = add_special_tokens
         self.norm_query = norm_query
         self.norm_doc = norm_doc
-  
-    def encode_queries(self, queries: List[str], batch_size: int, **kwargs) -> np.ndarray:
+
+    def encode_queries(self, queries: List[str], batch_size: int, use_gpu=False, **kwargs) -> np.ndarray:
 
         if dist.is_initialized(): 
             idx = np.array_split(range(len(queries)), dist.get_world_size())[dist.get_rank()]
@@ -51,6 +54,7 @@ class DenseEncoderModel:
         nbatch = (len(queries)-1) // batch_size + 1
         with torch.no_grad():
             for k in range(nbatch):
+                if dist_utils.is_main() and k % 10 == 0: logger.info(f'\t\tEncoding query batch {k}/{nbatch}')
                 start_idx = k * batch_size
                 end_idx = min((k+1) * batch_size, len(queries))
 
@@ -87,11 +91,12 @@ class DenseEncoderModel:
         allemb = torch.cat(allemb, dim=0) 
         if dist.is_initialized():
             allemb = varsize_gather_nograd(allemb)
-        allemb = allemb.cpu().numpy()
+        if not use_gpu:
+            allemb = allemb.cpu().numpy()
         return allemb
 
 
-    def encode_corpus(self, corpus: List[Dict[str, str]], batch_size: int, **kwargs):
+    def encode_corpus(self, corpus: List[Dict[str, str]], batch_size: int, return_cpu=True, **kwargs):
 
         if dist.is_initialized(): 
             idx = np.array_split(range(len(corpus)), dist.get_world_size())[dist.get_rank()]
@@ -99,7 +104,7 @@ class DenseEncoderModel:
             idx = range(len(corpus))
         _corpus = [corpus[i] for i in idx]
         _corpus = [
-            c['title'] + ' ' + c['text'] if len(c['title']) > 0 else c['text'] for c in _corpus
+            c['title'] + ' TEXT: ' + c['text'] if len(c['title']) > 0 else c['text'] for c in _corpus
         ]
         
         allemb = []
@@ -132,7 +137,8 @@ class DenseEncoderModel:
         allemb = torch.cat(allemb, dim=0)
         if dist.is_initialized():
             allemb = varsize_gather_nograd(allemb)
-        allemb = allemb.cpu().numpy()
+        if return_cpu:
+            allemb = allemb.cpu().numpy()
         return allemb
 
 def evaluate_model(
@@ -141,6 +147,7 @@ def evaluate_model(
         tokenizer, 
         dataset, 
         batch_size=128, 
+        query_batch_size=128,
         max_length=512,
         add_special_tokens=True,
         norm_query=False, 
@@ -178,6 +185,7 @@ def evaluate_model(
             norm_doc=norm_doc,
         ),
         batch_size=batch_size,
+        query_batch_size=query_batch_size,
         add_qd_prompt=add_qd_prompt,
         corpus_chunk_size=corpus_chunk_size
     )
@@ -186,7 +194,7 @@ def evaluate_model(
                                   k_values=k_values
                                   )
     url = "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/{}.zip".format(dataset)
-    data_path = beir.util.download_and_unzip(url, beir_data_path)
+    data_path = download_and_unzip(url, beir_data_path)
     if dataset == 'cqadupstack':
         ndcgs, _maps, recalls, precisions, mrrs, recall_caps, holes = [], [], [], [], [], [], []
         cqasubsets = [

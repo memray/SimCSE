@@ -1,3 +1,6 @@
+import torch
+
+from src.beireval import dist_utils
 from .util import normalize
 from typing import List, Optional, Tuple, Union
 from tqdm.autonotebook import trange
@@ -17,7 +20,31 @@ class FaissIndex:
         if passage_ids is not None:
             self._passage_ids = np.array(passage_ids, dtype=np.int64)
 
-    def search(self, query_embeddings: np.ndarray, k: int, **kwargs) -> Tuple[np.ndarray, np.ndarray]:
+    def search(self, query_embeddings: np.ndarray, k: int, batch_size: int, **kwargs) -> Tuple[np.ndarray, np.ndarray]:
+        '''
+        search in batch
+        '''
+        start_time = time.time()
+        if isinstance(query_embeddings, torch.Tensor):
+            query_embeddings = query_embeddings.cpu().numpy()
+        if query_embeddings.dtype != 'float32':
+            query_embeddings = query_embeddings.astype('float32')
+        scores_arrs, ids_arrs = [], []
+        num_q = len(query_embeddings)
+        for i in range(num_q // batch_size + 1):
+            if dist_utils.is_main() and i % 100 == 0: logger.info(f'\t\tComputing similarity: query batch {i}/{num_q // batch_size + 1}')
+            q_emb = query_embeddings[i * batch_size: min((i+1) * batch_size, num_q)]
+            scores_arr, ids_arr = self.index.search(q_emb, k)
+            scores_arrs.append(scores_arr)
+            ids_arrs.append(ids_arr)
+        scores_arr = np.concatenate(scores_arrs)
+        ids_arr = np.concatenate(ids_arrs)
+        if self._passage_ids is not None:
+            ids_arr = self._passage_ids[ids_arr.reshape(-1)].reshape(query_embeddings.shape[0], -1)
+        logger.info("Total search time: %.3f", time.time() - start_time)
+        return scores_arr, ids_arr
+
+    def search_onepass(self, query_embeddings: np.ndarray, k: int, **kwargs) -> Tuple[np.ndarray, np.ndarray]:
         start_time = time.time()
         if query_embeddings.dtype != 'float32':
             query_embeddings = query_embeddings.astype('float32')
@@ -46,10 +73,15 @@ class FaissIndex:
         return cls(index, passage_ids)
 
     def to_gpu(self):
+        # self.index = faiss.index_cpu_to_all_gpus(self.index)
+        # res = faiss.StandardGpuResources()
+        # self.index = faiss.index_cpu_to_gpu(res, 0, self.index)
+        logger.info("Moving index to GPU")
         if faiss.get_num_gpus() == 1:
             res = faiss.StandardGpuResources()
             self.index = faiss.index_cpu_to_gpu(res, 0, self.index)
         else:
+            # it takes some time...
             cloner_options = faiss.GpuMultipleClonerOptions()
             cloner_options.shard = True
             self.index = faiss.index_cpu_to_all_gpus(self.index, co=cloner_options)

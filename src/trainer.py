@@ -15,6 +15,7 @@ from transformers.modeling_utils import PreTrainedModel
 from transformers.optimization import TYPE_TO_SCHEDULER_FUNCTION, get_linear_schedule_with_warmup, \
     get_cosine_schedule_with_warmup, get_cosine_with_hard_restarts_schedule_with_warmup, \
     get_polynomial_decay_schedule_with_warmup, get_constant_schedule, get_constant_schedule_with_warmup
+import torch.distributed as dist
 
 from transformers.trainer_utils import (
     PREFIX_CHECKPOINT_DIR,
@@ -26,7 +27,7 @@ from transformers.file_utils import (
     WEIGHTS_NAME,
     is_apex_available,
     is_datasets_available,
-    is_torch_tpu_available, ExplicitEnum,
+    is_torch_tpu_available
 )
 from transformers.trainer_callback import (
     TrainerState,
@@ -44,9 +45,13 @@ from torch.utils.data.dataloader import DataLoader
 from torch.utils.data.dataset import Dataset
 from torch.utils.data.distributed import DistributedSampler
 
-from src.beireval import beir_utils, dist_utils
-from src import utils
-from src.senteval import engine
+from src import training_utils, eval_utils
+
+from torch.optim import Optimizer
+from torch.optim.lr_scheduler import LambdaLR
+
+from src.qa.data import load_passages
+from src.trainer_utils import SchedulerType
 
 if is_torch_tpu_available():
     import torch_xla.core.xla_model as xm
@@ -69,28 +74,30 @@ def _model_unwrap(model: nn.Module) -> nn.Module:
     else:
         return model
 
-# Set path to SentEval
-PATH_TO_DATA = '/export/share/ruimeng/project/search/simcse/SentEval/data/'
+def get_cosine_with_hard_decayed_restarts_schedule_with_warmup(
+        optimizer: Optimizer, num_warmup_steps: int, num_training_steps: int, num_cycles: int = 1,
+        last_epoch: int = -1
+):
+    def lr_lambda(current_step):
+        if current_step < num_warmup_steps:
+            return float(current_step) / float(max(1, num_warmup_steps))
+        progress = float(current_step - num_warmup_steps) / float(max(1, num_training_steps - num_warmup_steps))
+        if progress >= 1.0:
+            return 0.0
+        return max(0.0, 0.5 * (1.0 + math.cos(math.pi * ((float(num_cycles) * progress) % 1.0)))
+                   * float(num_training_steps - current_step) / float(max(1, num_training_steps - num_warmup_steps)))
 
-class SchedulerType(ExplicitEnum):
-    LINEAR = "linear"
-    COSINE = "cosine"
-    COSINE_WITH_RESTARTS = "cosine_with_restarts"
-    COSINE_WITH_DECAYED_RESTARTS = "cosine_with_decayed_restarts"
-    POLYNOMIAL = "polynomial"
-    CONSTANT = "constant"
-    CONSTANT_WITH_WARMUP = "constant_with_warmup"
+    return LambdaLR(optimizer, lr_lambda, last_epoch)
 
 TYPE_TO_SCHEDULER_FUNCTION = {
     SchedulerType.LINEAR: get_linear_schedule_with_warmup,
     SchedulerType.COSINE: get_cosine_schedule_with_warmup,
     SchedulerType.COSINE_WITH_RESTARTS: get_cosine_with_hard_restarts_schedule_with_warmup,
-    SchedulerType.COSINE_WITH_DECAYED_RESTARTS: utils.get_cosine_with_hard_decayed_restarts_schedule_with_warmup,
+    SchedulerType.COSINE_WITH_DECAYED_RESTARTS: get_cosine_with_hard_decayed_restarts_schedule_with_warmup,
     SchedulerType.POLYNOMIAL: get_polynomial_decay_schedule_with_warmup,
     SchedulerType.CONSTANT: get_constant_schedule,
     SchedulerType.CONSTANT_WITH_WARMUP: get_constant_schedule_with_warmup,
 }
-import numpy as np
 
 logger = logging.get_logger(__name__)
 
@@ -162,153 +169,6 @@ class DenseRetrievalTrainer(Trainer):
         model.moco_train_mode_encoder_k = True
         return EvalLoopOutput(predictions=None, label_ids=None, metrics=metrics, num_samples=len(dataloader))
 
-    def evaluate_beir(self, epoch, output_dir, sim_function, batch_size=32, beir_datasets=None) -> Dict[str, float]:
-        if not beir_datasets:
-            # fever will cause gpu error when `Encoding Batch 88/109`
-            # beir_datasets = ['nfcorpus', 'fiqa', 'arguana', 'scidocs', 'scifact'] # quick test
-            # beir_datasets = ['nfcorpus', 'fiqa', 'arguana', 'scidocs', 'scifact', 'webis-touche2020', 'cqadupstack', 'quora', 'dbpedia-entity', 'nq'] # mostly reported in Contriever
-            # beir_datasets = ['nfcorpus', 'fiqa', 'arguana', 'scidocs', 'scifact', 'webis-touche2020', 'cqadupstack', 'trec-covid', 'nq', 'dbpedia-entity', 'quora'] # small testsets+NQ+FEVER+Quora
-            beir_datasets = ['nfcorpus', 'fiqa', 'arguana', 'scidocs', 'scifact', 'webis-touche2020', 'cqadupstack', 'trec-covid', 'quora', 'nq']  # smallest 8 datasets+quora,nq
-            # beir_datasets = ['nfcorpus', 'fiqa', 'arguana', 'scidocs', 'scifact', 'webis-touche2020', 'cqadupstack', 'trec-covid']  # smallest 8 datasets
-            # beir_datasets = ['fiqa']  # test
-        norm_query = self.model.norm_query
-        norm_doc = self.model.norm_doc
-        beir_data_path = self.training_args.beir_path
-
-        metrics = {'epoch': epoch}
-        avg_ndcg_10 = []
-        avg_recall_10 = []
-        avg_recall_20 = []
-        avg_recall_100 = []
-
-        for dataset in beir_datasets:
-            torch.cuda.empty_cache()
-            logger.info(f"Start evaluating with dataset={dataset}")
-            split = 'dev' if dataset == 'msmarco' else 'test'
-            add_qd_prompt = (self.training_args.dq_prompt_ratio > 0.0)
-            ndcg, _map, recall, precision, mrr, recall_cap, hole = beir_utils.evaluate_model(
-                query_encoder=self.model,
-                doc_encoder=self.model,
-                tokenizer=self.tokenizer,
-                dataset=dataset,
-                batch_size=batch_size,
-                norm_query=norm_query,
-                norm_doc=norm_doc,
-                is_main=dist_utils.is_main(),
-                split=split,
-                metric=sim_function,
-                beir_data_path=beir_data_path,
-                add_qd_prompt=add_qd_prompt,
-                corpus_chunk_size=20480
-            )
-
-            if dist_utils.is_main():
-                # logger.info(dataset + ' ' + str(ndcg))
-                # logger.info(dataset + ' ' + str(_map))
-                # logger.info(dataset + ' ' + str(recall))
-                # logger.info(dataset + ' ' + str(precision))
-                # logger.info(dataset + ' ' + str(mrr))
-                # logger.info(dataset + ' ' + str(recall_cap))
-                # logger.info(dataset + ' ' + str(hole))
-                ndcg10 = ndcg['NDCG@10']
-                recall10 = recall['Recall@10'] if dataset != 'trec-covid' else recall_cap['R_cap@10']
-                recall20 = recall['Recall@20'] if dataset != 'trec-covid' else recall_cap['R_cap@20']
-                recall100 = recall['Recall@100'] if dataset != 'trec-covid' else recall_cap['R_cap@100']
-                metrics[f'eval_{dataset}_ndcg@10'] = ndcg10
-                metrics[f'eval_{dataset}_recall@10'] = recall10
-                metrics[f'eval_{dataset}_recall@20'] = recall20
-                metrics[f'eval_{dataset}_recall@100'] = recall100
-                avg_ndcg_10.append(ndcg10)
-                avg_recall_10.append(recall10)
-                avg_recall_20.append(recall20)
-                avg_recall_100.append(recall100)
-
-                result_dict = {
-                    'dataset': dataset,
-                    'split': split,
-                    'metric': sim_function,
-                    'norm_query': norm_query,
-                    'norm_doc': norm_doc,
-                    'scores': {
-                        'ndcg': ndcg,
-                        'map': _map,
-                        'precision': precision,
-                        'recall': recall,
-                        'mrr': mrr,
-                        'recall_cap': recall_cap,
-                        'hole': hole,
-                    }
-                }
-                logger.info(f"Dump results of {dataset} to {output_dir}/{dataset}.json")
-                with open(f"{output_dir}/{dataset}.json", 'w') as writer:
-                    writer.write(json.dumps(result_dict, indent=4) + "\n")
-                rows = ['metric,@1,@3,@5,@10,@20,@50,@100,@200,@1000']
-                for metric_name, scores in result_dict['scores'].items():
-                    row = ','.join([str(s) for s in ([metric_name] + list(scores.values()))])
-                    rows.append(row)
-                with open(f"{output_dir}/{dataset}.csv", 'w') as writer:
-                    for row in rows:
-                        writer.write(row + "\n")
-
-        metrics['eval_avg_ndcg@10'] = np.mean(avg_ndcg_10)
-        metrics['eval_avg_recall@10'] = np.mean(avg_recall_10)
-        metrics['eval_avg_recall@20'] = np.mean(avg_recall_20)
-        metrics['eval_avg_recall@100'] = np.mean(avg_recall_100)
-
-        return metrics
-
-    def evaluate_senteval(
-        self, epoch, output_dir, eval_senteval_transfer: bool = False,
-    ) -> Dict[str, float]:
-
-        # SentEval prepare and batcher
-        def prepare(params, samples):
-            return
-
-        def batcher(params, batch):
-            sentences = [' '.join(s) for s in batch]
-            batch = self.tokenizer.batch_encode_plus(
-                sentences,
-                return_tensors='pt',
-                padding=True,
-            )
-            for k in batch:
-                batch[k] = batch[k].to(self.args.device)
-            with torch.no_grad():
-                outputs = self.model(**batch, output_hidden_states=True, return_dict=True, sent_emb=True)
-                pooler_output = outputs.pooler_output
-            return pooler_output.cpu()
-
-        # Set params for SentEval (fastmode)
-        params = {'task_path': PATH_TO_DATA, 'usepytorch': True, 'kfold': 5}
-        params['classifier'] = {'nhid': 0, 'optim': 'rmsprop', 'batch_size': 128,
-                                            'tenacity': 3, 'epoch_size': 2}
-
-        se = engine.SE(params, batcher, prepare)
-        tasks = ['STSBenchmark', 'SICKRelatedness']
-        if eval_senteval_transfer or self.args.eval_transfer:
-            tasks = ['STSBenchmark', 'SICKRelatedness', 'MR', 'CR', 'SUBJ', 'MPQA', 'SST2', 'TREC', 'MRPC']
-        self.model.eval()
-        results = se.eval(tasks)
-        
-        stsb_spearman = results['STSBenchmark']['dev']['spearman'][0]
-        sickr_spearman = results['SICKRelatedness']['dev']['spearman'][0]
-
-        metrics = {"eval_stsb_spearman": stsb_spearman, "eval_sickr_spearman": sickr_spearman, "eval_avg_sts": (stsb_spearman + sickr_spearman) / 2} 
-        if eval_senteval_transfer or self.args.eval_transfer:
-            avg_transfer = 0
-            for task in ['MR', 'CR', 'SUBJ', 'MPQA', 'SST2', 'TREC', 'MRPC']:
-                avg_transfer += results[task]['devacc']
-                metrics['eval_{}'.format(task)] = results[task]['devacc']
-            avg_transfer /= 7
-            metrics['eval_avg_transfer'] = avg_transfer
-
-        results.update(metrics)
-        with open(f"{output_dir}/senteval.json", 'w') as writer:
-            writer.write(json.dumps(results, indent=4) + "\n")
-
-        return metrics
-
     def _dump_eval_output(self, eval_output, eval_output_path):
         with open(eval_output_path, 'w') as eval_output_writer:
             print("Dumping eval outputs to %s" % eval_output_path)
@@ -341,7 +201,7 @@ class DenseRetrievalTrainer(Trainer):
             pin_memory=self.args.dataloader_pin_memory,
         )
 
-    def _maybe_log_save_evaluate(self, tr_loss, model, trial, epoch, extra_logs=None):
+    def _maybe_log_save_evaluate(self, tr_loss, model, trial, extra_logs=None):
         if self.control.should_log:
             if is_torch_tpu_available():
                 xm.mark_step()
@@ -358,8 +218,9 @@ class DenseRetrievalTrainer(Trainer):
             if extra_logs:
                 for k, v in extra_logs.items():
                     if isinstance(v, torch.Tensor):
-                        v = self._nested_gather(v).mean().item()
-                    if k.endswith('loss') or k.startswith('sent_len_'):  # only those values are logged every iter, needs averaging
+                        v = self._nested_gather(v)
+                        v = v.mean().item()
+                    if k.endswith('loss') or k.startswith('sent_len_') or k.startswith('sent_max_len_'):  # only those values are logged every iter, needs averaging
                         logs[k] = round(v / (self.state.global_step - self._globalstep_last_logged), 4)
                     else:
                         logs[k] = round(v, 4)
@@ -372,24 +233,42 @@ class DenseRetrievalTrainer(Trainer):
 
         metrics = {}
         if self.args.do_eval and self.control.should_evaluate:
-            # eval_output_dir = os.path.join(self.eval_output_dir, 'epoch-%.2f_step-%d' % (epoch, self.state.global_step))
             eval_output_dir = os.path.join(self.eval_output_dir, 'checkpoint-%d' % (self.state.global_step))
             os.makedirs(eval_output_dir, exist_ok=True)
             # dev score
             if self.eval_dataset:
-                with utils.numpy_seed(self.args.seed):
+                with training_utils.numpy_seed(self.args.seed):
                     metrics_dev = self.evaluate(self.eval_dataset, metric_key_prefix="dev")
                     metrics.update(metrics_dev)
             # beir-eval
-            metrics_beir = self.evaluate_beir(epoch=epoch, output_dir=eval_output_dir,
-                                              sim_function=self.model.sim_metric,
-                                              batch_size=self.training_args.beir_batch_size,
-                                              # batch_size=self.args.per_device_eval_batch_size,
-                                              beir_datasets=self.training_args.beir_datasets)
+            metrics_beir = eval_utils.evaluate_beir(
+                model, self.tokenizer,
+                beir_path=self.training_args.beir_path,
+                output_dir=eval_output_dir,
+                sim_function=self.model.sim_metric,
+                add_qd_prompt=(self.training_args.dq_prompt_ratio > 0.0),
+                batch_size=self.training_args.beir_batch_size,
+                beir_datasets=self.training_args.beir_datasets)
             metrics.update(metrics_beir)
+            # qa-eval
+            if self.training_args.qa_eval_steps > 0 and self.state.global_step % self.training_args.qa_eval_steps == 0:
+                passages = load_passages(self.training_args.wiki_passage_path)
+                os.makedirs(eval_output_dir, exist_ok=True)
+                save_dir = os.path.join(eval_output_dir, 'wiki_emb')
+                os.makedirs(save_dir, exist_ok=True)
+                eval_utils.generate_passage_embeddings(model, self.tokenizer, passages, save_dir)
+                if dist.get_rank() == 0:
+                    metrics_qa = eval_utils.evaluate_qa(model, self.tokenizer,
+                                                        passages=passages,
+                                                        qa_datasets_path=self.training_args.qa_datasets_path,
+                                                        passages_embeddings_path=save_dir+'/*',
+                                                        output_dir=eval_output_dir+'/qa_output',
+                                                        encode_batch_size=self.training_args.qa_batch_size)
+                    metrics.update(metrics_qa)
+
             # sent-eval
             # major_metric = 'eval_avg_transfer' if 'eval_avg_transfer' in metrics else 'eval_avg_sts'
-            metrics_senteval = self.evaluate_senteval(epoch=epoch, output_dir=eval_output_dir)
+            metrics_senteval = eval_utils.evaluate_senteval(model, self.tokenizer, output_dir=eval_output_dir)
             metrics.update(metrics_senteval)
             metrics["step"] = self.state.global_step
             for k, v in metrics.items():
@@ -397,8 +276,9 @@ class DenseRetrievalTrainer(Trainer):
                     metrics[k] = float(v)
             self.log(metrics)
             major_metric = 'eval_avg_ndcg@10'
-            self._report_to_hp_search(trial, epoch, metrics)
+            self._report_to_hp_search(trial, self.state.global_step, metrics)
 
+            '''
             # check if it's a new best score
             major_score = metrics[major_metric]
             metrics['major_score'] = major_score
@@ -419,7 +299,7 @@ class DenseRetrievalTrainer(Trainer):
                 self.early_stop_counter += 1
                 if self.early_stop_counter >= self.early_stop_patience:
                     self.control.should_training_stop = True
-
+            '''
         if self.control.should_save:
             self._save_checkpoint(model, trial, metrics=metrics)
             self.control = self.callback_handler.on_save(self.args, self.state, self.control)
@@ -507,7 +387,6 @@ class DenseRetrievalTrainer(Trainer):
             return schedule_func(optimizer, num_warmup_steps=num_warmup_steps,
                                  num_training_steps=num_training_steps,
                                  lr_end=self.args.lr_end, power=self.args.power)
-
         return schedule_func(optimizer, num_warmup_steps=num_warmup_steps, num_training_steps=num_training_steps)
 
     def compute_loss(self, model, inputs, return_outputs=False):
@@ -568,9 +447,10 @@ class DenseRetrievalTrainer(Trainer):
                 for k, v in outputs.specific_losses.items():
                     extra_losses[k] = v
                 sent_lens = inputs['length'].type(torch.float).mean(dim=0)
-                for li, l in enumerate(sent_lens):
+                sent_max_lens, _ = inputs['length'].type(torch.long).max(dim=0)
+                for li, (l, max_l) in enumerate(zip(sent_lens, sent_max_lens)):
                     extra_losses[f'sent_len_{li}'] = l
-                    # print(f'sent_len_{li}={l}')
+                    extra_losses[f'sent_max_len_{li}'] = max_l
 
         if self.args.gradient_accumulation_steps > 1 and not self.deepspeed:
             # deepspeed handles loss scaling by gradient_accumulation_steps in its `backward`
@@ -787,28 +667,48 @@ class DenseRetrievalTrainer(Trainer):
             steps_in_epoch = len(train_dataloader) if train_dataset_is_sized else self.args.max_steps
             self.control = self.callback_handler.on_epoch_begin(self.args, self.state, self.control)
             # prepare for the warmup for queue size
-            if self.model.warmup_queue_size_ratio > 0:
-                fullsize_step = int(self.model.warmup_queue_size_ratio * self.args.max_steps)
-                num_warmup_stage = int(self.model.queue_size / total_train_batch_size)
-                warmup_steps = {(fullsize_step // (num_warmup_stage - 1) * i): i+1 for i in range(1, num_warmup_stage)}
-                self.model.active_queue_size = total_train_batch_size
-            else:
-                self.model.active_queue_size = self.model.queue_size
+            if self.moco_args.arch_type == 'moco':
+                if self.model.warmup_queue_size_ratio > 0:
+                    # increase linearly, default #stage=queue_size/batch_size
+                    fullsize_step = int(self.model.warmup_queue_size_ratio * self.args.max_steps)
+                    num_warmup_stage = int(self.model.queue_size / total_train_batch_size)
+                    num_step_per_stage = int(fullsize_step // num_warmup_stage)
+                    warmup_steps = {num_step_per_stage * i: total_train_batch_size * (i+1) for i in range(num_warmup_stage)}
+                    if self.model.moco_config.num_warmup_stage:
+                        skip_k = len(warmup_steps) // self.model.moco_config.num_warmup_stage
+                        warmup_steps = {step: size for i, (step, size) in enumerate(warmup_steps.items()) if i % skip_k == 0}
+                        warmup_steps[fullsize_step] = self.model.queue_size
+                    # increase exponentially, too quick
+                    # num_warmup_stage = self.model.moco_config.num_warmup_stage
+                    # num_step_per_stage = fullsize_step // num_warmup_stage
+                    # pow_per_stage = math.log(self.model.queue_size // total_train_batch_size, 2) // num_warmup_stage
+                    # multiply_per_stage = 2 ** pow_per_stage
+                    # warmup_steps = {fullsize_step: self.model.queue_size}
+                    # prev_size = self.model.queue_size
+                    # for i in range(num_warmup_stage, 0, -1):
+                    #     prev_size = prev_size // multiply_per_stage
+                    #     assert prev_size % total_train_batch_size == 0
+                    #     warmup_steps[num_step_per_stage * i] = int(prev_size)
+                    # warmup_steps[fullsize_step] = self.model.queue_size
+                    # self.model.active_queue_size = total_train_batch_size
+                else:
+                    self.model.active_queue_size = self.model.queue_size
 
-            inputs = None
-            last_inputs = None
             for step, inputs in enumerate(epoch_iterator):
                 # steps_trained_progress_bar.update(1)
                 # continue
-                if self.model.warmup_queue_size_ratio > 0 and self.state.global_step in warmup_steps:
-                    self.model.active_queue_size = total_train_batch_size * warmup_steps[self.state.global_step]
+                if self.moco_args.arch_type == 'moco' and self.model.warmup_queue_size_ratio > 0 and self.state.global_step in warmup_steps:
+                    self.model.active_queue_size = warmup_steps[self.state.global_step]
                     print(f'step={(step + 1)}, model.active_queue_size={self.model.active_queue_size}')
+                if hasattr(self.model, 'align_unif_cancel_step') and step == self.model.align_unif_cancel_step:
+                    self.model.align_weight = 0.0
+                    self.model.unif_weight = 0.0
                 inputs['report_metrics'] = True if (step + 1) % self.args.logging_steps == 0 else False
                 # Skip any already trained steps if resuming training
                 if steps_trained_in_current_epoch > 0:
                     steps_trained_in_current_epoch -= 1
                     continue
-                if (step + 1) % self.model.queue_update_steps != 0:
+                if self.moco_args.arch_type == 'moco' and (step + 1) % self.model.queue_update_steps != 0:
                     # only feedforward the model to update the queue
                     _, _ = self.training_step(model, inputs, forward_only=True)
                     # self.state.global_step += 1
@@ -823,12 +723,15 @@ class DenseRetrievalTrainer(Trainer):
                         loss, extra_losses = self.training_step(model, inputs)
                         tr_loss += loss
                         for k, v in extra_losses.items():
-                            extra_logs[k] += v
+                            if 'max' in k:
+                                extra_logs[k] = max(v, extra_logs[k])
+                            else:
+                                extra_logs[k] += v
                 else:
                     loss, extra_losses = self.training_step(model, inputs)
                     tr_loss += loss
                     for k, v in extra_losses.items():
-                        extra_logs[k] += v
+                        extra_logs[k] += v if v is not None else 0.0
 
                 if (step + 1) % self.args.gradient_accumulation_steps == 0 or (
                     # last step in epoch but step is always smaller than gradient_accumulation_steps
@@ -848,13 +751,18 @@ class DenseRetrievalTrainer(Trainer):
                                 module_name = 'encoder_q' if 'encoder_q' in n else 'encoder_k'
                                 if 'embeddings' in n:
                                     part_name = 'embeddings'
-                                else:
+                                    group_norm[f'{module_name}-{part_name}'] += param_norm
+                                elif 'encoder.layer' in n:
                                     part_name = re.search('layer.\d+', n)
                                     if part_name:
                                         part_name = part_name.group(0)
                                     else:
                                         part_name = 'unknown_group'
-                                group_norm[f'{module_name}-{part_name}'] += param_norm
+                                    group_norm[f'{module_name}-{part_name}'] += param_norm
+                                else:
+                                    part_name = n.replace('module.', '').replace('.dense', '').replace('.weight', '').replace('.bias', '')
+                                    group_norm[f'{part_name}'] += param_norm
+
                         total_norm = total_norm ** 0.5
                         extra_logs['preclip_grad_norm'] = total_norm
                         extra_logs['preclip_grad_norm_avg'] = total_norm / n_parameter
@@ -908,13 +816,13 @@ class DenseRetrievalTrainer(Trainer):
                     self.state.global_step += 1
                     self.state.epoch = epoch + (step + 1) / steps_in_epoch
                     self.control = self.callback_handler.on_step_end(self.args, self.state, self.control)
-                    self._maybe_log_save_evaluate(tr_loss, model, trial, epoch, extra_logs=extra_logs)
+                    self._maybe_log_save_evaluate(tr_loss, model, trial, extra_logs=extra_logs)
 
                 if self.control.should_epoch_stop or self.control.should_training_stop:
                     break
 
             self.control = self.callback_handler.on_epoch_end(self.args, self.state, self.control)
-            self._maybe_log_save_evaluate(tr_loss, model, trial, epoch, extra_logs=extra_logs)
+            self._maybe_log_save_evaluate(tr_loss, model, trial, extra_logs=extra_logs)
 
             if self.args.tpu_metrics_debug or self.args.debug:
                 if is_torch_tpu_available():

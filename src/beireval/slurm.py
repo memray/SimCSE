@@ -49,9 +49,18 @@ def init_distributed_mode(params):
         - world_size
     """
     is_slurm_job = 'SLURM_JOB_ID' in os.environ and not 'WORLD_SIZE' in os.environ
+    if hasattr(params, 'local_rank'):
+        has_local_rank = hasattr(params, 'local_rank')
+        local_rank = params.local_rank
+    elif 'RANK' in os.environ:
+        has_local_rank = True
+        local_rank = os.environ['RANK']
+    else:
+        has_local_rank = False
+        local_rank = None
 
     # SLURM job without torch.distributed.launch
-    if is_slurm_job:
+    if is_slurm_job and has_local_rank:
 
         assert params.local_rank == -1   # on the cluster, this is handled by SLURM
 
@@ -71,11 +80,8 @@ def init_distributed_mode(params):
         os.environ['WORLD_SIZE'] = str(params.world_size)
         os.environ['RANK'] = str(params.global_rank)
         is_distributed = True
-
-
     # multi-GPU job (local or multi-node) - jobs started with torch.distributed.launch
-    elif params.local_rank != -1:
-
+    elif has_local_rank and local_rank != -1:
         # assert params.main_port == -1
 
         # read environment variables

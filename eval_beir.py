@@ -14,9 +14,9 @@ import os
 
 import transformers
 
-import src.slurm
+import src.beireval.slurm
 import src.contriever
-import src.beir_utils
+import src.beireval.beir_utils
 import src.utils as utils
 import src.dist_utils as dist_utils
 
@@ -50,7 +50,7 @@ def main(args):
     assert args.dataset in BEIR_datasets, f'Unknown dataset {args.dataset}, supported datasets: \n {str(BEIR_datasets)}'
     split = 'dev' if args.dataset == 'msmarco' else 'test'
 
-    ndcg, _map, recall, precision, mrr, recall_cap, hole = src.beir_utils.evaluate_model(
+    ndcg, _map, recall, precision, mrr, recall_cap, hole = src.beireval.beir_utils.evaluate_model(
         query_encoder=model, 
         doc_encoder=model,
         tokenizer=tokenizer, 
