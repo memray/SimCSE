@@ -78,7 +78,7 @@ class STSEval(object):
             results[dataset] = {'pearson': pearsonr(sys_scores, gs_scores),
                                 'spearman': spearmanr(sys_scores, gs_scores),
                                 'nsamples': len(sys_scores)}
-            logging.debug('%s : pearson = %.4f, spearman = %.4f' %
+            logging.info('%s : pearson = %.4f, spearman = %.4f' %
                           (dataset, results[dataset]['pearson'][0],
                            results[dataset]['spearman'][0]))
 
@@ -100,11 +100,11 @@ class STSEval(object):
                           'spearman': {'all': all_spearman[0],
                                        'mean': avg_spearman,
                                        'wmean': wavg_spearman}}
-        logging.debug('ALL : Pearson = %.4f, \
+        logging.info('ALL : Pearson = %.4f, \
             Spearman = %.4f' % (all_pearson[0], all_spearman[0]))
-        logging.debug('ALL (weighted average) : Pearson = %.4f, \
+        logging.info('ALL (weighted average) : Pearson = %.4f, \
             Spearman = %.4f' % (wavg_pearson, wavg_spearman))
-        logging.debug('ALL (average) : Pearson = %.4f, \
+        logging.info('ALL (average) : Pearson = %.4f, \
             Spearman = %.4f\n' % (avg_pearson, avg_spearman))
 
         return results

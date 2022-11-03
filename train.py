@@ -3,9 +3,13 @@ import logging
 import os
 import shutil
 import sys
+import time
 import types
 import warnings
+from random import random
+from time import sleep
 
+import numpy as np
 import torch
 
 import transformers
@@ -19,17 +23,17 @@ from transformers import (
 from transformers.trainer_utils import is_main_process
 from transformers.integrations import WandbCallback, rewrite_logs
 
-from src import eval_utils
-from src.data_loader import load_datasets
-from src.finetune_data import load_finetune_dataset
-from src.inbatch import InBatch
+from src.utils import eval_utils
+from src.dataloader.hf_dataloader import load_datasets
+from src.dataloader.dpr_dataloader import load_finetune_dataset
 
 from src.trainer import DenseRetrievalTrainer
 
-from src.training_utils import wandb_setup, wandb_setup_eval, reload_model_from_ckpt, reload_model_from_pretrained
-from src.data_process import PassageDataCollatorWithPadding
+from src.utils.training_utils import wandb_setup, wandb_setup_eval, reload_model_from_ckpt, reload_model_from_pretrained
+from src.dataloader.data_process import PassageDataCollatorWithPadding
 from src.arguments import CustomTrainingArguments, HFTrainingArguments, MoCoArguments
-from src.moco import MoCo
+from src.model.moco import MoCo
+from src.model.inbatch import InBatch
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +80,7 @@ def main():
                 f"Output directory ({hftraining_args.output_dir}) already exists and is not empty."
                 "Use --overwrite_output_dir to overcome."
             )
-        elif os.path.exists(os.path.join(hftraining_args.output_dir, "model_data_training_args.bin")):
+        elif not hftraining_args.overwrite_output_dir and os.path.exists(os.path.join(hftraining_args.output_dir, "model_data_training_args.bin")):
             logger.info("Reloading moco_args from %s",
                         os.path.join(hftraining_args.output_dir, "model_data_training_args.bin"))
             _, _, moco_args = torch.load(os.path.join(hftraining_args.output_dir, "model_data_training_args.bin"))
@@ -126,64 +130,69 @@ def main():
         model = InBatch(moco_args, hf_config)
     else:
         raise NotImplementedError(f'Unknown arch type {hf_config.arch_type}')
-    if training_args.finetune:
-        train_dataset, dev_dataset = load_finetune_dataset(tokenizer, training_args, hftraining_args, moco_args)
-        train_collator = PassageDataCollatorWithPadding(
-            tokenizer,
-            batch_size=hftraining_args.train_batch_size,
-            padding_strategy='max_length' if training_args.pad_to_max_length else 'longest',
-            max_length=training_args.max_seq_length,
-            max_q_tokens=training_args.max_q_tokens,
-            max_d_tokens=training_args.max_d_tokens
-        )
-    else:
-        train_dataset, dev_dataset = load_datasets(tokenizer, training_args, hftraining_args, moco_args)
-        train_collator = PassageDataCollatorWithPadding(
-            tokenizer,
-            batch_size=hftraining_args.train_batch_size,
-            padding_strategy='max_length' if training_args.pad_to_max_length else 'longest',
-            max_length=training_args.max_seq_length,
-            max_q_tokens=training_args.max_q_tokens,
-            max_d_tokens=training_args.max_d_tokens
-        )
-
-    """""""""""""""""""""
-    Set up trainer
-    """""""""""""""""""""
-    trainer = DenseRetrievalTrainer(
-        model=model,
-        args=hftraining_args,
-        train_dataset=train_dataset if hftraining_args.do_train else None,
-        eval_dataset=dev_dataset,
-        tokenizer=tokenizer,
-        data_collator=train_collator
-    )
-    trainer.training_args = training_args
-    trainer.hftraining_args = hftraining_args
-    trainer.moco_args = moco_args
-    trainer.best_score = -10000.0
-    early_stop_patience = sys.maxsize
-    trainer.early_stop_patience = early_stop_patience
-    trainer.early_stop_counter = 0
-    setattr(trainer, 'model_data_training_args', [training_args, hftraining_args, moco_args])
-    torch.save(trainer.model_data_training_args, os.path.join(hftraining_args.output_dir, "model_data_training_args.bin"))
-    # if it's a path, reload status
+    # Reload models. Not for resume training (reload training status is not supported yet)
     if training_args.reload_model_from:
+        logger.info("Reloading model parameters from: " + training_args.reload_model_from)
         if os.path.isdir(training_args.reload_model_from):
             reload_model_from_ckpt(model, training_args.reload_model_from)
-            # trainer.state = trainer.state.load_from_json(os.path.join(training_args.reload_model_from, "trainer_state.json"))
         elif training_args.reload_model_from.startswith('facebook/'):
             reload_model_from_pretrained(model, training_args.reload_model_from)
         else:
             raise Exception('R U sure?')
-    # override wandb setup to log customized hyperparameters
-    wandb_callbacks = [ch for ch in trainer.callback_handler.callbacks if isinstance(ch, WandbCallback)]
-    wandb_callback = wandb_callbacks[0] if wandb_callbacks else None
-    """""""""""""""""""""
-    Start Training
-    """""""""""""""""""""
+
     if hftraining_args.do_train:
-        if trainer.is_world_process_zero() and wandb_callback:
+        assert (training_args.max_seq_length or training_args.max_q_tokens) and (training_args.max_seq_length or training_args.max_d_tokens)
+        if training_args.data_type == 'dpr':
+            train_dataset, dev_dataset = load_finetune_dataset(tokenizer, training_args, hftraining_args, moco_args)
+            train_collator = PassageDataCollatorWithPadding(
+                tokenizer,
+                batch_size=hftraining_args.train_batch_size,
+                padding_strategy='max_length' if training_args.pad_to_max_length else 'longest',
+                max_length=training_args.max_seq_length,
+                q_len=training_args.max_q_tokens,
+                d_len=training_args.max_d_tokens
+            )
+        elif training_args.data_type == 'hf':
+            train_dataset, dev_dataset = load_datasets(tokenizer, training_args, hftraining_args, moco_args)
+            train_collator = PassageDataCollatorWithPadding(
+                tokenizer,
+                batch_size=hftraining_args.train_batch_size,
+                padding_strategy='max_length' if training_args.pad_to_max_length else 'longest',
+                max_length=training_args.max_seq_length,
+                q_len=training_args.max_q_tokens,
+                d_len=training_args.max_d_tokens
+            )
+        else:
+            raise NotImplementedError(f'Not supported data_type {training_args.data_type}. Please choose among [hf/dpr]')
+
+        """""""""""""""""""""
+        Set up trainer
+        """""""""""""""""""""
+        trainer = DenseRetrievalTrainer(
+            model=model,
+            args=hftraining_args,
+            train_dataset=train_dataset if hftraining_args.do_train else None,
+            eval_dataset=dev_dataset,
+            tokenizer=tokenizer,
+            data_collator=train_collator
+        )
+        trainer.training_args = training_args
+        trainer.hftraining_args = hftraining_args
+        trainer.moco_args = moco_args
+        trainer.best_score = -10000.0
+        early_stop_patience = sys.maxsize
+        trainer.early_stop_patience = early_stop_patience
+        trainer.early_stop_counter = 0
+        setattr(trainer, 'model_data_training_args', [training_args, hftraining_args, moco_args])
+        torch.save(trainer.model_data_training_args, os.path.join(hftraining_args.output_dir, "model_data_training_args.bin"))
+        # override wandb setup to log customized hyperparameters
+        wandb_callbacks = [ch for ch in trainer.callback_handler.callbacks if isinstance(ch, WandbCallback)]
+        wandb_callback = wandb_callbacks[0] if wandb_callbacks else None
+
+        """""""""""""""""""""
+        Start Training
+        """""""""""""""""""""
+        if hftraining_args.process_index == 0 and wandb_callback:
             # remove previous wandb outputs
             if os.path.exists(hftraining_args.output_dir+'/wandb'):
                 shutil.rmtree(hftraining_args.output_dir+'/wandb')
@@ -199,7 +208,7 @@ def main():
         trainer.save_model()  # Saves the tokenizer too for easy upload
 
         output_train_file = os.path.join(hftraining_args.output_dir, "train_results.txt")
-        if trainer.is_world_process_zero():
+        if hftraining_args.process_index == 0:
             with open(output_train_file, "w") as writer:
                 logger.info("***** Train results *****")
                 for key, value in sorted(train_result.metrics.items()):
@@ -215,62 +224,81 @@ def main():
     results = {}
     if hftraining_args.do_eval:
         logger.info("*** Evaluate ***")
-        if trainer.is_world_process_zero() and wandb_callback and \
-                (not wandb_callback._initialized or wandb_callback._wandb.run is None):
+        model = model.to(hftraining_args.local_rank)
+        wandb_callback = None
+        if hftraining_args.process_index == 0 and os.getenv("WANDB_API_KEY", False):
+            wandb_callback = WandbCallback()
             wandb_setup_eval(wandb_callback, hftraining_args)
         # eval BEIR
         final_beir_datasets = ['msmarco', 'dbpedia-entity', 'fever', 'climate-fever', 'nq', 'hotpotqa',
                                'quora', 'cqadupstack', 'trec-covid', 'arguana', 'webis-touche2020',
                                'scidocs', 'scifact', 'nfcorpus', 'fiqa']
-        if trainer.is_world_process_zero():
+        if hftraining_args.process_index == 0:
             try:
                 prev_eval_dir = os.path.join(hftraining_args.output_dir, 'eval_output', 'checkpoint-%d' % (hftraining_args.max_steps))
                 logger.info("Attempt to copy previous beir output: %s" % (prev_eval_dir))
                 shutil.copytree(prev_eval_dir, hftraining_args.output_dir+'/beir_output', dirs_exist_ok=True)
             except Exception as e:
                 logger.info("Error, failed to copy previous beir output: %s (exist? %s) : %s" % (prev_eval_dir, os.path.exists(prev_eval_dir), e.strerror))
+        prev_results_beir = []
         try:
             prev_eval_dir = os.path.join(hftraining_args.output_dir, 'eval_output', 'checkpoint-%d' % (hftraining_args.max_steps))
-            prev_dones = [f[:-5] for f in os.listdir(prev_eval_dir) if f.endswith('.json')]
-            final_beir_datasets = [dataset for dataset in final_beir_datasets if dataset not in prev_dones]
-            logger.info("Found previous beir output, new BEIR datasets: %s" % (str(final_beir_datasets)))
+            if os.path.exists(prev_eval_dir):
+                prev_dones = [f[:-5] for f in os.listdir(prev_eval_dir) if f.endswith('.json')]
+                final_beir_datasets = [dataset for dataset in final_beir_datasets if dataset not in prev_dones]
+                prev_results_beir, prev_dones = eval_utils.load_prev_beir_results(hftraining_args.output_dir + '/beir_output')
+                final_beir_datasets = [dataset for dataset in final_beir_datasets if dataset not in prev_dones]
+                logger.info("Found previous beir output, new BEIR datasets: %s" % (str(final_beir_datasets)))
+            else:
+                logger.info("Not Found previous beir output, run all: %s" % (str(final_beir_datasets)))
+        except OSError as e:
+            logger.info("Error, didn't find previous beir output: %s (exist? %s) : %s" % (prev_eval_dir, os.path.exists(prev_eval_dir), str(e)))
+            raise e
         except Exception as e:
-            logger.info("Error, didn't find previous beir output: %s (exist? %s) : %s" % (prev_eval_dir, os.path.exists(prev_eval_dir), e.strerror))
-            pass
-        results_beir = eval_utils.evaluate_beir(
-            model, tokenizer,
-            beir_path=training_args.beir_path,
-            sim_function=model.sim_metric,
-            add_qd_prompt=(training_args.dq_prompt_ratio > 0.0),
-            batch_size=training_args.beir_batch_size,
-            beir_datasets=final_beir_datasets,
-            output_dir=hftraining_args.output_dir+'/beir_output',
-        )
+            logger.info(e)
+            raise e
+        results_beir = {}
+        if len(final_beir_datasets) > 0:
+            results_beir = eval_utils.evaluate_beir(
+                model, tokenizer,
+                beir_path=training_args.beir_path,
+                sim_function=model.sim_metric,
+                add_qd_prompt=(training_args.dq_prompt_ratio > 0.0),
+                batch_size=training_args.beir_batch_size,
+                beir_datasets=final_beir_datasets,
+                output_dir=hftraining_args.output_dir+'/beir_output',
+            )
+        results_beir.update(prev_results_beir)
         results.update(results_beir)
         # eval SentEval
         results_senteval = eval_utils.evaluate_senteval(model, tokenizer,
+                                                        output_dir=hftraining_args.output_dir + '/senteval_output',
+                                                        eval_senteval_sts_all=True,
                                                         eval_senteval_transfer=True,
-                                                        output_dir=hftraining_args.output_dir+'/senteval_output',
                                                         )
         results.update(results_senteval)
         # eval QA
-        passages = eval_utils.load_passages(training_args.wiki_passage_path)
         embed_dir = os.path.join(hftraining_args.output_dir, 'wiki_emb')
-        eval_utils.generate_passage_embeddings(model, tokenizer, passages, embed_dir)
-        if trainer.is_world_process_zero():
+        passages = eval_utils.generate_passage_embeddings(model, tokenizer,
+                                                          passage_path=training_args.wiki_passage_path,
+                                                          save_dir=embed_dir)
+        if hftraining_args.process_index == 0:
             results_qa = eval_utils.evaluate_qa(model, tokenizer,
                                                 passages=passages,
+                                                passage_path=training_args.wiki_passage_path,
                                                 qa_datasets_path=training_args.qa_datasets_path,
                                                 passages_embeddings_path=embed_dir + '/*',
                                                 encode_batch_size=training_args.qa_batch_size,
+                                                search_batch_size=1, num_workers=32,
                                                 output_dir=hftraining_args.output_dir+'/qa_output'
                                                 )
             results.update(results_qa)
-        if trainer.is_world_process_zero():
+        # post scores to wandb
+        if hftraining_args.process_index == 0:
             if wandb_callback and wandb_callback._wandb.run:
                 results = rewrite_logs(results)
-                if trainer.state.global_step:
-                    results['train/global_step'] = trainer.state.global_step
+                if hftraining_args.max_steps:
+                    results['train/global_step'] = hftraining_args.max_steps
                 wandb_callback._wandb.log({**results})
             output_eval_file = os.path.join(hftraining_args.output_dir, "eval_results.txt")
             with open(output_eval_file, "a") as writer:
@@ -278,10 +306,6 @@ def main():
                 for key, value in sorted(results.items()):
                     logger.info(f"  {key} = {value}")
                     writer.write(f"{key} = {value}\n")
-            # Need to save the state, since Trainer.save_model saves only the tokenizer with the model
-            trainer.state.save_to_json(os.path.join(hftraining_args.output_dir, "trainer_state.json"))
-
-    return results
 
 
 def _mp_fn(index):
