@@ -17,13 +17,13 @@ import numpy as np
 import torch
 
 import src.qa.index
-import src.contriever
+import src.model.contriever
 import src.beireval.slurm
 import src.qa.data
-from src import training_utils
+from src.utils import training_utils
 from src.qa.qa_validation import calculate_matches
-import src.normalize_text
-from src.eval_utils import save_results, load_passages, RECALL_FILE_NAME, RESULTS_FILE_NAME
+import src.qa.normalize_text
+from src.qa.spider_utils import save_results, load_passages, RECALL_FILE_NAME, RESULTS_FILE_NAME
 
 os.environ['OMP_NUM_THREADS'] = '32'
 os.environ["TOKENIZERS_PARALLELISM"] = "true"
@@ -164,13 +164,13 @@ def main(args):
         logger.info("Validation results: top k documents hits %s", top_k_hits)
         top_k_hits = [v / len(top_ids_and_scores) for v in top_k_hits]
         logger.info("Validation results: top k documents hits accuracy %s", top_k_hits)
-        out_file = os.path.join(dataset_output_dir, dataset_name+'-'+RECALL_FILE_NAME)
+        out_file = os.path.join(dataset_output_dir, RECALL_FILE_NAME)
         logger.info(f"Saved recall@k info to {out_file}")
         with open(out_file, "w") as f:
             for k, recall in enumerate(top_k_hits):
                 f.write(f"{k + 1},{recall}\n")
 
-        out_file = os.path.join(dataset_output_dir, dataset_name+'-'+RESULTS_FILE_NAME)
+        out_file = os.path.join(dataset_output_dir, RESULTS_FILE_NAME)
         save_results(
             id2doc,
             questions,

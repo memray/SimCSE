@@ -86,7 +86,7 @@ class Indexer(object):
             #   https://github.com/facebookresearch/faiss/wiki/Running-on-GPUs
             #   https://github.com/facebookresearch/faiss/issues/1328
             cloner_options = faiss.GpuMultipleClonerOptions()
-            # cloner_options.useFloat16 = True
+            cloner_options.useFloat16 = True
             cloner_options.shard = True
             self.index = faiss.index_cpu_to_all_gpus(self.index, co=cloner_options)
             # this leads to OOM

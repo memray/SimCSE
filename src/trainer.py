@@ -45,13 +45,13 @@ from torch.utils.data.dataloader import DataLoader
 from torch.utils.data.dataset import Dataset
 from torch.utils.data.distributed import DistributedSampler
 
-from src import training_utils, eval_utils
+from src.utils import training_utils, eval_utils
 
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LambdaLR
 
-from src.qa.data import load_passages
-from src.trainer_utils import SchedulerType
+from src.qa.data import load_dpr_passages
+from src.utils.trainer_utils import SchedulerType
 
 if is_torch_tpu_available():
     import torch_xla.core.xla_model as xm
@@ -148,6 +148,7 @@ class DenseRetrievalTrainer(Trainer):
                                 report_align_unif=True,
                                 report_metrics=True)
             for k, v in outputs['specific_losses'].items():
+                if v is None: continue
                 if isinstance(v, torch.Tensor):
                     v = v.detach()
                     v = self._nested_gather(v)
@@ -252,7 +253,7 @@ class DenseRetrievalTrainer(Trainer):
             metrics.update(metrics_beir)
             # qa-eval
             if self.training_args.qa_eval_steps > 0 and self.state.global_step % self.training_args.qa_eval_steps == 0:
-                passages = load_passages(self.training_args.wiki_passage_path)
+                passages = load_dpr_passages(self.training_args.wiki_passage_path)
                 os.makedirs(eval_output_dir, exist_ok=True)
                 save_dir = os.path.join(eval_output_dir, 'wiki_emb')
                 os.makedirs(save_dir, exist_ok=True)

@@ -12,6 +12,7 @@
 import collections
 import logging
 import string
+import time
 import unicodedata
 from functools import partial
 from multiprocessing import Pool as ProcessPool
@@ -31,7 +32,7 @@ QAMatchStats = collections.namedtuple(
 def calculate_matches(
     id2doc: Dict[object, Tuple[str, str]],
     answers: List[List[str]],
-    closest_docs: List[Tuple[List[object], List[float]]],
+    closest_docid_score_pairs: List[Tuple[List[object], List[float]]],
     workers_num: int,
     match_type: str,
     log: bool = True
@@ -41,7 +42,7 @@ def calculate_matches(
     documents and results. It internally forks multiple sub-processes for evaluation and then merges results
     :param all_docs: dictionary of the entire documents database. doc_id -> (doc_text, title)
     :param answers: list of answers's list. One list per question
-    :param closest_docs: document ids of the top results along with their scores
+    :param closest_docid_score_pairs: document ids of the top results along with their scores
     :param workers_num: amount of parallel threads to process data
     :param match_type: type of answer matching. Refer to has_answer code for available options
     :return: matching information tuple.
@@ -51,14 +52,23 @@ def calculate_matches(
     """
     tok_opts = {}
     tokenizer = SimpleTokenizer(**tok_opts)
-    processes = ProcessPool(processes=workers_num)
-    if log: logger.info("Matching answers in top docs...")
-    get_score_partial = partial(check_answer, id2doc=id2doc, match_type=match_type, tokenizer=tokenizer)
-    questions_answers_docs = zip(answers, closest_docs)
-    scores = processes.map(get_score_partial, questions_answers_docs)
-    if log: logger.info("Per question validation results len=%d", len(scores))
+    if log: logger.info(f"Matching answers in top docs using {workers_num} workers...")
 
-    n_docs = len(closest_docs[0][0])
+    closest_docs = []
+    for docids, scores in closest_docid_score_pairs:
+        docs = [id2doc[i] for i in docids]
+        closest_docs.append(docs)
+    answer_doc_pairs = zip(answers, closest_docs)
+    processes = ProcessPool(processes=workers_num)
+    get_score_partial = partial(check_answer, match_type=match_type, tokenizer=tokenizer)
+    scores = processes.map(get_score_partial, answer_doc_pairs)
+    # scores = []
+    # for ans_docs_tuple in questions_answers_docs:
+    #     score = check_answer(questions_answers_docs=ans_docs_tuple, id2doc=id2doc, match_type=match_type, tokenizer=tokenizer)
+    #     scores.append(score)
+    if log: logger.info(f"Matching done, validation results len={len(scores)}.")
+
+    n_docs = len(closest_docid_score_pairs[0][0])
     top_k_hits = [0] * n_docs
     for question_hits in scores:
         best_hit = next((i for i, x in enumerate(question_hits) if x), None)
@@ -68,15 +78,13 @@ def calculate_matches(
     return QAMatchStats(top_k_hits, scores)
 
 
-def check_answer(questions_answers_docs, id2doc, tokenizer, match_type) -> List[bool]:
+def check_answer(answer_doc_pairs, tokenizer, match_type) -> List[bool]:
     """Search through all the top docs to see if they have any of the answers."""
-    answers, (doc_ids, doc_scores) = questions_answers_docs
+    answers, docs = answer_doc_pairs
     hits = []
 
-    for i, doc_id in enumerate(doc_ids):
-        doc = id2doc[doc_id]
+    for i, doc in enumerate(docs):
         text = doc['text']
-
         answer_found = False
         if text is None:  # cannot find the document for some reason
             logger.warning("no doc in db")

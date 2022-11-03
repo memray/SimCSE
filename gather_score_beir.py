@@ -6,17 +6,89 @@ import pandas as pd
 4 datasets are not directly available by BEIR: 'bioasq', 'signal1m', 'robust04', 'trec-news'
 2 datasets are not in leaderboards by Mar 19, 2022: 'cqadupstack', 'quora'
 '''
+
 def main():
-    exp_base_dir = '/export/home/exp/search/unsup_dr/finetune/'
+    exp_base_dir = '/export/home/exp/search/unsup_dr/wikipsg_v1/'
     exp_names = [
-        # 'mm.inbatch-random-neg1023+1024.arch-inbatch.model-cc-title50-bs2048.avg.dot.qd184.step20k.bs1024.lr1e5',
-        'mm.inbatch-random-neg1023+1024.arch-inbatch.model-contriever.avg.dot.qd192.step20k.bs1024.lr1e5',
+        # 'cc.moco-2e14.contriever-256-Qtitle05.bert-base-uncased.avg.dot.qd128.step100k.bs2048.lr5e5',
+        # 'cc.moco-2e14.contriever-256-prompt-Qtitle05.bert-base-uncased.avg.dot.qd128.step100k.bs2048.lr5e5',
+        # 'cc+wikipsg.equal.moco-2e14.contriever-256-Qtitle05.bert-base-uncased.avg.dot.qd128.step100k.bs2048.lr5e5',
+        # 'cc.moco-2e14.contriever-256.bert-base-uncased.avg.dot.qd128.step200k.bs2048.lr5e5',
+        # 'cc.inbatch.contriever-256-Qtitle05.bert-base-uncased.avg.dot.qd128.step200k.bs1024.lr5e5',
+        # 'cc.inbatch.contriever-256.bert-base-uncased.avg.dot.qd128.step200k.bs1024.lr5e5',
+        # 'cc.inbatch-indep.contriever-256-Qtitle05.bert-base-uncased.avg.dot.qd128.step200k.bs1024.lr5e5',
+        # 'rerun.cc.moco-2e14.contriever-256-Qtitle05.bert-base-uncased.avg.dot.qd128.step200k.bs2048.lr5e5',
+        # 'cc.moco-2e14.contriever-256.bert-base-uncased.avg.dot.qd224.step200k.bs2048.lr5e5',
+        # 'cc.moco-2e17.contriever-256.bert-base-uncased.avg.dot.qd128.step200k.bs2048.lr5e5',
+
+        # 'wikipsg.seed477.inbatch.contriever-256.bert-base-uncased.avg.dot.qd128.step200k.bs1024.lr5e5',
+        # 'wikipsg.seed477.inbatch.contriever-256-Qtitle50.bert-base-uncased.avg.dot.qd128.step200k.bs1024.lr5e5',
+        # 'wikipsg.seed477.inbatch.contriever-256-Qtitle1.bert-base-uncased.avg.dot.qd128.step200k.bs1024.lr5e5',
+        # 'wikipsg.seed477.moco-2e14.contriever-256.bert-base-uncased.avg.dot.qd128.step200k.bs1024.lr5e5',
+        # 'wikipsg.seed477.moco-2e14.contriever-256-Qtitle50.bert-base-uncased.avg.dot.qd128.step200k.bs1024.lr5e5',
+        # 'wikipsg.seed477.moco-2e14.contriever-256-Qtitle1.bert-base-uncased.avg.dot.qd128.step200k.bs1024.lr5e5',
+
+        # 'wiki_allphrase1.seed477.inbatch.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+        # 'wiki_allphrase1.seed477.moco-2e14.contriever-256.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
+        # 'wiki_allphrase3.seed477.inbatch.bert-base-uncased.avg.dot.d128d256.step100k.bs1024.lr5e5',
+        # 'wiki_allphrase3.seed477.moco-2e14.contriever-256.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
+        # 'wiki_allphrase5.seed77.inbatch.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+        # 'wiki_allphrase5.seed477.moco-2e14.contriever-256.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+
+        # 'paq.seed477.inbatch.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
+        # 'paq.seed477.moco-2e14.contriever-256.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5'
+
+        # 'wiki_T03b_topic.seed477.inbatch.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
+        # 'wiki_T03b_topic50.seed477.inbatch.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+        # 'wiki_T03b_topic.seed477.moco-2e14.contriever-256.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
+        # 'wiki_T03b_topic50.seed477.moco-2e14.contriever-256.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
+        # 'wiki.T03b_topic50.seed477.moco-2e14.contriever256-special50.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+        # 'wiki.T03b_topic50.seed477.moco-2e14.wikipsg256-special50.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+
+        # 'wiki_T03b_title.seed477.inbatch.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
+        # 'wiki_T03b_title50.seed477.inbatch.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
+        # 'wiki_T03b_title.seed477.moco-2e14.contriever-256.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
+        # 'wiki_T03b_title50.seed477.moco-2e14.contriever-256.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
+        # 'wiki_T03b_absum.seed477.inbatch.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
+        # 'wiki_T03b_absum50.seed477.inbatch.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
+        # 'wiki_T03b_absum.seed477.moco-2e14.contriever-256.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
+        # 'wiki_T03b_absum50.seed477.moco-2e14.contriever-256.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
+
+        # 'wiki_T03b_exsum.seed477.inbatch.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
+        # 'wiki_T03b_exsum50.seed477.inbatch.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
+        # 'wiki_T03b_exsum50.seed77.inbatch.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+        # 'wiki_T03b_exsum.seed477.moco-2e14.contriever-256.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
+        # 'wiki_T03b_exsum50.seed477.moco-2e14.contriever-256.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
+
+        # 'wiki_doc2query.seed477.inbatch.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
+        # 'wiki_doc2query50.seed477.inbatch.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
+        # 'wiki_doc2query.seed477.moco-2e14.contriever-256.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
+        # 'wiki_doc2query50.seed477.moco-2e14.contriever-256.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
+        # 'wiki.doc2query50-t2q.seed477.moco-2e14.contriever256-special50.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+        # 'wiki.doc2query50-t2q.seed477.moco-2e14.wikipsg256-special50.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+
+        # 'wikipsg.seed477.moco-inbatch.contriever-256.bert-base-uncased.avg.dot.qd128.step100k.bs1024.lr5e5'
+        # 'wikipsg.seed477.moco-inbatch-2e14.contriever-256.bert-base-uncased.avg.dot.qd128.step100k.bs1024.lr5e5'
+        # 'wikipsg.seed477.moco-2e17.contriever-256.bert-base-uncased.avg.dot.qd128.step100k.bs1024.lr5e5'
+        # 'cc+wikipsg.equal.inbatch.contriever-256-Qtitle05.bert-base-uncased.avg.dot.qd128.step100k.bs1024.lr5e5'
+        # 'cc.moco-2e14.contriever-256.bert-base-uncased.avg.dot.qd128.step200k.bs1024.lr5e5'
         ]
 
-    exp_base_dir = '/export/home/exp/search/contriever/'
-    exp_names = [
-        'fb-contriever.dot',
-        'fb-contriever.msmarco.dot',
+    # exp_base_dir = '/export/home/exp/search/unsup_dr/finetune/'
+    # exp_names = [
+        # 'mm.inbatch-random-neg1023+1024.arch-inbatch.model-cc-title50-bs2048.avg.dot.qd184.step20k.bs1024.lr1e5',
+        # 'mm.inbatch-random-neg1023+1024.arch-inbatch.model-contriever.avg.dot.qd192.step20k.bs1024.lr1e5',
+        # ]
+
+    # exp_base_dir = '/export/home/exp/search/unsup_dr/baselines/'
+    # exp_names = [
+    #     'bm25',
+    # ]
+
+    # exp_base_dir = '/export/home/exp/search/contriever/'
+    # exp_names = [
+    #     'fb-contriever.dot',
+    #     'fb-contriever.msmarco.dot',
         # 'sup-simcse-bert-base-uncased.dot',
         # 'unsup-simcse-bert-base-uncased.dot',
         # 'unsup-simcse-bert-large-uncased.dot',
@@ -25,7 +97,8 @@ def main():
         # 'sup-simcse-roberta-large.cos_sim',
         # 'unsup-simcse-roberta-large.dot',
         # 'unsup-simcse-roberta-large.cos_sim',
-        ]
+        # ]
+
     # exp_base_dir = '/export/home/exp/search/unsup_dr/exp_v3/'
     # exp_names = [
     #     'pile.1stlineastitle.moco-2e14.contriever-256-prompt-Qtitle05.bert-base-uncased.avg.dot.maxlen256.step200k.bs512.lr3e5'
@@ -74,18 +147,13 @@ def main():
         # 'cc100.contriever-256.moco-2e17.bert-base-uncased.avg.dot.maxlen256.step200k.warmup10k.bs256.lr1e5',
         # 'cc100.contriever-256.moco-2e17.bert-base-uncased.avg.dot.maxlen256.step200k.warmup10k.bs256.lr5e6',
     # ]
+
     beir_datasets = [
         'msmarco',
         'trec-covid', 'bioasq', 'nfcorpus', 'nq', 'hotpotqa',
         'fiqa', 'signal1m', 'trec-news', 'arguana', 'webis-touche2020',
         'dbpedia-entity', 'scidocs', 'fever', 'climate-fever', 'scifact', 'robust04',
         'quora', 'cqadupstack']
-    # beir_datasets = [
-    #     'msmarco',
-    #     'trec-covid', 'bioasq', 'nfcorpus', 'nq', 'hotpotqa',
-    #     'fiqa', 'signal1m', 'trec-news', 'arguana', 'webis-touche2020',
-    #     'dbpedia-entity', 'scidocs', 'fever', 'climate-fever', 'scifact', 'robust04'
-    #     ]
 
     beir_metric_cats = ['ndcg', 'recall', 'map', 'mrr', 'precision', 'recall_cap', 'hole']
     beir_metrics = ['ndcg', 'recall', 'map', 'mrr', 'p', 'r_cap', 'hole']
@@ -107,7 +175,8 @@ def main():
                     score_dict[f'{metric_prefix}@{k}'] = 0.0
             data2scores[dataset] = score_dict
 
-            score_json_path = os.path.join(exp_base_dir, exp_name, f'{dataset}.json')
+            # score_json_path = os.path.join(exp_base_dir, exp_name, f'{dataset}.json')
+            score_json_path = os.path.join(exp_base_dir, exp_name, 'beir_output', f'{dataset}.json')
             if not os.path.exists(score_json_path):
                 print(f'{dataset} not found at: {score_json_path}')
             else:

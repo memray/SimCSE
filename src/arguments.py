@@ -67,8 +67,9 @@ class CustomTrainingArguments:
     overwrite_cache: bool = field(default=False, metadata={"help": "Overwrite the cached training and evaluation sets"})
     validation_split_percentage: Optional[int] = field(default=5, metadata={"help": "The percentage of the train set used as validation set in case there's no validation split"})
     # parameters used in data transformation (data_process.hfdataset_prepare_features)
-    resume_training: str = field(default=None, metadata={"help": "resume training."})
+    data_type: str = field(default=None, metadata={"help": "Specify which data loader will be used for training, hf/dpr."})
     data_pipeline_name: str = field(default=None, metadata={"help": "Pre-defined data pipeline name. If set, all data hyper-parameters below will be overwritten."})
+    resume_training: str = field(default=None, metadata={"help": "resume training."})
     max_context_len: int = field(default=None, metadata={"help": "if data_type is document and max_context_len is given, we first randomly crop a contiguous span, and Q/D will be sampled from it."})
     min_dq_len: int = field(default=None, metadata={"help": "The minimal number of words for sampled query and doc."})
     min_q_len: float = field(default=None, metadata={"help": "min Query len. If less 1.0, it denotes a length ratio."})
@@ -81,7 +82,7 @@ class CustomTrainingArguments:
     title_as_query_ratio: float = field(default=0.0, metadata={"help": "randomly use title as query."})
     include_title_ratio: float = field(default=0.0, metadata={"help": "whether doc title is added (at the beginning)."})
     # parameters used in tokenization (data_process.PassageDataCollatorWithPadding)
-    max_seq_length: Optional[int] = field(default=32, metadata={"help": "The maximum total input sequence length after tokenization. Sequences longer "
+    max_seq_length: Optional[int] = field(default=None, metadata={"help": "The maximum total input sequence length after tokenization. Sequences longer "
             "than this will be truncated."})
     pad_to_max_length: bool = field(default=False, metadata={"help": "Whether to pad all samples to `max_seq_length`. "
             "If False, will pad the samples dynamically when batching to the maximum length in the batch."})
@@ -312,18 +313,23 @@ class MoCoArguments():
         self.parser.add_argument("--model_name_or_path", type=str, default='bert-base-uncased', help="backbone")
         self.parser.add_argument("--hidden_dropout_prob", type=float, default=0.1)
         self.parser.add_argument("--attention_probs_dropout_prob", type=float, default=0.1)
-        self.parser.add_argument("--same_qd_ratio", type=float, default=0.0, help="p% of docs are queries")
-        self.parser.add_argument('--projection_size', type=int, default=768)
+
         self.parser.add_argument('--indep_encoder_k', type=str2bool, default=False, help='whether to use an independent/asynchronous encoder.')
+        self.parser.add_argument('--projection_size', type=int, default=768)
         self.parser.add_argument("--num_q_view", type=int, default=1)
         self.parser.add_argument("--num_k_view", type=int, default=1)
         self.parser.add_argument("--q_proj", type=str, default='none', help="Q projector MLP setting, format is 1.`` or none: no projecter; 2.mlp: a simple D by D dense layer with Tanh activation, no parameter sharing (used in SimCSE); 3. 1024-2048: three dense layers (D*1024*2048) with BatchNorm1d and ReLU (barlow-twin)")
         self.parser.add_argument("--k_proj", type=str, default='none', help="D projector MLP setting")
+
+        self.parser.add_argument('--num_random_chunk', type=int, default=0, help="number of random chunks as query candidates")
+        self.parser.add_argument("--q_select", type=str, default=None, help="Strategy for query selection, options: [self-dot]")
+        self.parser.add_argument("--q_select_ratio", type=float, default=None, help="p% of docs are top-ranked chunks")
+
         self.parser.add_argument("--queue_strategy", type=str, default='fifo', help="'fifo', 'priority'")
         self.parser.add_argument("--num_extra_pos", type=int, default=0)
         self.parser.add_argument("--neg_indices", type=int, nargs='+', default=None, help='specify the indices of negative data.')
         self.parser.add_argument("--use_inbatch_negatives", type=str2bool, default=False, help='whether to include negative data in current batch for loss')
-        self.parser.add_argument("--queue_size", type=int, default=65536)
+        self.parser.add_argument("--queue_size", type=int, default=0)
         self.parser.add_argument("--q_queue_size", type=int, default=0)
         self.parser.add_argument("--symmetric_loss", type=str2bool, default=False)
         self.parser.add_argument("--sim_metric", type=str, default='dot', help='What similarity metric function to use (dot, cosine).')

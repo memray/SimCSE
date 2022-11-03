@@ -19,7 +19,16 @@ sh run/finetune/mine_negative.sh
 
 # Query Generation
 cd /export/share/ruimeng/project/search/UPR
-sh examples/wiki/uqg_title.sh  # A100-8
+sh examples/cc/uqg_doc2query_t2q.sh  # A100-8-0
+
+sh examples/wiki/uqg_doc2query_r2t.sh  # done
+sh examples/wiki/uqg_doc2query_a2t.sh  # done
+sh examples/wiki/uqg_t5xl_insummary.sh  # done
+sh examples/wiki/uqg_doc2query.sh  # done
+sh examples/wiki/uqg_summary_ext.sh  # done
+sh examples/wiki/uqg_summary_abs.sh  # done
+sh examples/wiki/uqg_title.sh  # done
+sh examples/wiki/uqg_topic.sh  # done
 
 sh examples/uqg_title.sh  # A100-8-5 (done)
 sh examples/uqg_topic.sh  # A100-8-6 (done)
@@ -29,18 +38,110 @@ sh examples/uqg_summary_abs.sh  # A100-8-3 (done)
 
 ## New wiki exp
 cd /export/share/ruimeng/project/search/uir_best_cc
+sh run/wikipsg_v1/wiki.ExtQ-plm.moco.bs1024.gpu8.sh  # A100-8-3
+sh run/cc_v1/cc.moco.2e14.title05-augdel02.bs2048.gpu8.sh  # A100-8-0
+sh run/cc_v1/cc.moco.2e14.topic05.bs2048.gpu8.sh  # A100-8-1
+sh run/cc_v1/cc.moco.2e14.doc2query05-t2q.bs2048.gpu8.sh  # A100-8-2
+sh run/wikipsg_v1/wiki.ExtQ-bm25.moco.bs1024.gpu8.sh  # A100-8-6
+sh run/wikipsg_v1/wiki.title0.moco.bs1024.gpu8.sh  # A100-8-5
+sh run/wikipsg_v1/wiki.title0.inbatch.bs1024.gpu8.sh  # A100-8
+
+
+
+
+sh run/cc_v1/cc.moco.2e14.title05.wikipsg256-title50.bs2048.gpu8.sh  # A100-8-4
+sh run/wikipsg_v1/wiki.T03b_topic50.moco.contriever50.bs1024.gpu8.sh  # A100-8-3
+sh run/wikipsg_v1/wiki.T03b_topic50.moco.bs1024.gpu8.sh  # A100-8-2
+sh run/cc_v1/cc.moco.2e14.title05-aug.bs2048.gpu8.sh  # A100-8-1
+sh run/cc_v1/cc.moco.2e14.title05.bs2048.gpu8.sh  # A100-8-0
+
+sh run/wikipsg_v1/wiki.doc2query50.moco.contriever50.bs1024.gpu8.sh  # A100-8-5
+sh run/wikipsg_v1/wiki.doc2query50.moco.bs1024.gpu8.sh  # A100-8
+
+
+sh run/wikipsg_v1/wiki.ExtQ-selfdot.moco.bs1024.gpu8.sh  # A100-8
+sh run/wikipsg_v1/cc.moco.2e14.title05.bs4096.gpu8.sh  # A100-8-4
+sh run/wikipsg_v1/moco.cc.2e14.title05.bs2048.gpu8.rerun.sh  # A100-8-1
+sh run/wikipsg_v1/cc.moco.2e17.bs2048.gpu8.sh  # A100-8-2
+sh run/wikipsg_v1/cc.moco.2e14.qd224.bs2048.gpu8.sh  # A100-8-5
+sh run/wikipsg_v1/cc.inbatch-indep.title05.bs1024.gpu8.sh  # A100-8
+sh run/wikipsg_v1/cc.inbatch-2e14.title05.bs1024.gpu8.sh  # A100-8-5, diverged
+sh run/wikipsg_v1/cc.inbatch.title05.bs1024.gpu8.sh  # A100-8-4
+sh run/wikipsg_v1/cc.moco.2e14.bs2048.gpu8.sh  # A100-8-1
+sh run/wikipsg_v1/cc.inbatch.bs1024.gpu8.sh  # A100-8-2
+sh run/wikipsg_v1/wiki_T03b_exsum50.inbatch.bs1024.gpu8.sh  # A100-8-3
+
+
+#### extra eval
+cd /export/share/ruimeng/project/search/uir_best_cc
+sh run/wikipsg_v1/eval/cc.moco.2e17.bs2048.gpu8.sh
+sh run/wikipsg_v1/eval/cc.moco.2e14.qd224.bs2048.gpu8.sh  # A100-8-0
+sh run/wikipsg_v1/eval/moco.cc.2e14.title05.bs2048.gpu8.rerun.sh  # A100-8-1
+
+
+sh run/wikipsg_v1/eval/wiki_allphrase5.inbatch.bs1024.gpu8.sh  # A100-8-3
+sh run/wikipsg_v1/wiki_T03b_exsum50.moco.bs1024.gpu8.sh  # A100-8-5
+sh run/wikipsg_v1/eval/cc.moco.2e14.bs1024.gpu8.sh  # A100-8
+sh run/wikipsg_v1/eval/wiki_allphrase5.inbatch.bs1024.gpu8.sh  # A100-8
+sh run/wikipsg_v1/eval/wiki_allphrase3.moco.bs1024.gpu8.sh  # A100-8
+sh run/wikipsg_v1/eval/wiki_allphrase3.inbatch.bs1024.gpu8.sh  # 
+sh run/wikipsg_v1/eval/wiki_T03b_absum50.moco.bs1024.gpu8.sh  # A100-8-4
+sh run/wikipsg_v1/eval/wiki_allphrase1.moco.bs1024.gpu8.sh  # A100-8-0, done
+sh run/wikipsg_v1/eval/wiki_allphrase1.inbatch.bs1024.gpu8.sh  # done
+sh run/wikipsg_v1/eval/wiki_allphrase5.moco.bs1024.gpu8.sh  # A100-8-2
+sh run/wikipsg_v1/eval/wiki_T03b_topic50.inbatch.bs1024.gpu8.sh  # done
+sh run/wikipsg_v1/cc+wiki.inbatch.title05.bs1024.gpu8.sh  # A100-8 running
+sh run/wikipsg_v1/wiki_T03b_exsum.moco.bs1024.gpu8.sh  # A100-8-5
+sh run/wikipsg_v1/wiki_T03b_absum50.inbatch.bs1024.gpu8.sh  # A100-8-4
+sh run/wikipsg_v1/wiki_T03b_topic50.moco.bs1024.gpu8.sh  # A100-8-3
+sh run/wikipsg_v1/wiki_T03b_title50.inbatch.bs1024.gpu8.sh  # A100-8-2
+sh run/wikipsg_v1/wiki_T03b_title50.moco.bs1024.gpu8.sh
+sh run/wikipsg_v1/wiki_doc2query50.moco.bs1024.gpu8.sh
+sh run/wikipsg_v1/wiki_doc2query50.inbatch.bs1024.gpu8.sh  # A100-8-5
+sh run/wikipsg_v1/cc+wiki.moco.2e14.title05.bs2048.gpu8.sh  # A100-8-0
+sh run/wikipsg_v1/wiki.contriever256.moco.inbatch+2e14.title0.qd128.bs1024.gpu8.sh  # A100-8-2
+sh run/wikipsg_v1/wiki.contriever256.moco.inbatch.title0.qd128.bs1024.gpu8.sh  # A100-8-3
+sh run/wikipsg_v1/wiki.moco.contriever256.2e17.title0.qd128.bs1024.gpu8.sh  # A100-8-4
+
+
+sh run/wikipsg_v1/wiki_T03b_exsum.inbatch.bs1024.gpu8.sh  # A100-8-1
+sh run/wikipsg_v1/moco.contriever256.wiki.2e17.title0.qd128.bs1024.gpu8.sh  # A100-8-4
+
+
+
+
+sh run/wikipsg_v1/wiki_T03b_absum.moco.bs1024.gpu8.sh  # done
+sh run/wikipsg_v1/wiki_doc2query.moco.bs1024.gpu8.sh  # done
+sh run/wikipsg_v1/wiki_doc2query.inbatch.bs1024.gpu8.sh  # A100-8-3
+sh run/wikipsg_v1/wiki_T03b_absum.inbatch.bs1024.gpu8.sh  # done
+sh run/wikipsg_v1/wiki_T03b_absum.moco.bs1024.gpu8.sh  # A100-8-3
+sh run/wikipsg_v1/wiki_doc2query.moco.bs1024.gpu8.sh  # A100-8-2
+sh run/wikipsg_v1/wiki_T03b_title.moco.bs1024.gpu8.sh  # A100-8-5
+sh run/wikipsg_v1/wiki_T03b_title.inbatch.bs1024.gpu8.sh  # A100-8-4
+
+
+sh run/wikipsg_v1/wiki_T03b_topic.moco.bs1024.gpu8.sh  # torun
+sh run/wikipsg_v1/wiki_T03b_topic.inbatch.bs1024.gpu8.sh  # torun
+sh run/wikipsg_v1/inbatch.contriever256.wiki.title0.qd128.bs1024.gpu8.sh  # torun
+sh run/wikipsg_v1/moco.contriever256.wiki.2e14.title0.qd128.bs1024.gpu8.sh  # torun
+sh run/wikipsg_v1/moco.cc.2e14.title05+prompt.bs2048.gpu8.sh  # done
+sh run/wikipsg_v1/moco.cc.2e14.title05.bs2048.gpu8.sh  # done
+
+
+sh run/wikipsg_v1/inbatch.contriever256.wiki.title50.qd128.bs1024.gpu8.sh  # A100-8-2
+sh run/wikipsg_v1/moco.contriever256.wiki.2e14.title0.qd128.bs1024.gpu8.sh  # A100-8-0
+sh run/wikipsg_v1/paq.inbatch.len256.bs1024.gpu8.sh  # A100-8-1
+sh run/wikipsg_v1/inbatch.contriever256.wiki.title100.qd128.bs1024.gpu8.sh  # A100-8
 sh run/wikipsg_v1/moco.contriever256.wiki.2e14.title50.qd128.bs1024.gpu8.sh  # A100-8-3
-sh run/wikipsg_v1/inbatch.contriever256.wiki.title100.qd128.bs1024.gpu8.sh  # A100-8-1
-sh run/wikipsg_v1/inbatch.contriever256.wiki.title0.qd128.bs1024.gpu8.sh  # A100-8-0
-sh run/wikipsg_v1/moco.contriever256.wiki.2e14.title0.qd128.bs1024.gpu8.sh  # A100-8-2
-sh run/wikipsg_v1/moco.contriever256.wiki.2e14.title100.qd128.bs1024.gpu8.sh  # A100-8
+sh run/wikipsg_v1/paq.moco.2e14.contriever256.len256.bs1024.gpu8.sh  # A100-8-2
+sh run/wikipsg_v1/moco.contriever256.wiki.2e14.title100.qd128.bs1024.gpu8.sh  # A100-8-1
 
 # To reproduce best runs
 ## Best_cc finetune
 cd /export/share/ruimeng/project/search/uir_best_cc
 sh run/finetune/mm.inbatch-random-neg1023+1024.contriever.bs1024.qd192.step20k.drop5.lr1e5.gpu8.sh  # A100-8-1
 sh run/finetune/mm.inbatch-random-neg1023+1024.contriever.bs1024.qd192.step20k.lr3e6.gpu8.sh  # A100-8-2
-sh run/finetune/mm.inbatch-random-neg1023+1024.contriever.bs1024.qd192.step20k.lr5e6.gpu8.sh  # A100-8-3
+sh run/finetune/mm.inbatch-randoeval/beirm-neg1023+1024.contriever.bs1024.qd192.step20k.lr5e6.gpu8.sh  # A100-8-3
 sh run/finetune/mm.inbatch-random-neg1023+1024.contriever.bs1024.qd192.step20k.lr5e8.gpu8.sh  # A100-8-4
 sh run/finetune/mm.inbatch-random-neg1023+1024.contriever.bs1024.qd192.step20k.drop1.lr1e5.gpu8.sh  # A100-8-0
 

@@ -70,9 +70,9 @@ class DenseEncoderModel:
                 ids, mask = ids.cuda(), mask.cuda()
 
                 if 'is_query' in inspect.getfullargspec(self.query_encoder.forward).args:
-                    emb = self.query_encoder(ids, mask, sent_emb=True, is_query=True)
+                    emb = self.query_encoder(input_ids=ids, attention_mask=mask, sent_emb=True, is_query=True)
                 else:
-                    emb = self.query_encoder(ids, mask, sent_emb=True)
+                    emb = self.query_encoder(input_ids=ids, attention_mask=mask, sent_emb=True)
                 # # @memray for ANCE
                 # if 'is_query' in inspect.getfullargspec(self.query_encoder.forward).args:
                 #     emb = self.query_encoder(ids, mask, is_query=True)
@@ -140,6 +140,7 @@ class DenseEncoderModel:
         if return_cpu:
             allemb = allemb.cpu().numpy()
         return allemb
+
 
 def evaluate_model(
         query_encoder, 

@@ -71,7 +71,7 @@ def main(args):
     if not args.no_fp16:
         model = model.half()
 
-    passages = src.qa.data.load_passages(args.passages)
+    passages = src.qa.data.load_dpr_passages(args.passages)
 
     num_shards = int(os.environ['WORLD_SIZE'])
     shard_id = args.local_rank
