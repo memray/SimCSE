@@ -196,6 +196,7 @@ def load_datasets(tokenizer, training_args, hftraining_args, moco_args):
         )
         num_examples = total_train_batch_size * (hftraining_args.max_steps + 100)
 
+        sum_len = sum([len(dset) for dset in train_datasets])
         if hftraining_args.local_rank == 0 or hftraining_args.local_rank == -1:
             # print(f"  - Fingerprint_name = {fingerprint_name}")
             print(f"  - train_datasets = {training_args.train_file}")
@@ -210,11 +211,12 @@ def load_datasets(tokenizer, training_args, hftraining_args, moco_args):
             print(f"  \t queue_update_steps = {moco_args.queue_update_steps}")
             print(f"  - Total optimization steps = {hftraining_args.max_steps}")
             print(f"  \t max_steps = {hftraining_args.max_steps}")
-            print(f"  - Total training examples = {num_examples}")
+            print(f"  - Total examples in training sets = {sum_len}")
+            print(f"  - Total examples for training = {num_examples}")
+            print(f"  - Number of epochs for uniform sampling = {(num_examples // sum_len + 1)}")
 
-        sum_len = sum([len(dset) for dset in train_datasets])
         if not training_args.train_prob:
-            if sum_len < num_examples:
+            if sum_len < num_examples or len(train_datasets) > 1:
                 # if train_prob is not set, denotes naive uniform sampling, so simply concatenate them
                 train_datasets = train_datasets * (num_examples // sum_len + 1)
                 train_dataset = concatenate_datasets(train_datasets)
@@ -241,7 +243,7 @@ def load_datasets(tokenizer, training_args, hftraining_args, moco_args):
             train_dataset = interleave_datasets(train_datasets,
                                                 num_step=num_examples, probabilities=probs,
                                                 seed=hftraining_args.seed, new_fingerprint=fingerprint_name[:64])
-        data_prep_config = load_dataprocess_config(training_args, hftraining_args)
+        data_prep_config = load_dataprocess_config(training_args, local_rank=hftraining_args.local_rank)
         parse_fn = partial(hfdataset_prepare_features,
                            title_field=title_field,
                            text_field=text_field,

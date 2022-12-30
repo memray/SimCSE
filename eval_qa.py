@@ -5,9 +5,8 @@
 # LICENSE file in the root directory of this source tree.
 
 import os
+import inspect
 import argparse
-import csv
-import json
 import logging
 import pickle
 import time
@@ -23,7 +22,8 @@ import src.qa.data
 from src.utils import training_utils
 from src.qa.qa_validation import calculate_matches
 import src.qa.normalize_text
-from src.qa.spider_utils import save_results, load_passages, RECALL_FILE_NAME, RESULTS_FILE_NAME
+from src.qa.data import load_dpr_passages
+from src.utils.eval_utils import save_results, RECALL_FILE_NAME, RESULTS_FILE_NAME
 
 os.environ['OMP_NUM_THREADS'] = '32'
 os.environ["TOKENIZERS_PARALLELISM"] = "true"
@@ -54,10 +54,17 @@ def embed_queries(args, queries, model, tokenizer):
                     truncation=True,
                 )
                 encoded_batch = {k: v.cuda() for k, v in encoded_batch.items()}
-                output = model(**encoded_batch, sent_emb=True, is_query=True)
-                output = output.pooler_output
-                if output.is_cuda:
-                    output = output.cpu()
+                if 'sent_emb' in inspect.getfullargspec(model.forward).args:
+                    # Ours
+                    output = model(**encoded_batch, sent_emb=True, is_query=False).pooler_output
+                else:
+                    # Contriever or other HFTransformer models
+                    ids, mask = encoded_batch['input_ids'], encoded_batch['attention_mask']
+                    ids, mask = ids.cuda(), mask.cuda()
+                    output = model(ids, mask)
+                if hasattr(output, 'pooler_output'):  # HFTransformer models
+                    output = output['pooler_output']
+                output = output.cpu()
                 query_vectors.append(output)
                 batch_question = []
 
@@ -98,12 +105,12 @@ def add_embeddings(index, embeddings, ids, indexing_batch_size):
 
 def main(args):
     logger.info(f"Loading model from: {args.model_name_or_path}")
-    model, tokenizer = training_utils.load_model(args.model_name_or_path)
+    q_model, tokenizer = training_utils.load_model(args.model_name_or_path)
 
-    model.eval()
-    model = model.cuda()
+    q_model.eval()
+    q_model = q_model.cuda()
     if not args.no_fp16:
-        model = model.half()
+        q_model = q_model.half()
 
     index = src.qa.index.Indexer(args.projection_size, args.n_subquantizers, args.n_bits, args.num_threads)
 
@@ -129,8 +136,7 @@ def main(args):
 
     # load passages
     start_time_retrieval = time.time()
-    # passages = src.qa.data.load_passages(args.passages)
-    passages = load_passages(args.passages)
+    passages = load_dpr_passages(args.passage_path)
     id2doc = {d['id']: d for d in passages}
 
     logger.info(f"Loading passages time: {time.time()-start_time_retrieval:.1f}s")
@@ -149,11 +155,11 @@ def main(args):
         os.makedirs(dataset_output_dir, exist_ok=True)
 
         # encode questions
-        questions_embedding = embed_queries(args, questions, model, tokenizer)
+        questions_embedding = embed_queries(args, questions, q_model, tokenizer)
 
         # get top k results
         start_time_retrieval = time.time()
-        top_ids_and_scores = index.search_knn(questions_embedding, args.n_docs, index_batch_size=32)
+        top_ids_and_scores = index.search_knn(questions_embedding, args.n_docs, index_batch_size=1)
         logger.info(f"Search time: {time.time()-start_time_retrieval:.1f} s.")
 
         # compute scores
@@ -186,7 +192,7 @@ if __name__ == "__main__":
     parser.add_argument("--local_rank", type=int, default=-1, help="For distributed training: local_rank")
     parser.add_argument("--qa_file", required=True, type=str, default=None,
         help=".json file containing question and answers, similar format to reader data")
-    parser.add_argument("--passages", type=str, default=None, help="Path to passages (.tsv file)")
+    parser.add_argument("--passage_path", type=str, default=None, help="Path to passages (.tsv file)")
     parser.add_argument("--passages_embeddings", type=str, default=None, help="Glob path to encoded passages")
     parser.add_argument("--output_dir", type=str, default=None, help="Results are written to outputdir with data suffix")
     parser.add_argument("--n_docs", type=int, default=100, help="Number of documents to retrieve per questions")

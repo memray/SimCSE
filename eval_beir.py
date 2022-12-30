@@ -4,21 +4,20 @@
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
 
-import sys
 import argparse
-import torch
 import logging
 import json
-import numpy as np
 import os
 
+import numpy as np
 import transformers
 
-import src.beireval.slurm
-import src.contriever
-import src.beireval.beir_utils
-import src.utils as utils
-import src.dist_utils as dist_utils
+import src.beireval.slurm as slurm
+import src.model.contriever
+import src.beireval.beir_utils as beir_utils
+import src.utils.training_utils as utils
+import src.utils.dist_utils as dist_utils
+from utils import training_utils
 
 logger = logging.getLogger(__name__)
 
@@ -29,79 +28,114 @@ BEIR_datasets = [
         'dbpedia-entity', 'scidocs', 'fever', 'climate-fever', 'scifact', 'robust04',
         'cqadupstack', 'quora'
         ]
+BEIR_public_datasets = [
+        'msmarco', 'trec-covid', 'nfcorpus', 'nq', 'hotpotqa',
+        'fiqa', 'arguana', 'webis-touche2020',
+        'dbpedia-entity', 'scidocs', 'fever', 'climate-fever', 'scifact',
+        'cqadupstack', 'quora'
+        ]
+small_datasets = ['fiqa', 'arguana', 'scidocs', 'scifact', 'webis-touche2020', 'cqadupstack']
 def main(args):
-    src.slurm.init_distributed_mode(args)
-    src.slurm.init_signal_handler()
+    slurm.init_distributed_mode(args)
+    slurm.init_signal_handler()
 
     os.makedirs(args.output_dir, exist_ok=True)
 
     logger = utils.init_logger(args)
-    logger.info(f"Loading model from {args.model_name_or_path}")
+    logger.info(f"Loading model from [{args.model_name_or_path}]")
 
+    q_model, tokenizer = training_utils.load_model(args.model_name_or_path)
     # tokenizer = transformers.AutoTokenizer.from_pretrained(args.model_name_or_path)
-    # model = src.contriever.Contriever.from_pretrained(args.model_name_or_path)
+    # q_model = transformers.AutoModel.from_pretrained(args.model_name_or_path)
 
-    tokenizer = transformers.AutoTokenizer.from_pretrained(args.model_name_or_path)
-    model = transformers.AutoModel.from_pretrained(args.model_name_or_path)
+    if args.doc_model_name_or_path is not None:
+        # d_model = transformers.AutoModel.from_pretrained(args.doc_model_name_or_path)
+        d_model, _ = training_utils.load_model(args.doc_model_name_or_path)
+    else:
+        d_model = q_model
+    q_model = q_model.cuda()
+    d_model = d_model.cuda()
 
-    model = model.cuda()
+    logger.info(f"Start indexing with dataset=[{args.dataset}]")
 
-    logger.info(f"Start indexing with dataset={args.dataset}")
-    assert args.dataset in BEIR_datasets, f'Unknown dataset {args.dataset}, supported datasets: \n {str(BEIR_datasets)}'
-    split = 'dev' if args.dataset == 'msmarco' else 'test'
+    if args.dataset == 'all':
+        datasets = BEIR_public_datasets
+    elif args.dataset == 'small':
+        datasets = small_datasets
+    else:
+        assert args.dataset in BEIR_datasets, f'Unknown dataset [{args.dataset}], supported datasets: \n {str(BEIR_datasets)}'
+        datasets = [args.dataset]
 
-    ndcg, _map, recall, precision, mrr, recall_cap, hole = src.beireval.beir_utils.evaluate_model(
-        query_encoder=model, 
-        doc_encoder=model,
-        tokenizer=tokenizer, 
-        dataset=args.dataset,
-        batch_size=args.per_gpu_batch_size,
-        norm_query=args.norm_query,
-        norm_doc=args.norm_doc,
-        is_main=dist_utils.is_main(),
-        split=split,
-        metric=args.metric,
-        beir_data_path=args.beir_data_path,
-    )
+    metrics = {}
+    avg_ndcg_10, avg_recall_10, avg_recall_20, avg_recall_100 = [], [], [], []
+    for dataset in datasets:
+        split = 'dev' if dataset == 'msmarco' else 'test'
+        logger.info(f"Start evaluating with dataset=[{dataset}], split=[{split}]")
+        if os.path.exists(f"{args.output_dir}/{dataset}.json"):
+            logger.info(f"Found previous results, skip evaluating [{dataset}]")
+            continue
+        ndcg, _map, recall, precision, mrr, recall_cap, hole = beir_utils.evaluate_model(
+            query_encoder=q_model,
+            doc_encoder=d_model,
+            tokenizer=tokenizer,
+            dataset=dataset,
+            batch_size=args.per_gpu_batch_size,
+            norm_query=args.norm_query,
+            norm_doc=args.norm_doc,
+            is_main=dist_utils.is_main(),
+            split=split,
+            metric=args.metric,
+            beir_data_path=args.beir_data_path,
+            add_qd_prompt=False,
+            corpus_chunk_size=20480
+        )
 
-    if dist_utils.is_main():
-        logger.info(args.dataset + ' ' + str(ndcg))
-        logger.info(args.dataset + ' ' + str(_map))
-        logger.info(args.dataset + ' ' + str(recall))
-        logger.info(args.dataset + ' ' + str(precision))
-        logger.info(args.dataset + ' ' + str(mrr))
-        logger.info(args.dataset + ' ' + str(recall_cap))
-        logger.info(args.dataset + ' ' + str(hole))
+        if dist_utils.is_main():
+            ndcg10 = ndcg['NDCG@10']
+            recall10 = recall['Recall@10'] if dataset != 'trec-covid' else recall_cap['R_cap@10']
+            recall20 = recall['Recall@20'] if dataset != 'trec-covid' else recall_cap['R_cap@20']
+            recall100 = recall['Recall@100'] if dataset != 'trec-covid' else recall_cap['R_cap@100']
+            metrics[f'eval_beir-{dataset}_ndcg@10'] = ndcg10
+            metrics[f'eval_beir-{dataset}_recall@10'] = recall10
+            metrics[f'eval_beir-{dataset}_recall@20'] = recall20
+            metrics[f'eval_beir-{dataset}_recall@100'] = recall100
+            avg_ndcg_10.append(ndcg10)
+            avg_recall_10.append(recall10)
+            avg_recall_20.append(recall20)
+            avg_recall_100.append(recall100)
 
-        print(f"Writing scores to {args.output_dir+'/'+args.dataset}.json")
-        result_dict = {
-            'args': vars(args),
-            'dataset': args.dataset,
-            'split': split,
-            'metric': args.metric,
-            'norm_query': args.norm_query,
-            'norm_doc': args.norm_doc,
-            'scores': {
-                'ndcg': ndcg,
-                'map': _map,
-                'precision': precision,
-                'recall': recall,
-                'mrr': mrr,
-                'recall_cap': recall_cap,
-                'hole': hole,
+            result_dict = {
+                'dataset': dataset,
+                'split': split,
+                'metric': args.metric,
+                'norm_query': args.norm_query,
+                'norm_doc': args.norm_doc,
+                'scores': {
+                    'ndcg': ndcg,
+                    'map': _map,
+                    'precision': precision,
+                    'recall': recall,
+                    'mrr': mrr,
+                    'recall_cap': recall_cap,
+                    'hole': hole,
+                }
             }
-        }
-        with open(f"{args.output_dir+'/'+args.dataset}.json", 'w') as writer:
-            writer.write(json.dumps(result_dict, indent=4) + "\n")
+            logger.info(f"Dump results of {dataset} to {args.output_dir}/{dataset}.json")
+            with open(f"{args.output_dir}/{dataset}.json", 'w') as writer:
+                writer.write(json.dumps(result_dict, indent=4) + "\n")
+            rows = ['metric,@1,@3,@5,@10,@20,@50,@100,@200,@1000']
+            for metric_name, scores in result_dict['scores'].items():
+                row = ','.join([str(s) for s in ([metric_name] + list(scores.values()))])
+                rows.append(row)
+            with open(f"{args.output_dir}/{dataset}.csv", 'w') as writer:
+                for row in rows:
+                    writer.write(row + "\n")
 
-        print(f"Writing scores to {args.output_dir+'/'+args.dataset}.csv")
-        rows = ['metric,@1,@3,@5,@10,@100,@1000']
-        for metric, scores in result_dict['scores'].items():
-            row = ','.join([str(s) for s in ([metric] + list(scores.values()))])
-            rows.append(row)
-        with open(f"{args.output_dir+'/'+args.dataset}.csv", 'w') as writer:
-            for row in rows:
-                writer.write(row + "\n")
+    metrics['eval_beir-avg_ndcg@10'] = np.mean(avg_ndcg_10)
+    metrics['eval_beir-avg_recall@10'] = np.mean(avg_recall_10)
+    metrics['eval_beir-avg_recall@20'] = np.mean(avg_recall_20)
+    metrics['eval_beir-avg_recall@100'] = np.mean(avg_recall_100)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -112,9 +146,9 @@ if __name__ == '__main__':
 
     parser.add_argument("--per_gpu_batch_size", default=128, type=int, help="Batch size per GPU/CPU for indexing.")
     parser.add_argument("--output_dir", type=str, default="./my_experiment", help="Output directory")
-    parser.add_argument("--model_name_or_path", type=str, help="Model name or path")
-    parser.add_argument("--metric", type=str, default="dot", 
-        help="Metric used to compute similarity between two embeddings")
+    parser.add_argument("--model_name_or_path", type=str, default=None, help="Model name or path")
+    parser.add_argument("--doc_model_name_or_path", type=str, default=None, help="Model name or path")
+    parser.add_argument("--metric", type=str, default="dot", help="Metric used to compute similarity between two embeddings")
     parser.add_argument("--norm_query", action="store_true", help="Normalize query representation")
     parser.add_argument("--norm_doc", action="store_true", help="Normalize document representation")
 

@@ -1,53 +1,281 @@
 fuser -v /dev/nvidia* | awk '{ print $0 }' | xargs -n1 kill -9
 
-# eval 4-7: 225584
-cd /export/share/ruimeng/project/search/simcse
-bash run/eval/beireval.4large_datasets.sh
-nohup bash run/eval/beireval.2gpu.0-1.sh > nohup.beireval.2gpu.0-1.out 2>&1 &
-nohup bash run/eval/beireval.4gpu.4-7.sh > nohup.beireval.4gpu.4-7.out 2>&1 &
-nohup bash run/eval/beireval.4gpu.0-3.sh > nohup.beireval.4gpu.0-3.out 2>&1 &
-nohup bash run/eval/beireval.2gpu.2-3.sh > nohup.beireval.2gpu.2-3.out 2>&1 &
-nohup bash run/eval/beireval.2gpu.4-5.sh > nohup.beireval.2gpu.4-5.out 2>&1 &
-nohup bash run/eval/beireval.2gpu.6-7.sh > nohup.beireval.2gpu.6-7.out 2>&1 &
+## GPU16
+cd /export/home/project/search/uir_best_cc
+sh run/cc_v1/basic_gpu16/cc.moco2e14.topic50.large.bs2048.gpu16.sh  # pod/sfr-pod-ruimeng.a100-16-72cpu-1
+sh run/cc_v1/basic_gpu16/cc.moco2e14.topic50.bs8192.gpu16.sh  # pod/sfr-pod-ruimeng.a100-16-72cpu-0
 
 
-# Query Generation
-cd /export/share/ruimeng/project/search/uir_best_cc
-sh run/finetune/mine_negative.mm.contriever.sh  # A100-8
-sh run/finetune/mine_negative.sh
+
+## CC&wiki DA
+cd /export/home/project/search/uir_best_cc
+sh run/cc_v1/domain-adapt/cc.T0topic.inbatch.bs1024.gpu8.da-cqa_quora.1e5.step5k.sh  # a100-8-6
 
 
-# Query Generation
-cd /export/share/ruimeng/project/search/UPR
-sh examples/cc/uqg_doc2query_t2q.sh  # A100-8-0
+sh run/cc_v1/domain-adapt/cc.T0topic.inbatch.bs1024.gpu8.da-sci.5e6.step2k.sh  # a100-8
+sh run/cc_v1/domain-adapt/cc.T0topic.inbatch.bs1024.gpu8.da-scifact.5e6.step2k.sh  # a100-8-6
+sh run/cc_v1/domain-adapt/cc.T0topic.inbatch.bs1024.gpu8.da-nfcorpus.5e6.step2k.sh  # a100-8-0
+sh run/cc_v1/domain-adapt/cc.T0topic.inbatch.bs1024.gpu8.da-scidocs.5e6.step2k.sh  # a100-8 (backup)
 
-sh examples/wiki/uqg_doc2query_r2t.sh  # done
-sh examples/wiki/uqg_doc2query_a2t.sh  # done
-sh examples/wiki/uqg_t5xl_insummary.sh  # done
-sh examples/wiki/uqg_doc2query.sh  # done
-sh examples/wiki/uqg_summary_ext.sh  # done
-sh examples/wiki/uqg_summary_abs.sh  # done
-sh examples/wiki/uqg_title.sh  # done
-sh examples/wiki/uqg_topic.sh  # done
+sh run/cc_v1/domain-adapt/cc.T0topic.inbatch.bs1024.gpu8.da-touche2020.5e6.step2k.sh  # a100-8
+sh run/cc_v1/domain-adapt/cc.T0topic.inbatch.bs1024.gpu8.da-trec_covid.5e6.step2k.sh  # a100-8-0
+sh run/cc_v1/domain-adapt/cc.T0topic.inbatch.bs1024.gpu8.da-arguana.5e6.step2k.sh # a100-8-6
+sh run/cc_v1/domain-adapt/cc.T0topic.inbatch.bs1024.gpu8.da-fiqa.5e6.step2k.sh  # a100-8 (backup)
 
-sh examples/uqg_title.sh  # A100-8-5 (done)
-sh examples/uqg_topic.sh  # A100-8-6 (done)
-sh examples/uqg_summary_ext.sh  # A100-8-4 (done)
-sh examples/uqg_summary_abs.sh  # A100-8-3 (done)
+sh run/cc_v1/domain-adapt/cc.T0topic.inbatch.bs1024.gpu8.da-scifact.1e5.step5k.sh  # a100-8 (backup)
+sh run/cc_v1/domain-adapt/cc.T0topic.inbatch.bs1024.gpu8.da-arguana.1e5.step5k.sh  # done
+sh run/cc_v1/domain-adapt/cc.T0topic.inbatch.bs1024.gpu8.da-scidocs.1e5.step5k.sh  # a100-8 (backup)
+sh run/cc_v1/domain-adapt/cc.T0topic.inbatch.bs1024.gpu8.da-trec_covid.1e5.step5k.sh  # a100-8
+sh run/cc_v1/domain-adapt/cc.T0topic.inbatch.bs1024.gpu8.da-touche2020.1e5.step5k.sh  # a100-8 (backup)
+sh run/cc_v1/domain-adapt/cc.T0topic.inbatch.bs1024.gpu8.da-nfcorpus.1e5.step5k.sh  # a100-8 (backup)
+sh run/cc_v1/domain-adapt/cc.T0topic.inbatch.bs1024.gpu8.da-fiqa.1e5.step5k.sh  # a100-8
+sh run/cc_v1/domain-adapt/cc.T0topic.inbatch.bs1024.gpu8.da-sci.1e5.step5k.sh #  need to remove unused columns like authors
+sh run/cc_v1/domain-adapt/cc.T0topic.inbatch.bs1024.gpu8.da-wiki.1e5.step5k.sh  # a100-8-6
+sh run/cc_v1/domain-adapt/cc.T0topic.inbatch.bs1024.gpu8.da-quora.1e5.step5k.sh  # a100-8-6
+sh run/cc_v1/domain-adapt/cc.T0topic.inbatch.bs1024.gpu8.da-cqa.1e5.step5k.sh  # a100-8-6
+sh run/cc_v1/domain-adapt/cc.T0topic.inbatch.bs1024.gpu8.da-msmarco.1e5.step1k.sh
+sh run/cc_v1/domain-adapt/cc.T0topic.inbatch.bs1024.gpu8.da-msmarco.1e5.step5k.sh # a100-8-1
+sh run/cc_v1/domain-adapt/cc.T0topic.inbatch.bs1024.gpu8.da-msmarco.1e5.step2k.sh # a100-8-1
+sh run/cc_v1/domain-adapt/cc.T0topic.moco.bs1024.gpu8.da-msmarco.1e5.step2k.sh  # done
+sh run/cc_v1/domain-adapt/cc.T0exsum.inbatch.bs1024.gpu8.da-msmarco.1e5.step2k.sh  # a100-8-6
+sh run/cc_v1/domain-adapt/cc.T0exsum.moco.bs1024.gpu8.da-msmarco.1e5.step2k.sh  # a100-8-1
+
+sh run/cc_v1/domain-adapt/cc.ExtQ-plm.inbatch.bs1024.gpu8.da-msmarco.1e5.step2k.warmup200.sh  # a100-8-6
+sh run/cc_v1/domain-adapt/cc.ExtQ-plm.inbatch.bs1024.gpu8.da-msmarco.1e5.step1k.warmup100.sh  # a100-8
+sh run/cc_v1/domain-adapt/cc.ExtQ-plm.inbatch.bs1024.gpu8.da-msmarco.1e5.step5k.sh  # a100-8-1
+sh run/cc_v1/domain-adapt/cc.ExtQ-plm.inbatch.bs1024.gpu8.da-msmarco.5e5.sh  # a100-8
 
 
-## New wiki exp
-cd /export/share/ruimeng/project/search/uir_best_cc
-sh run/wikipsg_v1/wiki.ExtQ-plm.moco.bs1024.gpu8.sh  # A100-8-3
+## longer training
+sh run/cc_v1/hybrid/cc.moco.RC20+title+T0gen+t2q.bs2048.gpu8.sh
+sh run/cc_v1/hybrid/cc.moco.RC20+Qext+title+T0gen+t2q.bs1024.gpu8.sh  # A100-8 (backup)
+sh run/cc_v1/hybrid/cc.moco.RC20+Qext+title+T0gen.bs1024.step200k.gpu8.sh  # A100-8
+sh run/cc_v1/hybrid/cc.moco.RC20+title+T0gen.bs4096.gpu8.sh  # a100-8-6
+    TOKENIZERS_PARALLELISM=true, NUM_WORKER=8, 7.93s/it, #thread=104 (actually bs=2048), killed
+    TOKENIZERS_PARALLELISM=false, NUM_WORKER=10, 20-25s/it, #thread=120, killed
+    TOKENIZERS_PARALLELISM=true, NUM_WORKER=4, 10~16s/it, #thread=72
+    TOKENIZERS_PARALLELISM=true, NUM_WORKER=2, s/it, #thread , killed
+sh run/cc_v1/hybrid/cc.moco.RC20+title+T0gen.bs2048.gpu8.sh  # a100-8-5
+    TOKENIZERS_PARALLELISM=false, NUM_WORKER=4, 3~4s/it, killed
+    TOKENIZERS_PARALLELISM=true, NUM_WORKER=8, 3~6s/it, #thread=75, ETA 300h, killed
+sh run/cc_v1/hybrid/cc.moco.RC20+T0gen.bs4096.gpu8.sh  # A100-8-1 
+    TOKENIZERS_PARALLELISM=true, NUM_WORKER=6, 18.52s/it, #thread=66
+    TOKENIZERS_PARALLELISM=true, NUM_WORKER=6, 10~14s/it, #thread=65, gpus often idle
+    TOKENIZERS_PARALLELISM=true, NUM_WORKER=10, 17~25s/it, #thread=90~110
+    TOKENIZERS_PARALLELISM=false, NUM_WORKER=4, s/it, #thread, killed
+sh run/cc_v1/hybrid/cc.moco.RC20+T0gen.bs2048.gpu8.sh  # A100-8-0
+    1.5~2.2s/iter, TOKENIZERS_PARALLELISM=false, #worker=8, #threads=95, utility often not full, but becomes 5+s/iter after 140k steps, 2~4s/it around 155k, 6~8s/it around 160k
+
+cd /export/home/project/search/uir_best_cc
+sh run/cc_v1/basic/cc.moco.exsum50.bs2048.gpu8.sh  # A100-8, backup
+sh run/cc_v1/basic/cc.moco.absum50.bs2048.gpu8.sh  # A100-8-0
+sh run/cc_v1/basic/cc.moco.topic50.bs2048.gpu8.sh  # A100-8
+sh run/cc_v1/basic/cc.moco.T0title50.bs2048.gpu8.sh
+sh run/cc_v1/basic/cc.moco.topic50.bs4096.gpu8.sh  # a100-8-5
+    2.0~2.3s/iter, NUM_WORKER=6, #threads=60
+
+
+## CC hybrid
+cd /export/home/project/search/uir_best_cc
+sh run/cc_v1/hybrid/cc.moco.RC50+T0gen.bs1024.gpu8.sh
+sh run/cc_v1/hybrid/cc.moco.Qext50+title+T0gen.bs1024.gpu8.sh  # a100-8-1
+sh run/cc_v1/hybrid/cc.moco.RC50+Qext+title+T0gen.bs1024.gpu8.sh  # A100-8 (backup)
+sh run/cc_v1/hybrid/cc.moco.Qext0+title+T0gen.bs1024.gpu8.sh  # a100-8-0
+sh run/cc_v1/hybrid/cc.moco.RC20+Qext+title+T0gen.bs1024.gpu8.sh  # A100-8-1
+sh run/cc_v1/hybrid/cc.moco.RC20+T0gen.bs1024.gpu8.sh  # A100-8-0
+sh run/cc_v1/hybrid/cc.inbatch.Qext50+title+T0gen.bs1024.gpu8.sh  # A100-8 (backup)
+sh run/cc_v1/hybrid/cc.inbatch.Qext0+title+T0gen.bs1024.gpu8.sh  # A100-8
+sh run/cc_v1/hybrid/cc.special80.title+T0gen.moco.bs1024.gpu8.sh  # A100-8-2 (backup)
+sh run/cc_v1/hybrid/cc.special50.title+T0gen.moco.bs1024.gpu8.sh  # A100-8-3 (backup)
+
+
+# Fine-tune CC
+cd /export/home/project/search/uir_best_cc
+sh run/cc_v1/hybrid/cc.moco.RC20+T0gen.bs2048.gpu8.ft+random.sh
+sh run/cc_v1/basic/cc.inbatch.absum.bs1024.gpu8.ft+random.sh
+sh run/cc_v1/basic/cc.moco.absum50.bs1024.gpu8.ft+random.sh
+
+sh run/cc_v1/hybrid/cc.moco.RC50+Qext+title+T0gen.bs1024.gpu8.ft+random.sh
+sh run/cc_v1/hybrid/cc.moco.special80.title+T0gen.bs1024.gpu8.ft+random.sh
+sh run/cc_v1/hybrid/cc.moco.special50.title+T0gen.bs1024.gpu8.ft+random.sh
+
+sh run/cc_v1/basic/cc.moco.bs1024.gpu8.ft+random.sh  # a100-8
+sh run/cc_v1/basic/cc.inbatch.bs1024.gpu8.ft+random.sh  # a100-8 (backup)
+sh run/cc_v1/basic/cc.inbatch.T0title.bs1024.gpu8.ft+random.sh  # done
+sh run/cc_v1/basic/cc.moco.T0title50.bs1024.gpu8.ft+random.sh  # a100-8 (backup)
+sh run/cc_v1/hybrid/cc.moco.RC50+T0gen.bs1024.gpu8.ft+random.sh  # N/A
+sh run/cc_v1/hybrid/cc.moco.RC20+T0gen.bs1024.gpu8.ft+random.sh  # a100-8-5
+sh run/cc_v1/hybrid/cc.moco.RC20+Qext+title+T0gen.bs1024.gpu8.ft+random.sh  # a100-8
+sh run/cc_v1/basic/cc.moco.topic50.bs2048.gpu8.ft+random.sh  # a100-8-5
+sh run/cc_v1/basic/cc.moco.exsum50.bs1024.gpu8.ft+random.sh  # a100-8
+sh run/cc_v1/basic/cc.inbatch.exsum.bs1024.gpu8.ft+random.sh  # a100-8 (backup) 
+
+sh run/cc_v1/basic/cc.inbatch.title.bs1024.gpu8.ft+random.sh  # a100-8 (backup)
+sh run/cc_v1/basic/cc.moco.title05.bs1024.gpu8.ft+random.sh  # a100-8 (backup)
+
+sh run/cc_v1/qext/cc.ExtQ-plm.inbatch.bs1024.gpu8.ft+random.sh  # a100-8-6
+sh run/cc_v1/qext/cc.ExtQ50-plm.moco.bs1024.gpu8.ft+random.sh  # a100-8
+sh run/cc_v1/qext/cc.ExtQ-plm.inbatch.bs1024.gpu8.ft+random.5e5.sh  # a100-8-6
+sh run/cc_v1/qext/cc.ExtQ-plm.inbatch.bs1024.gpu8.ft+random.2e5.sh  # a100-8-1
+sh run/cc_v1/qext/cc.ExtQ-plm.inbatch.bs1024.gpu8.ft+random.5e6.sh  # a100-8-1
+
+sh run/cc_v1/basic/cc.inbatch.topic.bs1024.gpu8.ft+random.sh  #  a100-8
+sh run/cc_v1/basic/cc.moco.topic50.bs1024.gpu8.ft+random.sh  # a100-8 (running, q64d192)
+
+sh run/cc_v1/basic/cc.inbatch.d2q-t2q.bs1024.gpu8.ft+random.sh  # a100-8 (backup)
+sh run/cc_v1/basic/cc.moco.d2q-t2q50.bs1024.gpu8.ft+random.sh  # a100-8-5
+
+
+## CC exp
+cd /export/home/project/search/uir_best_cc
+sh run/cc_v1/basic/cc.moco.exsum50.bs1024.gpu8.sh # A100-8-6, 
+TOKENIZERS_PARALLELISM=true, NUM_WORKER=6, 1.96it/s, #thread=89
+TOKENIZERS_PARALLELISM=true, NUM_WORKER=2, 1.44it/s 
+TOKENIZERS_PARALLELISM=false, NUM_WORKER=0, 2.32s/it
+sh run/cc_v1/basic/cc.moco.d2q-t2q50.bs1024.gpu8.sh # A100-8-1, 
+TOKENIZERS_PARALLELISM=false, NUM_WORKER=6, 1.93it/s, #thread=65
+TOKENIZERS_PARALLELISM=false, NUM_WORKER=2, 1.08it/s
+sh run/cc_v1/basic/cc.moco.T0title50.bs1024.gpu8.sh # A100-8 (backup) 
+TOKENIZERS_PARALLELISM=true, NUM_WORKER=4, 2.07it/s, #thread=52
+sh run/cc_v1/basic/cc.moco.topic50.bs1024.gpu8.sh # A100-8
+TOKENIZERS_PARALLELISM=false, NUM_WORKER=4, 2.00it/s, #thread=
+sh run/cc_v1/basic/cc.moco.absum50.bs1024.gpu8.sh
+
+
+
+sh run/cc_v1/qext/cc.ExtQ50-plm.inbatch.bs1024.gpu8.sh
+sh run/cc_v1/qext/cc.ExtQ50-plm.inbatch.bs1024.gpu8.sh  # a100-8-0
+sh run/cc_v1/basic/cc.moco.absum50.bs1024.gpu8.sh # A100-8
+sh run/cc_v1/basic/cc.inbatch.absum.bs1024.gpu8.sh # done
+sh run/cc_v1/basic/cc.moco.topic10.bs1024.gpu8.sh  # a100-8-5
+sh run/cc_v1/basic/cc.moco.topic90.bs1024.gpu8.sh  # a100-8-6
+sh run/cc_v1/basic/cc.moco.T0title50.bs1024.gpu8.sh  # a100-8
+sh run/cc_v1/basic/cc.inbatch.T0title.bs1024.gpu8.sh # a100-8-0
+sh run/cc_v1/basic/cc.moco.exsum50.bs1024.gpu8.sh # done
+sh run/cc_v1/qext/cc.ExtQ50-plm.moco.bs1024.gpu8.rerun.sh  # a100-8-6
+sh run/cc_v1/basic/cc.moco.topic75.bs1024.gpu8.sh  # A100-8 (backup)
+sh run/cc_v1/basic/cc.moco.topic25.bs1024.gpu8.sh  # a100-8-6
+sh run/cc_v1/qext/cc.ExtQ-plm.moco.bs1024.gpu8.sh  # a100-8-0
+sh run/cc_v1/qext/cc.ExtQ-plm.inbatch.bs1024.gpu8.rerun.sh  # a100-8-1
+
+sh run/cc_v1/basic/cc.inbatch.exsum.bs1024.gpu8.sh  # a100-8
+sh run/cc_v1/basic/cc.moco.exsum50.bs1024.gpu8.sh  # a100-8-5
+
+sh run/cc_v1/basic/cc.inbatch.title.bs1024.gpu8.sh  # a100-8-6
+sh run/cc_v1/basic/cc.inbatch.d2q-t2q.bs1024.gpu8.sh  # a100-8-5
+
+sh run/cc_v1/qext/cc.ExtQ-bm25.inbatch.bs1024.gpu8.sh  # running
+sh run/cc_v1/qext/cc.ExtQ-bm25.moco.bs1024.gpu8.sh  # a100-8-1
+sh run/cc_v1/qext/cc.ExtQ-plm.inbatch.bs1024.gpu8.sh  # a100-8-6
+
+sh run/cc_v1/basic/cc.inbatch.topic.bs1024.gpu8.sh  # A100-8-1
+sh run/cc_v1/basic/cc.inbatch.topic05.bs1024.gpu8.sh  # A100-8-1 (backup)
+sh run/cc_v1/basic/cc.moco.2e14.topic.bs1024.gpu8.sh  # A100-8-5
+
+sh run/cc_v1/basic/cc.inbatch.d2q-t2q05.bs1024.gpu8.sh  # A100-8-0
+sh run/cc_v1/basic/cc.moco.2e14.d2q-t2q05.bs1024.gpu8.sh  # A100-8-0 (backup)
+sh run/cc_v1/cc.moco.2e14.doc2query05-t2q.bs1024.gpu8.sh  # A100-8-1 (backup)
+
+sh run/cc_v1/pile6.moco.2e14.title05.bs2048.gpu8.sh  # A100-8-1, 4workers
+sh run/cc_v1/pile10.moco.2e14.title05.bs2048.gpu8.sh  # A100-8-5, 8workers
+
+sh run/cc_v1/cc.moco.2e14.topic05.bs1024.gpu8.sh  # A100-8-3 (backup)
+sh run/cc_v1/cc.moco.2e14.title05.bs1024.gpu8.sh  # A100-8-1
+sh run/cc_v1/cc.inbatch.title05.bs1024.gpu8.sh  # A100-8-6
+sh run/cc_v1/cc.inbatch.doc2query05-t2q.bs1024.gpu8.sh  # A100-8
+sh run/cc_v1/cc.inbatch.bs1024.gpu8.sh  # A100-8-1
+sh run/cc_v1/cc.moco.2e14.bs1024.gpu8.sh  # A100-8-1 (backup)
+
+
+# Fine-tune Baseline (SPAR-CLS doesn't work)
+cd /export/home/project/search/uir_best_cc
+sh run/wikipsg_v1/finetune/contriever.avg.inbatch-random-neg1023+1024.gpu8.sh
+sh run/wikipsg_v1/finetune/spar-wiki-query.avg.mm.inbatch-random-neg1023+1024.gpu8.sh  # done
+sh run/wikipsg_v1/finetune/contriever.avg.inbatch-random-neg1023+1024.lr5e5.gpu8.sh
+sh run/wikipsg_v1/finetune/spider.avg.inbatch-random-neg1023+1024.gpu8.sh  # a100-8-5
+sh run/wikipsg_v1/finetune/spar-wiki-context.avg.mm.inbatch-random-neg1023+1024.gpu8.sh  # a100-8-5
+
+
+# overlap ablation
+cd /export/home/project/search/uir_best_cc
+sh run/cc_v1/ablate_overlap/cc.ctx128.moco.bs1024.gpu8.sh
+sh run/cc_v1/ablate_overlap/cc.ctx256.moco.bs1024.gpu8.sh
+sh run/cc_v1/ablate_overlap/cc.ctx512.moco.bs1024.gpu8.sh
+sh run/cc_v1/ablate_overlap/cc.ctx1024.moco.bs1024.gpu8.sh
+sh run/cc_v1/ablate_overlap/cc.ctxmax.moco.bs1024.gpu8.sh
+
+# length ablation
+cd /export/home/project/search/uir_best_cc
+sh run/cc_v1/ablate_len/cc.len64.moco.title05.bs1024.gpu8.sh  # A100-8-1 (backup)
+sh run/cc_v1/ablate_len/cc.len128.moco.title05.bs1024.gpu8.sh  # A100-8-6
+sh run/cc_v1/ablate_len/cc.len384.moco.title05.bs1024.gpu8.sh  # A100-8-6
+sh run/cc_v1/ablate_len/cc.len32.moco.title05.bs1024.gpu8.sh  #
+sh run/cc_v1/ablate_len/cc.len256.moco.title05.bs1024.gpu8.sh  #
+
+# Finetune wikipsg
+cd /export/home/project/search/uir_best_cc
+sh run/wikipsg_v1/done/contriever256-special50/wiki.T03b_topic50.moco.bs1024.gpu8.ft+random.sh  # A100-8-6
+sh run/wikipsg_v1/finetune/mm.inbatch-random-neg1023+1024.contriever.gpu8.sh  # A100-8-2 (backup)
+sh run/wikipsg_v1/done/contriever256-special50/wiki.title50.moco.bs1024.gpu8.ft+random.sh  # A100-8-0 (backup)
+sh run/wikipsg_v1/done/contriever256-special50/wiki.title50.moco.bs1024.gpu8.ft.sh  # A100-8-2 (backup)
+
+# wikipsg
+cd /export/home/project/search/uir_best_cc
+sh run/wikipsg_v1/done/contriever256-special/wiki.extphrase3-50.inbatch.bs1024.gpu8.sh  # A100-8 (backup)
+sh run/wikipsg_v1/done/contriever256-special/wiki.extphrase3.moco.bs1024.gpu8.sh  # a100-8-1
+sh run/wikipsg_v1/done/contriever256-special/wiki.extphrase3-50.moco.bs1024.gpu8.sh  # a100-8-0
+sh run/wikipsg_v1/done/contriever256-special/wiki.extphrase3.inbatch.bs1024.gpu8.sh  # A100-8-2 (backup) 
+
+
+sh run/wikipsg_v1/contriever256-Qext/wiki.ExtQ-selfdot.inbatch.bs1024.gpu8.sh  # A100-8-6
+sh run/wikipsg_v1/contriever256-Qext/wiki.ExtQ-bm25.inbatch.bs1024.gpu8.sh  # A100-8-1 (backup)
+sh run/wikipsg_v1/contriever256-Qext/wiki.ExtQ-plm.inbatch.bs1024.gpu8.sh  # A100-8-0 (backup)
+sh run/wikipsg_v1/contriever256-Qext/wiki.ExtQ50-selfdot.inbatch.bs1024.gpu8.sh  # A100-8-3 (backup)
+sh run/wikipsg_v1/contriever256-Qext/wiki.ExtQ50-plm.inbatch.bs1024.gpu8.sh  # A100-8-5
+sh run/wikipsg_v1/contriever256-Qext/wiki.ExtQ50-bm25.inbatch.bs1024.gpu8.sh  # A100-8-2 (backup)
+
+sh run/wikipsg_v1/contriever256-special/paq-fulldoc.moco.bs1024.gpu8.sh  # A100-8-5
+sh run/wikipsg_v1/contriever256-special/paq-fulldoc.inbatch.bs1024.gpu8.sh  # A100-8-0 (backup)
+
+
+sh run/wikipsg_v1/contriever256-special/paq.moco.bs1024.gpu8.sh  #  A100-8-3 (backup)
+sh run/wikipsg_v1/contriever256-special/paq.inbatch.bs1024.gpu8.sh  # A100-8-0 (backup)
+sh run/wikipsg_v1/contriever256-special/paq50-fulldoc.inbatch.bs1024.gpu8.sh  # A100-8-2 (backup) 
+sh run/wikipsg_v1/contriever256-special/paq50-fulldoc.moco.bs1024.gpu8.sh  # A100-8
+sh run/wikipsg_v1/contriever256-special/paq50.moco.bs1024.gpu8.sh  # A100-8-3 (backup)
+sh run/wikipsg_v1/contriever256-special/paq50.inbatch.bs1024.gpu8.sh  #  A100-8-6
+sh run/wikipsg_v1/contriever256-special/wiki.T03b_exsum.inbatch.bs1024.gpu8.sh  # A100-8-1 (backup)
+sh run/wikipsg_v1/contriever256-special/wiki.T03b_exsum.moco.bs1024.gpu8.sh  # A100-8-0 (backup)
+
+
+
+sh run/wikipsg_v1/contriever256-special/wiki.T03b_absum.moco.bs1024.gpu8.sh  # A100-8-6
+sh run/wikipsg_v1/contriever256-special/wiki.T03b_absum.inbatch.bs1024.gpu8.sh  # A100-8-1
+
+sh run/wikipsg_v1/contriever256-special/wiki.T03b_topic.inbatch.bs1024.gpu8.sh  # A100-8-2
+sh run/wikipsg_v1/contriever256-special/wiki.T03b_topic.moco.bs1024.gpu8.sh  # A100-8-1 (backup)
+
+sh run/wikipsg_v1/contriever256-special/wiki.T03b_title.inbatch.bs1024.gpu8.sh  # A100-8-3 (backup)
+sh run/wikipsg_v1/contriever256-special/wiki.T03b_title.moco.bs1024.gpu8.sh  #  A100-8-0 (backup)
+sh run/wikipsg_v1/contriever256-special/wiki.doc2query-t2q.moco.bs1024.gpu8.sh  # A100-8-0
+sh run/wikipsg_v1/contriever256-special/wiki.doc2query-t2q.inbatch.bs1024.gpu8.sh  # A100-8
+
+sh run/wikipsg_v1/wiki.title50.inbatch.bs1024.gpu8.sh  # A100-8
+sh run/wikipsg_v1/wiki.title50.moco.bs1024.gpu8.sh  # A100-8-0
+
+sh run/wikipsg_v1/wiki.ExtQ-selfdot.moco.bs1024.gpu8.sh  # A100-8-6
+sh run/wikipsg_v1/wiki.ExtQ50-bm25.moco.bs1024.gpu8.sh  # A100-8-1 (backup)
+sh run/wikipsg_v1/wiki.ExtQ50-selfdot.moco.bs1024.gpu8.sh  # A100-8-0 (backup)
+sh run/wikipsg_v1/wiki.ExtQ50-plm.moco.bs1024.gpu8.sh  # A100-8-2 (backup) running
+sh run/wikipsg_v1/wiki.ExtQ-plm.moco.bs1024.gpu8.sh  # A100-8-3 (backup) running
+
+
+
 sh run/cc_v1/cc.moco.2e14.title05-augdel02.bs2048.gpu8.sh  # A100-8-0
 sh run/cc_v1/cc.moco.2e14.topic05.bs2048.gpu8.sh  # A100-8-1
 sh run/cc_v1/cc.moco.2e14.doc2query05-t2q.bs2048.gpu8.sh  # A100-8-2
-sh run/wikipsg_v1/wiki.ExtQ-bm25.moco.bs1024.gpu8.sh  # A100-8-6
 sh run/wikipsg_v1/wiki.title0.moco.bs1024.gpu8.sh  # A100-8-5
 sh run/wikipsg_v1/wiki.title0.inbatch.bs1024.gpu8.sh  # A100-8
-
-
-
 
 sh run/cc_v1/cc.moco.2e14.title05.wikipsg256-title50.bs2048.gpu8.sh  # A100-8-4
 sh run/wikipsg_v1/wiki.T03b_topic50.moco.contriever50.bs1024.gpu8.sh  # A100-8-3
@@ -72,8 +300,51 @@ sh run/wikipsg_v1/cc.inbatch.bs1024.gpu8.sh  # A100-8-2
 sh run/wikipsg_v1/wiki_T03b_exsum50.inbatch.bs1024.gpu8.sh  # A100-8-3
 
 
+# eval 4-7: 225584
+cd /export/share/ruimeng/project/search/simcse
+bash run/eval/beireval.4large_datasets.sh
+nohup bash run/eval/beireval.2gpu.0-1.sh > nohup.beireval.2gpu.0-1.out 2>&1 &
+nohup bash run/eval/beireval.4gpu.4-7.sh > nohup.beireval.4gpu.4-7.out 2>&1 &
+nohup bash run/eval/beireval.4gpu.0-3.sh > nohup.beireval.4gpu.0-3.out 2>&1 &
+nohup bash run/eval/beireval.2gpu.2-3.sh > nohup.beireval.2gpu.2-3.out 2>&1 &
+nohup bash run/eval/beireval.2gpu.4-5.sh > nohup.beireval.2gpu.4-5.out 2>&1 &
+nohup bash run/eval/beireval.2gpu.6-7.sh > nohup.beireval.2gpu.6-7.out 2>&1 &
+
+
+# Fine Tuning
+cd /export/home/project/search/uir_best_cc
+sh run/finetune/mine_negative.mm.contriever.sh  # A100-8
+sh run/finetune/mine_negative.sh
+
+
+# Query Generation
+cd /export/home/project/search/UPR
+nohup bash examples/beir/uqg_topic.sh > /export/home/data/search/upr/beir/uqg_topic.arguana.log 2>&1 &
+nohup bash examples/beir/uqg_summary_ext.sh > /export/home/data/search/upr/beir/uqg_summary_ext.log 2>&1 &
+
+sh examples/cc/uqg_doc2query_t2q.sh  # A100-8-0
+
+sh examples/wiki/uqg_doc2query_r2t.sh  # done
+sh examples/wiki/uqg_doc2query_a2t.sh  # done
+sh examples/wiki/uqg_t5xl_insummary.sh  # done
+sh examples/wiki/uqg_doc2query.sh  # done
+sh examples/wiki/uqg_summary_ext.sh  # done
+sh examples/wiki/uqg_summary_abs.sh  # done
+sh examples/wiki/uqg_title.sh  # done
+sh examples/wiki/uqg_topic.sh  # done
+
+sh examples/cc/uqg_doc2query_a2t.sh  # pod/sfr-pod-ruimeng.a100-16-72cpu-1
+sh examples/cc/uqg_doc2query_r2t.sh  # pod/sfr-pod-ruimeng.a100-16-72cpu-0
+sh examples/uqg_title.sh  # A100-8-5 (done)
+sh examples/uqg_topic.sh  # A100-8-6 (done)
+sh examples/uqg_summary_ext.sh  # A100-8-4 (done)
+sh examples/uqg_summary_abs.sh  # A100-8-3 (done)
+
 #### extra eval
-cd /export/share/ruimeng/project/search/uir_best_cc
+cd /export/home/project/search/uir_best_cc
+sh run/wikipsg_v1/eval/wiki.ExtQ-bm25.moco.bs1024.gpu8.sh  # A100-8-6
+
+
 sh run/wikipsg_v1/eval/cc.moco.2e17.bs2048.gpu8.sh
 sh run/wikipsg_v1/eval/cc.moco.2e14.qd224.bs2048.gpu8.sh  # A100-8-0
 sh run/wikipsg_v1/eval/moco.cc.2e14.title05.bs2048.gpu8.rerun.sh  # A100-8-1
@@ -138,7 +409,7 @@ sh run/wikipsg_v1/moco.contriever256.wiki.2e14.title100.qd128.bs1024.gpu8.sh  # 
 
 # To reproduce best runs
 ## Best_cc finetune
-cd /export/share/ruimeng/project/search/uir_best_cc
+cd /export/home/project/search/uir_best_cc
 sh run/finetune/mm.inbatch-random-neg1023+1024.contriever.bs1024.qd192.step20k.drop5.lr1e5.gpu8.sh  # A100-8-1
 sh run/finetune/mm.inbatch-random-neg1023+1024.contriever.bs1024.qd192.step20k.lr3e6.gpu8.sh  # A100-8-2
 sh run/finetune/mm.inbatch-randoeval/beirm-neg1023+1024.contriever.bs1024.qd192.step20k.lr5e6.gpu8.sh  # A100-8-3
@@ -190,7 +461,7 @@ sh run/finetune/inbatch.finetune.paq.bs1024.gpu8.sh  # A100-8-3 (done)
 
 
 ## Best_cc step100k_v2
-cd /export/share/ruimeng/project/search/uir_best_cc
+cd /export/home/project/search/uir_best_cc
 sh run/step100k_v2/moco.contriever256.wiki.2e14.title0.qd128.bs1024.gpu8.sh   # A100-8-0
 sh run/step100k_v2/moco.contriever256.wiki.2e16.title0.qd128.bs1024.gpu8.sh   # A100-8-1
 sh run/step100k_v2/moco.contriever256.wiki.2e12.title0.qd128.bs1024.gpu8.sh   # A100-8
@@ -222,7 +493,7 @@ sh run/step100k_v2/moco.wiki.2e17.title0.bs512.gpu8.sh  # A100-8-2 (done)
 sh run/step100k_v2/moco.wiki.2e17.title50.bs512.gpu8.sh  # A100-8-1 (done)
 
 ## Best_cc step100k_v1
-cd /export/share/ruimeng/project/search/uir_best_cc
+cd /export/home/project/search/uir_best_cc
 sh run/step100k_v1/moco.cc.2e17.title50.norm1.bs512.gpu8.sh   # A100-8-4
 sh run/step100k_v1/moco.cc.2e17.title50.bs512.polypower5.lr5e5-end1e8.step200k.gpu8.sh   # A100-8-2
 sh run/step100k_v1/moco.cc.2e17.title50.bs512.polypower3.lr5e5-end1e8.step200k.gpu8.sh   # A100-8-1
@@ -279,7 +550,7 @@ sh run/remodeled/moco.cc.2e14.title05.noprompt.seed297.bs512.gpu8.sh  # A100-8-0
 sh run/remodeled/moco.cc.2e14.prompt+title50.bs512.gpu8.sh  # A100-8-3 (done)
 
 
-cd /export/share/ruimeng/project/search/uir_best_cc
+cd /export/home/project/search/uir_best_cc
 sh run/step100k/moco.cc.2e14.title05.bs2048.gpu8.sh  # A100-8-4 (almost done)
 sh run/step100k/moco.cc.2e14.prompt+title75.bs512.gpu8.sh  # A100-8-1 (running)
 sh run/step100k/moco.cc.2e14.title05.noprompt.seed297.bs512.gpu8.sh  # A100-8-0 (killed)
@@ -341,7 +612,7 @@ sh run/moco.cc.2e14.prompt+title0.5.v10model_v1.gpu8.sh  # A100-8-4 (collapsed, 
 sh run/moco.cc.2e14.prompt+title0.5.gpu8.sh  # A100-8 (done)
 
 ## Best_cc0 w/ different seed
-cd /export/share/ruimeng/project/search/uir_best_cc0
+cd /export/home/project/search/uir_best_cc0
 sh run/moco.cc.2e14.title05.noprompt.gpu8.step100k.seed297.sh  # A100-8 (killed, same as best_cc.expect_sameas_cc0.seed297.qd-tokenized-together.cc)
 sh run/moco.cc.2e14.prompt+title0.5.gpu8.step100k.seed42.sh  # A100-8 (done, rerun with only q0d0)
 sh run/moco.cc+cc.2e14.prompt+title0.5.gpu8.seed42.sh  # A100-8 (good, killed)

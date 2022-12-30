@@ -16,7 +16,9 @@ Number = Union[float, int]
 logger = logging.getLogger(__name__)
 
 
-from transformers import is_torch_tpu_available, AutoModel, AutoConfig, AutoTokenizer
+from transformers import is_torch_tpu_available, AutoModel, AutoConfig, AutoTokenizer, DPRQuestionEncoder, \
+    DPRContextEncoder
+
 
 def wandb_setup_eval(self, args, resume=True):
     run_name = args.run_name
@@ -121,19 +123,27 @@ def get_parameters(net, verbose=False):
     message = "[Network] Total number of parameters : %.6f M" % (num_params / 1e6)
     return message
 
+def get_inbatch_base_config():
+    inbatch_args = MoCoArguments().parse()
+    inbatch_args.arch_type = 'inbatch'
+
+    return inbatch_args
 
 def get_moco_base_config():
     moco_args = MoCoArguments().parse()
     return moco_args
 
 
-def load_model(model_name_or_path):
+def load_model(model_name_or_path, pooling=None):
     if os.path.exists(model_name_or_path):
+        # our local checkpoints
         args = torch.load(os.path.join(model_name_or_path, "model_data_training_args.bin"))
         if len(args) == 3:
             training_args, hf_config, moco_args = args
         else:
             _, training_args, hf_config, moco_args = args
+        if pooling:
+            moco_args.pooling = pooling
         tokenizer = AutoTokenizer.from_pretrained(model_name_or_path, use_fast=True)
         if hasattr(training_args, 'arch_type'):
             arch_type = training_args.arch_type
@@ -149,7 +159,52 @@ def load_model(model_name_or_path):
         else:
             raise NotImplementedError(f'Unknown arch type {arch_type}')
         model = reload_model_from_ckpt(model, model_name_or_path)
+    elif model_name_or_path.startswith('facebook'):
+        model_args = get_inbatch_base_config()
+        model_args.model_name_or_path = model_name_or_path
+        tokenizer = AutoTokenizer.from_pretrained(model_name_or_path)
+        if pooling:
+            model_args.pooling = pooling
+        else:
+            if model_name_or_path.startswith('facebook/contriever'):
+                # e.g. facebook/contriever
+                model_args.pooling = 'average'
+            elif model_name_or_path.startswith('facebook/spar'):
+                # facebook/spar-wiki-bm25-lexmodel-query-encoder
+                model_args.pooling = 'cls'
+            else:
+                raise NotImplementedError('Doublecheck!')
+        model = InBatch(model_args)
+        model = reload_model_from_pretrained(model, model_name_or_path, strict=False)
+    elif 'spider' in model_name_or_path:
+        # checkpoints might be faulty, weights are like randomly initialized
+        # unsupervised model `tau/spider` (https://huggingface.co/NAACL2022/spider)
+        # this works
+        # tokenizer = AutoTokenizer.from_pretrained(model_name_or_path, use_fast=True)
+        # model = DPRContextEncoder.from_pretrained(model_name_or_path)  # doesn't work, names mismatch, fail to load weights and all are reinitialized
+
+        # this also works
+        tokenizer = AutoTokenizer.from_pretrained("tau/spider")
+        model_args = get_inbatch_base_config()
+        # ckpt_path = '/export/home/exp/search/unsup_dr/baselines/spider/pytorch_model.bin'
+        # state_dict = torch.load(ckpt_path)
+        model_args.model_name_or_path = 'bert-base-uncased'
+        if pooling:
+            model_args.pooling = pooling
+        else:
+            model_args.pooling = 'cls'
+        model = InBatch(model_args)
+        ckpt = DPRContextEncoder.from_pretrained(model_name_or_path)
+        state_dict = ckpt.state_dict()
+        new_state_dict = {}
+        for k, v in state_dict.items():
+            nk = k.replace('ctx_encoder.bert_model.', 'encoder_q.model.')
+            new_state_dict[nk] = v
+            nk = k.replace('ctx_encoder.bert_model.', 'encoder_k.model.')
+            new_state_dict[nk] = v
+        model.load_state_dict(new_state_dict, strict=True)
     else:
+        # BERT etc.
         moco_args = get_moco_base_config()
         hf_config = AutoConfig.from_pretrained(moco_args.model_name_or_path)
         tokenizer = AutoTokenizer.from_pretrained(moco_args.model_name_or_path, use_fast=True)
@@ -159,7 +214,7 @@ def load_model(model_name_or_path):
     return model, tokenizer
 
 
-def reload_model_from_pretrained(model, model_name):
+def reload_model_from_pretrained(model, model_name, strict=True):
     ckpt = AutoModel.from_pretrained(model_name)
     state_dict = ckpt.state_dict()
     del state_dict['pooler.dense.weight']
@@ -171,7 +226,7 @@ def reload_model_from_pretrained(model, model_name):
         nk = 'encoder_k.model.' + k
         state_dict[nk] = v
         del state_dict[k]
-    model.load_state_dict(state_dict, strict=True)
+    model.load_state_dict(state_dict, strict=strict)
     return model
 
 

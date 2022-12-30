@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="On explicit save action" serverName="ir-cuda114" remoteFilesAllowedToDisappearOnAutoupload="false" autoUploadExternalChanges="true">
+  <component name="PublishConfigData" autoUpload="Always" serverName="root@127.0.0.1:2222 password" remoteFilesAllowedToDisappearOnAutoupload="false" autoUploadExternalChanges="true">
     <serverData>
       <paths name="ir-cuda114">
         <serverdata>
@@ -9,7 +9,21 @@
           </mappings>
         </serverdata>
       </paths>
+      <paths name="root@127.0.0.1:2222 password">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/export/home/project/search/uir_best_cc" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="root@127.0.0.1:2222 password (2)">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/export/home/project/search/uir_best_cc" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
     </serverData>
-    <option name="myAutoUpload" value="ON_EXPLICIT_SAVE" />
+    <option name="myAutoUpload" value="ALWAYS" />
   </component>
 </project>

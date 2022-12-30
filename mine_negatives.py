@@ -18,7 +18,7 @@ from tqdm import tqdm
 
 import src.beireval.slurm as slurm
 import src.beireval.beir_utils as beir_utils
-import src.training_utils as training_utils
+import src.utils.training_utils as training_utils
 import src.beireval.dist_utils as dist_utils
 from src.beir.datasets.data_loader import GenericDataLoader
 from src.beir.retrieval.evaluation import EvaluateRetrieval
@@ -56,8 +56,8 @@ def mine_msmarco_dense_model(args, tokenizer, model):
     https://github.com/facebookresearch/faiss/issues/2502
     no, it doesn't matter...
     '''
-    # args.dataset = 'msmarco'
-    args.dataset = 'nq'
+    args.dataset = 'msmarco'
+    # args.dataset = 'nq'
     # args.dataset = 'trec-covid'
     # args.dataset = 'nfcorpus'
     # args.dataset = 'scifact'
@@ -299,9 +299,10 @@ def mine_nq(args, tokenizer, model):
 
 
 def main(args):
-    model, tokenizer = setup(args)
-    mine_msmarco_dense_model(args, tokenizer, model)
-    # export_msmarco_random_negatives(args)
+    # model, tokenizer = setup(args)
+    # mine_msmarco_dense_model(args, tokenizer, model)
+
+    export_msmarco_random_negatives(args)
     # mine_msmarco_bm25(args)
     # mine_nq(args, tokenizer, model)
 

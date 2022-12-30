@@ -26,7 +26,7 @@ export WANDB_PROJECT=unsup_retrieval_wikipsg
 export WANDB_DIR=$PROJECT_DIR
 mkdir -p $WANDB_DIR/wandb
 
-cd /export/share/ruimeng/project/search/uir_best_cc
+cd /export/home/project/search/uir_best_cc
 #nohup python -m torch.distributed.launch --nproc_per_node=8 --master_port=3112 --max_restarts=0 train.py --model_name_or_path bert-base-uncased --arch_type moco --use_inbatch_negatives true --train_file /export/home/data/search/wiki/wiki_phrase.jsonl --dev_file /export/home/data/pretrain/wiki2021_structure/wiki_psgs_w100.dev.tail2e13.tsv --data_type hf --data_pipeline_name contriever256 --remove_unused_columns False --sim_type dot --queue_size 16384 --momentum 0.9995 --output_dir $PROJECT_DIR --overwrite_output_dir --cache_dir /export/home/data/pretrain/.cache --max_steps $MAX_STEPS --warmup_steps 10000 --logging_steps 100 --eval_steps 10000 --save_steps 10000 --per_device_train_batch_size 128 --per_device_eval_batch_size 128 --beir_batch_size 256 --dataloader_num_workers $NUM_WORKER --learning_rate 5e-5 --max_seq_length 128 --evaluation_strategy steps --load_best_model_at_end --do_train --do_eval --run_name $EXP_NAME --fp16 --seed 477 --report_to wandb --wiki_passage_path /export/home/data/search/nq/psgs_w100.tsv --qa_datasets_path /export/home/data/search/nq/qas/*-test.csv,/export/home/data/search/nq/qas/entityqs/test/P*.test.json > $PROJECT_DIR/nohup.log 2>&1 & echo $! > run.pid
 
 export WANDB_RUN_ID=1t81t8ac

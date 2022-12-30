@@ -6,13 +6,15 @@
 
 import os
 
+import inspect
 import argparse
 import pickle
 import torch
+import tqdm
 
 import src.beireval.slurm as slurm
-import src.contriever
-import src.training_utils as training_utils
+import src.model.contriever
+import src.utils.training_utils as training_utils
 import src.qa.data
 import src.qa.normalize_text as normalize_text
 
@@ -24,7 +26,7 @@ def embed_passages(args, passages, model, tokenizer):
     allids, allembeddings = [], []
     batch_ids, batch_text = [], []
     with torch.no_grad():
-        for k, p in enumerate(passages):
+        for k, p in tqdm.tqdm(enumerate(passages), desc='Encoding passages'):
             batch_ids.append(p["id"])
             if args.no_title or not "title" in p:
                 text = p["text"]
@@ -47,12 +49,21 @@ def embed_passages(args, passages, model, tokenizer):
                 )
 
                 encoded_batch = {k: v.cuda() for k, v in encoded_batch.items()}
-                embeddings = model(**encoded_batch, sent_emb=True, is_query=False).pooler_output
+                if 'sent_emb' in inspect.getfullargspec(model.forward).args:
+                    # Ours
+                    emb = model(**encoded_batch, sent_emb=True, is_query=False).pooler_output
+                else:
+                    # Contriever or other HFTransformer models
+                    ids, mask = encoded_batch['input_ids'], encoded_batch['attention_mask']
+                    ids, mask = ids.cuda(), mask.cuda()
+                    emb = model(ids, mask)
+                if hasattr(emb, 'pooler_output'):  # HFTransformer models
+                    emb = emb['pooler_output']
 
-                embeddings = embeddings.cpu()
+                emb = emb.cpu()
                 total += len(batch_ids)
                 allids.extend(batch_ids)
-                allembeddings.append(embeddings)
+                allembeddings.append(emb)
 
                 batch_text = []
                 batch_ids = []
@@ -65,11 +76,11 @@ def embed_passages(args, passages, model, tokenizer):
 
 def main(args):
     logger.info(f"Model loaded from {args.model_name_or_path}.", flush=True)
-    model, tokenizer = training_utils.load_model(args.model_name_or_path)
-    model.eval()
-    model = model.cuda()
+    d_model, tokenizer = training_utils.load_model(args.model_name_or_path)
+    d_model.eval()
+    d_model = d_model.cuda()
     if not args.no_fp16:
-        model = model.half()
+        d_model = d_model.half()
 
     passages = src.qa.data.load_dpr_passages(args.passages)
 
@@ -84,7 +95,7 @@ def main(args):
     passages = passages[start_idx:end_idx]
     logger.info(f"Embedding generation for {len(passages)} passages from idx {start_idx} to {end_idx}.")
 
-    allids, allembeddings = embed_passages(args, passages, model, tokenizer)
+    allids, allembeddings = embed_passages(args, passages, d_model, tokenizer)
 
     save_file = os.path.join(args.output_dir, args.prefix + f"_{shard_id:02d}")
     os.makedirs(args.output_dir, exist_ok=True)

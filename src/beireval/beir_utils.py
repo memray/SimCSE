@@ -18,7 +18,7 @@ from src.beir.retrieval.evaluation import EvaluateRetrieval
 from src.beir.retrieval.search.dense import DenseRetrievalExactSearch
 
 from src.beireval import dist_utils
-from src.dist_utils import varsize_gather_nograd
+from src.utils.dist_utils import varsize_gather_nograd
 
 logger = logging.getLogger(__name__)
 
@@ -71,8 +71,10 @@ class DenseEncoderModel:
 
                 if 'is_query' in inspect.getfullargspec(self.query_encoder.forward).args:
                     emb = self.query_encoder(input_ids=ids, attention_mask=mask, sent_emb=True, is_query=True)
-                else:
+                elif 'sent_emb' in inspect.getfullargspec(self.query_encoder.forward).args:
                     emb = self.query_encoder(input_ids=ids, attention_mask=mask, sent_emb=True)
+                else:  # for some HF models don't have normalize
+                    emb = self.query_encoder(ids, mask)
                 # # @memray for ANCE
                 # if 'is_query' in inspect.getfullargspec(self.query_encoder.forward).args:
                 #     emb = self.query_encoder(ids, mask, is_query=True)
@@ -125,11 +127,12 @@ class DenseEncoderModel:
                 ids, mask = cencode['input_ids'], cencode['attention_mask']
                 ids, mask = ids.cuda(), mask.cuda()
 
-                # @memray for SimCSE
                 if 'is_query' in inspect.getfullargspec(self.doc_encoder.forward).args:
                     emb = self.doc_encoder(ids, mask, sent_emb=True, is_query=False)
-                else:
-                    emb = self.doc_encoder(ids, mask, sent_emb=True)
+                elif 'sent_emb' in inspect.getfullargspec(self.doc_encoder.forward).args:
+                    emb = self.doc_encoder(input_ids=ids, attention_mask=mask, sent_emb=True)
+                else:  # for some HF models don't have normalize
+                    emb = self.doc_encoder(ids, mask)
                 if hasattr(emb, 'pooler_output'):
                     emb = emb['pooler_output']
                 allemb.append(emb)
@@ -245,8 +248,8 @@ def evaluate_model(
             mrr, recall_cap, hole = None, None, None
     else:
         corpus, queries, qrels = GenericDataLoader(data_folder=data_path).load(split=split)
-        # if is_main: print(f'Start retrieving, #(corpus)={len(corpus)}, #(queries)={len(queries)},'
-        #                   f'batch_size={retriever.retriever.batch_size}, chunk_size={retriever.retriever.corpus_chunk_size}')
+        if is_main: print(f'Start retrieving, #(corpus)={len(corpus)}, #(queries)={len(queries)},'
+                          f'batch_size={retriever.retriever.batch_size}, chunk_size={retriever.retriever.corpus_chunk_size}')
         results = retriever.retrieve(corpus, queries)
         if is_main:
             print('Dataset: ', dataset)

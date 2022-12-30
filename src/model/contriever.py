@@ -1,6 +1,9 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 import torch
+import transformers
 from torch import nn
+
+from src.utils import model_utils
 
 
 class Contriever(nn.Module):
@@ -41,13 +44,13 @@ class Contriever(nn.Module):
             input_ids=input_ids,
             attention_mask=attention_mask,
             token_type_ids=token_type_ids,
-            position_ids=position_ids,
-            head_mask=head_mask,
-            inputs_embeds=inputs_embeds,
-            encoder_hidden_states=encoder_hidden_states,
-            encoder_attention_mask=encoder_attention_mask,
-            output_attentions=output_attentions,
-            output_hidden_states=output_hidden_states,
+            # position_ids=position_ids,
+            # head_mask=head_mask,
+            # inputs_embeds=inputs_embeds,
+            # encoder_hidden_states=encoder_hidden_states,
+            # encoder_attention_mask=encoder_attention_mask,
+            # output_attentions=output_attentions,
+            # output_hidden_states=output_hidden_states,
         )
         last_hidden = model_output['last_hidden_state']
         last_hidden = last_hidden.masked_fill(~attention_mask[..., None].bool(), 0.)

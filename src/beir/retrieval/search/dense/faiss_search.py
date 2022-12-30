@@ -1,6 +1,5 @@
 import copy
 
-from src import dist_utils
 from .util import cos_sim, dot_score, normalize, save_dict_to_tsv, load_tsv_to_dict
 from .faiss_index import FaissBinaryIndex, FaissTrainIndex, FaissHNSWIndex, FaissIndex
 import logging
@@ -135,8 +134,6 @@ class DenseRetrievalFaissSearch:
             queries = [queries[qid] for qid in queries]
         query_embeddings = self.model.encode_queries(
             queries, show_progress_bar=True, batch_size=self.batch_size)
-        if not dist_utils.is_main():
-            return
         logger.info("Start Faiss search...")
         if self.use_gpu:
             self.faiss_index.to_gpu()

@@ -14,7 +14,9 @@ from pathlib import Path
 
 from typing import List, Tuple, Iterator
 
-from src import dist_utils
+import tqdm
+
+from src.utils import dist_utils
 
 logger = logging.getLogger(__name__)
 
@@ -234,12 +236,12 @@ def load_dpr_passages(path):
     passages = []
     with open(path) as fin:
         if path.endswith(".jsonl"):
-            for k, line in enumerate(fin):
+            for k, line in tqdm.tqdm(enumerate(fin)):
                 ex = json.loads(line)
                 passages.append(ex)
         else:
             reader = csv.reader(fin, delimiter="\t")
-            for k, row in enumerate(reader):
+            for k, row in tqdm.tqdm(enumerate(reader)):
                 if not row[0] == "id":
                     ex = {"id": row[0], "title": row[2], "text": row[1]}
                     passages.append(ex)

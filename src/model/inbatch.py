@@ -7,7 +7,7 @@ from transformers.modeling_outputs import BaseModelOutputWithPoolingAndCrossAtte
 
 from src.model.biencoder import BiEncoder
 from src.utils import dist_utils
-from src.utils.model_utils import load_retriever, gather_norm, ContrastiveLearningOutput
+from src.utils.model_utils import load_retriever, gather_norm, ContrastiveLearningOutput, mix_two_inputs
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +19,7 @@ class InBatch(BiEncoder):
         self.moco_config = moco_config
         self.hf_config = hf_config
         self.indep_encoder_k = moco_config.indep_encoder_k
-        self.neg_indices = moco_config.neg_indices  # the indices of data for additional negative examples
+        self.neg_names = moco_config.neg_names  # the indices of data for additional negative examples
         self.projection_size = moco_config.projection_size
 
         self.sim_metric = getattr(moco_config, 'sim_metric', 'dot')
@@ -106,15 +106,56 @@ class InBatch(BiEncoder):
         # print('q_tokens.shape=', q_tokens.shape, '\n')
         # print('k_tokens.shape=', k_tokens.shape, '\n')
 
-        qemb = self.encoder_q(input_ids=q_tokens, attention_mask=q_mask)
+        # 1. compute key
         kemb = self.encoder_k(input_ids=k_tokens, attention_mask=k_mask).contiguous()
+        if self.norm_doc:
+            kemb = nn.functional.normalize(kemb, dim=-1)
 
+        # qemb = self.encoder_q(input_ids=q_tokens, attention_mask=q_mask)
+
+        # 2. compute query
+        if self.q_extract and 'random_chunks' in data:
+            chunk_tokens = data['random_chunks']['input_ids']
+            chunk_mask = data['random_chunks']['attention_mask']
+            num_chunk = chunk_tokens.shape[0] // bsz
+            # print(chunk_tokens.shape)
+            if self.q_extract == 'self-dot':
+                with torch.no_grad():
+                    q_cand = self.encoder_q(chunk_tokens, chunk_mask).reshape(bsz, -1, kemb.shape[1])  # queries: B,num_chunk,H
+                    chunk_score = torch.einsum('bch,bh->bc', q_cand, kemb).detach()  # B,num_chunk
+                    chunk_idx = torch.argmax(chunk_score, dim=1)  # [B]
+            elif self.q_extract == 'bm25':
+                chunk_idx = self.q_extract_model.batch_rank_chunks(batch_docs=data['contexts_str'],
+                                                                  batch_chunks=[data['random_chunks_str'][
+                                                                                i * num_chunk: (i + 1) * num_chunk]
+                                                                                for i in range(len(data['docs_str']))])
+            elif self.q_extract_model:
+                chunk_idx = self.rank_chunks_by_ext_model(docs=data['contexts_str'], chunks=data['random_chunks_str'])
+            else:
+                raise NotImplementedError
+            c_tokens = torch.stack(
+                [chunks[cidx.item()] for chunks, cidx in zip(chunk_tokens.reshape(bsz, num_chunk, -1), chunk_idx)])
+            c_mask = torch.stack(
+                [chunks[cidx.item()] for chunks, cidx in zip(chunk_mask.reshape(bsz, num_chunk, -1), chunk_idx)])
+            if self.q_extract_ratio and self.q_extract_ratio < 1.0:
+                c_tokens, c_mask = mix_two_inputs(c_tokens, c_mask, q_tokens, q_mask, input0_ratio=self.q_extract_ratio)
+            # print(c_tokens.shape)
+            qemb = self.encoder_q(input_ids=c_tokens, attention_mask=c_mask)  # queries: B,H
+        else:
+            qemb = self.encoder_q(input_ids=q_tokens, attention_mask=q_mask)  # queries: B,H
+
+        if self.norm_query:
+            qemb = nn.functional.normalize(qemb, dim=-1)
+
+        # 3. apply projectors
+        # 4. apply predictor (q/k interaction)
+        # 5. computer loss
         gather_fn = dist_utils.gather
         gather_kemb = gather_fn(kemb)
         all_kemb = gather_kemb
-        if self.neg_indices is not None:
-            neg_tokens = torch.cat([data['extra_neg']['input_ids'][i] for i in self.neg_indices])
-            neg_mask = torch.cat([data['extra_neg']['attention_mask'][i] for i in self.neg_indices])
+        if self.neg_names is not None and len([data[neg_name]['input_ids'] for neg_name in self.neg_names if neg_name in data]) > 0:
+            neg_tokens = torch.cat([data[neg_name]['input_ids'] for neg_name in self.neg_names])
+            neg_mask = torch.cat([data[neg_name]['attention_mask'] for neg_name in self.neg_names])
             neg_kemb = self.encoder_k(input_ids=neg_tokens, attention_mask=neg_mask).contiguous()
             gather_neg_kemb = gather_fn(neg_kemb)
             all_kemb = torch.cat([gather_kemb, gather_neg_kemb])
@@ -158,7 +199,7 @@ class InBatch(BiEncoder):
             iter_stats[f'{stats_prefix}queue_ptr'] = self.queue_ptr
             queue_k_norm = gather_norm(self.queue_k.T) if self.queue_k is not None else 0.0
             iter_stats[f'{stats_prefix}queue_k_norm'] = queue_k_norm
-            if self.neg_indices is not None:
+            if self.neg_names is not None and len([data[neg_name]['input_ids'] for neg_name in self.neg_names if neg_name in data]) > 0:
                 iter_stats[f'{stats_prefix}inbatch_hardneg_score'] = torch.einsum('bd,bd->b', qemb, neg_kemb).detach().mean()
                 iter_stats[f'{stats_prefix}across_neg_score'] = torch.einsum('id,jd->ij', qemb, gather_neg_kemb).detach().mean()
 

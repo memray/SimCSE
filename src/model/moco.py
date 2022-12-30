@@ -204,6 +204,7 @@ class MoCo(BiEncoder):
             labels = labels + dist_utils.get_rank() * len(k)  # positive indices offset=local_rank*B
             logits = self._compute_logits_inbatch(q, k, queue)  # shape=[B,k*n_gpu] or [B,k*n_gpu+Q]
         else:
+            assert self.queue_k is not None
             logits = self._compute_logits(q, k)  # shape=[B,1+Q]
             labels = torch.zeros(bsz, dtype=torch.long).cuda()  # shape=[B]
         # contrastive, 1 positive out of Q negatives (in-batch examples are not used)
@@ -325,28 +326,28 @@ class MoCo(BiEncoder):
         if self.norm_doc:
             k = nn.functional.normalize(k, dim=-1)
         # 2. compute query
-        if self.q_select and 'random_chunks' in data:
+        if self.q_extract and 'random_chunks' in data:
             # print(chunk_tokens.shape)
             chunk_tokens = data['random_chunks']['input_ids']
             chunk_mask = data['random_chunks']['attention_mask']
             num_chunk = chunk_tokens.shape[0] // bsz
-            if self.q_select == 'self-dot':
+            if self.q_extract == 'self-dot':
                 with torch.no_grad():
                     q_cand = self.encoder_q(input_ids=chunk_tokens, attention_mask=chunk_mask).reshape(bsz, -1, k.shape[1])  # queries: B,num_chunk,H
                     chunk_score = torch.einsum('bch,bh->bc', q_cand, k).detach()  # B,num_chunk
                     chunk_idx = torch.argmax(chunk_score, dim=1)  # [B]
-            elif self.q_select == 'bm25':
-                chunk_idx = self.q_select_model.batch_rank_chunks(batch_docs=data['contexts_str'],
+            elif self.q_extract == 'bm25':
+                chunk_idx = self.q_extract_model.batch_rank_chunks(batch_docs=data['contexts_str'],
                                                                   batch_chunks=[data['random_chunks_str'][i*num_chunk: (i+1)*num_chunk]
                                                                          for i in range(len(data['docs_str']))])
-            elif self.q_select_model:
+            elif self.q_extract_model:
                 chunk_idx = self.rank_chunks_by_ext_model(docs=data['contexts_str'], chunks=data['random_chunks_str'])
             else:
                 raise NotImplementedError
             c_tokens = torch.stack([chunks[cidx.item()] for chunks, cidx in zip(chunk_tokens.reshape(bsz, num_chunk, -1), chunk_idx)])
             c_mask = torch.stack([chunks[cidx.item()] for chunks, cidx in zip(chunk_mask.reshape(bsz, num_chunk, -1), chunk_idx)])
-            if self.q_select_ratio is not None:
-                c_tokens, c_mask = mix_two_inputs(c_tokens, c_mask, q_tokens, q_mask, input0_ratio=self.q_select_ratio)
+            if self.q_extract_ratio is not None:
+                c_tokens, c_mask = mix_two_inputs(c_tokens, c_mask, q_tokens, q_mask, input0_ratio=self.q_extract_ratio)
             q = self.encoder_q(input_ids=c_tokens, attention_mask=c_mask)  # queries: B,H
         else:
             q = self.encoder_q(input_ids=q_tokens, attention_mask=q_mask)  # queries: B,H

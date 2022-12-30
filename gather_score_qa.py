@@ -116,12 +116,19 @@ if __name__ == '__main__':
     parser.add_argument('--validation_workers', type=int, default=16,
                         help="Number of parallel processes to validate results")
     args = parser.parse_args()
-    exp_name = 'wiki.T03b_topic50.seed477.moco-2e14.wikipsg256-special50.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5'
-    args.data = f'/export/home/exp/search/unsup_dr/wikipsg_v1/{exp_name}/qa_output/**/*.csv'
+    # exp_name = 'wiki.ExtQ-bm25-chunk16.seed477.moco-2e14.contriever256-special.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5'
+    # args.data = f'/export/home/exp/search/unsup_dr/wikipsg_v1/{exp_name}/qa_output/**/*.csv'
 
+    # exp_name = 'fb-contriever.msmarco.dot'  # bm25, fb-contriever.dot, fb-contriever.msmarco.dot, spar-wiki-bm25, spar-paq-bm25
+    # args.data = f'/export/home/exp/search/unsup_dr/baselines/{exp_name}/qa_output/**/*.csv'
 
-    exp_name = 'bm25'  # fb-contriever.dot
-    args.data = f'/export/home/exp/search/unsup_dr/baselines/{exp_name}/qa_output/**/*.csv'
+    # exp_name = 'wiki.extphrase3-50.seed477.inbatch.bert-base-uncased.avg.dot.d128d256.step100k.bs1024.lr5e5'
+    # args.data = f'/export/home/exp/search/unsup_dr/wikipsg_v1/{exp_name}/qa_output/**/*.csv'
+
+    exp_name = 'cc.T03b_exsum50.moco-2e14.contriever256-special50.bert-base-uncased.avg.dot.q128d256.step200k.bs2048.lr5e5'
+    args.data = f'/export/home/exp/search/unsup_dr/cc_v1/{exp_name}/qa_output/**/*.csv'
+
+    # exp_name = 'FT-inbatch-random-neg1023+1024.cc.moco-2e14.contriever256.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5'
+    # args.data = f'/export/home/exp/search/unsup_dr/wikipsg_v1-FT/{exp_name}/qa_output/**/*.csv'
 
     main(args)
-

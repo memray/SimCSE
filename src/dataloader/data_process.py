@@ -25,7 +25,7 @@ class PassageDataCollatorWithPadding:
     batch_size: int
     padding_strategy: Union[bool, str, PaddingStrategy]
     max_length: Optional[int] = None
-    q_len: Union[tuple, int] = None  # used if cap_qd_len==True, it's max length of q, and d_len=cap_qd_len-q_len
+    q_len: Union[tuple, int] = None  # max length of q, and d_len=cap_qd_len-q_len
     d_len: Optional[int] = None  # cap the max length of d
 
     def __call__(self, batch_data) -> Dict[str, torch.Tensor]:
@@ -55,19 +55,17 @@ class PassageDataCollatorWithPadding:
         max_q_len = self.max_length
         max_d_len = self.max_length
         # q_len/d_len specifies the max length of q: can be a range or max length only
-        if self.q_len and len(self.q_len) == 2 and self.q_len[0] > 0:
+        if self.q_len and len(self.q_len) == 2:
             max_q_len = np.random.randint(self.q_len[0], self.q_len[1])
             max_d_len = self.max_length - max_q_len
-        elif self.q_len and len(self.q_len) == 2 and self.q_len[0] == 0:
-            max_q_len = self.q_len[1]
         elif self.q_len and len(self.q_len) == 1:
             max_q_len = self.q_len[0]
-        if self.d_len and len(self.d_len) == 2 and self.d_len[0] > 0:
-            max_d_len = np.random.randint(self.d_len[0], self.d_len[1])
-        elif self.d_len and len(self.d_len) == 2 and self.d_len[0] == 0:
-            max_d_len = self.d_len[1]
+        if self.d_len and len(self.d_len) == 2:
+            max_d_len = min(np.random.randint(self.d_len[0], self.d_len[1]), max_d_len)
         elif self.d_len and len(self.d_len) == 1:
-            max_d_len = self.d_len[0]
+            max_d_len = min(self.d_len[0], max_d_len)
+
+        # print('max_q_len=', max_q_len, 'max_d_len=', max_d_len)
         q_feats = self.tokenizer(
             queries,
             max_length=max_q_len,
@@ -102,21 +100,52 @@ class PassageDataCollatorWithPadding:
         if chunk_feats:
             data['random_chunks'] = chunk_feats
             data['random_chunks_str'] = flat_chunks
-        sent_lens = []
+        sent_lens, num_overlap_tokens, num_union_tokens = [], [], []
         for i in range(bs):
             sent_len_i = []
             for attn in [q_feats['attention_mask'], k_feats['attention_mask']]:
                 sent_len_i.append(sum(attn[i]))
             sent_lens.append(torch.Tensor(sent_len_i).type(torch.int32))
+            q_token_set = set(q_feats['input_ids'][i].numpy())
+            k_token_set = set(k_feats['input_ids'][i].numpy())
+            for stoken_id in self.tokenizer.all_special_tokens:
+                q_token_set.discard(stoken_id)
+                k_token_set.discard(stoken_id)
+            overlap_set = q_token_set.intersection(k_token_set)
+            all_set = q_token_set.union(k_token_set)
+            num_overlap_tokens.append(len(overlap_set))
+            num_union_tokens.append(len(all_set))
         batch = {}
         batch['data'] = data
         batch['length'] = torch.stack(sent_lens)  # [B,2]
-        # print('sent0_len=', batch['length'].float().mean(dim=0).tolist()[0], 'sent1_len=', batch['length'].float().mean(dim=0).tolist()[1])
+        batch['num_word_query'] = torch.Tensor([len(c.split()) for c in queries]).int()  # [B]
+        batch['num_word_doc'] = torch.Tensor([len(c.split()) for c in docs]).int()  # [B]
+        batch['num_word_context'] = torch.Tensor([len(c.split()) for c in contexts]).int()  # [B]
+        batch['num_token_query'] = batch['length'][:, 0]  # [B]
+        batch['num_token_doc'] = batch['length'][:, 1]  # [B]
+        batch['num_token_overlap'] = torch.Tensor(num_overlap_tokens).int()  # [B]
+        batch['num_token_union'] = torch.Tensor(num_union_tokens).int()  # [B]
+        # print('sent0_len=', batch['length'].float().mean(dim=0).tolist()[0],
+        #       'sent1_len=', batch['length'].float().mean(dim=0).tolist()[1],
+        #       'num_overlap_tokens=', np.mean(num_overlap_tokens),
+        #       'num_union_tokens=', np.mean(num_union_tokens))
+
+        if 'neg_docs' in batch_data[0]:
+            docs = [e['neg_docs'] for e in batch_data]
+            negk_feats = self.tokenizer(
+                docs,
+                max_length=max_d_len,
+                truncation=True,
+                padding=self.padding_strategy,
+                return_tensors="pt",
+            )
+            data['neg_docs'] = negk_feats
 
         return batch
 
 
 def _extract_title_v1(text, source):
+    title = ''
     if source in ['Wikipedia', 'Pile-CC', 'OpenWebText2']:
         lines = [l for l in text.split('\n') if len(l.strip()) > 0]
         if len(lines) > 0: title = lines[0]
@@ -165,11 +194,11 @@ def hfdataset_prepare_features(examples,
                                min_d_len=1, max_d_len=512,
                                q_del_ratio=0.0, d_del_ratio=0.0,
                                dq_prompt_ratio=0.0,
-                               query_column_name=None,
                                max_phrase_num=-1,
-                               special_query_ratio=0.0,
                                aug_special_query=False,
                                num_random_chunk=0,
+                               pseudo_query_ratio=0.0,
+                               pseudo_query_names={},
                                **config_kwargs
                                ):
     ''' examples only contain one element, if using HF_dataset.set_transform() '''
@@ -191,15 +220,20 @@ def hfdataset_prepare_features(examples,
                 source = None
             title = examples['title'][i].encode('utf-8', 'ignore').decode() if 'title' in examples and examples['title'][i] else _extract_title_v1(text, source)
 
-            if 'font_phrases' in examples:
+            if 'font_phrases' in examples and examples['font_phrases'] and examples['font_phrases'][i]:
                 ext_phrases = examples['font_phrases'][i] + examples['anchor_phrases'][i]
                 abs_phrases = examples['categories'][i] + examples['seealso'][i]
                 all_phrases = ext_phrases + abs_phrases
             else:
                 ext_phrases, abs_phrases, all_phrases = [], [], []
-            special_query_keys = [k for k in examples.keys() if k.startswith('output-prompt')]
-            special_query = examples[special_query_keys[0]][0].encode('utf-8', 'ignore').decode() if len(special_query_keys) > 0 and examples[special_query_keys[0]][0] else ''
-            ex_dict = {'title': title, 'special_query': special_query, 'all_phrases': all_phrases, 'ext_phrases': ext_phrases, 'abs_phrases': abs_phrases}
+            # special_query_keys = [k for k in examples.keys() if k.startswith('output-prompt')]
+            # special_query = examples[special_query_keys[0]][0].encode('utf-8', 'ignore').decode() if len(special_query_keys) > 0 and examples[special_query_keys[0]][0] else ''
+            if 'outputs'in examples and len(examples['outputs']) > 0:
+                special_queries = examples['outputs'][0]
+            else:
+                special_queries = {}
+            ex_dict = {'title': title, 'all_phrases': all_phrases, 'ext_phrases': ext_phrases, 'abs_phrases': abs_phrases}
+            ex_dict.update(special_queries)
 
             # crop context
             text_tokens = text.split()
@@ -212,26 +246,42 @@ def hfdataset_prepare_features(examples,
             d_tokens = word_replace(d_tokens, replace_ratio=d_del_ratio, replace_with_mask=False)
             d = ' '.join(d_tokens)
             # use specified data for query
-            if np.random.uniform() <= special_query_ratio:
-                if isinstance(ex_dict[query_column_name], list):
-                    cand_phrases = ex_dict[query_column_name] if len(ex_dict[query_column_name]) > 0 else [ex_dict['title']]
+            if np.random.uniform() <= pseudo_query_ratio:
+                if isinstance(pseudo_query_names, dict) and len(pseudo_query_names) > 0:
+                    psuedo_query_name = random.choices(list(pseudo_query_names.keys()), list(pseudo_query_names.values()))
+                    psuedo_query_name = psuedo_query_name[0]
+                    # print(psuedo_query_name)
+                elif isinstance(pseudo_query_names, str):
+                    psuedo_query_name = pseudo_query_names
+                else:
+                    raise NotImplementedError('Debug!')
+                if isinstance(ex_dict[psuedo_query_name], list):
+                    cand_phrases = ex_dict[psuedo_query_name] if len(ex_dict[psuedo_query_name]) > 0 else [ex_dict['title']]
                     num_phrase = min(max_phrase_num, len(cand_phrases))
                     phrases = random.sample(cand_phrases, random.randint(1, num_phrase))
                     random.shuffle(phrases)
+                    _phrases = []
+                    for p in phrases:
+                        p = p[:p.index('|')] if '|' in p else p
+                        p = p.strip('[]')
+                        _phrases.append(p)
                     # print(len(phrases), num_phrase, len(cand_phrases))
-                    q_tokens = ', '.join(phrases).split()
-                elif isinstance(ex_dict[query_column_name], str):
-                    q_tokens = ex_dict[query_column_name].split()
+                    q_tokens = ', '.join(_phrases).split()
+                elif isinstance(ex_dict[psuedo_query_name], str):
+                    q_tokens = ex_dict[psuedo_query_name].split()
                 else:
-                    raise NotImplementedError(f'Not supported for type={type(ex_dict[query_column_name])}: {ex_dict[query_column_name]}')
+                    raise NotImplementedError(f'Not supported for type={type(ex_dict[psuedo_query_name])}: {ex_dict[psuedo_query_name]}')
                 if aug_special_query:
                     q_tokens = crop_sequence(q_tokens, max_len=max_q_len, min_len=min_q_len, min_cap=min_dq_len)
                     q_tokens = word_replace(q_tokens, replace_ratio=q_del_ratio, replace_with_mask=False)
-            else:  # use doc after augmentation for query
+            else:  # use augmented doc
+                psuedo_query_name = 'random-crop'
                 q_tokens = crop_sequence(context_tokens, max_len=max_q_len, min_len=min_q_len, min_cap=min_dq_len)
                 q_tokens = word_replace(q_tokens, replace_ratio=q_del_ratio, replace_with_mask=False)
             q = ' '.join(q_tokens)
+
             # random chunks
+            '''
             chunks = []
             for _ in range(num_random_chunk):
                 chunk_tokens = crop_sequence(context_tokens, min_len=4, max_len=16)
@@ -245,12 +295,14 @@ def hfdataset_prepare_features(examples,
                 q = '[Q]' + q
                 d = '[D]' + d
                 chunks = ['[Q]' + c for c in chunks]
+            random_chunks.append(chunks)
+            '''
             contexts.append(' '.join(context_tokens))
             queries.append(q)
             docs.append(d)
-            random_chunks.append(chunks)
+            random_chunks.append([])
             # print('Context: ', len(context_tokens), ' '.join(context_tokens).replace('\n', '\t'))
-            # print('Q: ', len(q_tokens), q.replace('\n', '\t'))
+            # print('Q: ', f'[type={psuedo_query_name}]', len(q_tokens), q.replace('\n', '\t'))
             # print('D: ', len(d_tokens), d.replace('\n', '\t'))
             # print('Chunks: ', f'{[len(c.split()) for c in chunks]}', ' | '.join(chunks))
             # print('Chunks: ', len(chunks), f'{[len(c.split()) for c in chunks]}')

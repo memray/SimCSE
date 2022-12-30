@@ -87,10 +87,6 @@ def init_distributed_mode(params):
         # read environment variables
         params.global_rank = int(os.environ['RANK'])
         params.world_size = int(os.environ['WORLD_SIZE'])
-
-        # @memray, always failed to pass ENV arguments (always 127.0.0.1:29500), so set them here
-        # os.environ['MASTER_ADDR'] = params.main_addr
-        # os.environ['MASTER_PORT'] = str(params.main_port)
         is_distributed = True
 
     # local job (single GPU)

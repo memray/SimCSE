@@ -51,6 +51,10 @@ class CustomTrainingArguments:
     train_file: Optional[str] = field(default=None, metadata={"help": "The training data file (.txt or .csv)."})
     train_prob: Optional[str] = field(default=None, metadata={"help": "The sampling probability for multiple datasets."})
     dev_file: Optional[str] = field(default=None, metadata={"help": "The dev data file (.txt or .csv)."})
+    # eval
+    skip_beireval: bool = field(default=False, metadata={"help": ""})
+    skip_senteval: bool = field(default=False, metadata={"help": ""})
+    skip_qaeval: bool = field(default=False, metadata={"help": ""})
     # BEIR eval
     beir_path: Optional[str] = field(default="/export/home/data/beir", metadata={ "help": "Base directory of BEIR data."})
     beir_datasets: List[str] = field(default=None, metadata={"help": "Specify what BEIR datasets will be used in evaluation."
@@ -69,6 +73,7 @@ class CustomTrainingArguments:
     # parameters used in data transformation (data_process.hfdataset_prepare_features)
     data_type: str = field(default=None, metadata={"help": "Specify which data loader will be used for training, hf/dpr."})
     data_pipeline_name: str = field(default=None, metadata={"help": "Pre-defined data pipeline name. If set, all data hyper-parameters below will be overwritten."})
+    pseudo_query_names: str = field(default=None, metadata={"help": "Specify the names of augmented queries and probs, e.g. {'title':0.2,'T03B-topic':0.8}."})
     resume_training: str = field(default=None, metadata={"help": "resume training."})
     max_context_len: int = field(default=None, metadata={"help": "if data_type is document and max_context_len is given, we first randomly crop a contiguous span, and Q/D will be sampled from it."})
     min_dq_len: int = field(default=None, metadata={"help": "The minimal number of words for sampled query and doc."})
@@ -322,12 +327,12 @@ class MoCoArguments():
         self.parser.add_argument("--k_proj", type=str, default='none', help="D projector MLP setting")
 
         self.parser.add_argument('--num_random_chunk', type=int, default=0, help="number of random chunks as query candidates")
-        self.parser.add_argument("--q_select", type=str, default=None, help="Strategy for query selection, options: [self-dot]")
-        self.parser.add_argument("--q_select_ratio", type=float, default=None, help="p% of docs are top-ranked chunks")
+        self.parser.add_argument("--q_extract", type=str, default=None, help="Strategy for query selection, options: [self-dot]")
+        self.parser.add_argument("--q_extract_ratio", type=float, default=None, help="p% of queries are model-selected chunks, the rest use given queries")
 
         self.parser.add_argument("--queue_strategy", type=str, default='fifo', help="'fifo', 'priority'")
         self.parser.add_argument("--num_extra_pos", type=int, default=0)
-        self.parser.add_argument("--neg_indices", type=int, nargs='+', default=None, help='specify the indices of negative data.')
+        self.parser.add_argument("--neg_names", type=str, nargs='+', default=None, help='specify the key names of negative data.')
         self.parser.add_argument("--use_inbatch_negatives", type=str2bool, default=False, help='whether to include negative data in current batch for loss')
         self.parser.add_argument("--queue_size", type=int, default=0)
         self.parser.add_argument("--q_queue_size", type=int, default=0)

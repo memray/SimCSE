@@ -221,7 +221,7 @@ class DenseRetrievalTrainer(Trainer):
                     if isinstance(v, torch.Tensor):
                         v = self._nested_gather(v)
                         v = v.mean().item()
-                    if k.endswith('loss') or k.startswith('sent_len_') or k.startswith('sent_max_len_'):  # only those values are logged every iter, needs averaging
+                    if k.endswith('loss') or k.startswith('sent_len_') or k.startswith('num_token') or k.startswith('num_word'):  # only those values are logged every iter, needs averaging
                         logs[k] = round(v / (self.state.global_step - self._globalstep_last_logged), 4)
                     else:
                         logs[k] = round(v, 4)
@@ -451,7 +451,14 @@ class DenseRetrievalTrainer(Trainer):
                 sent_max_lens, _ = inputs['length'].type(torch.long).max(dim=0)
                 for li, (l, max_l) in enumerate(zip(sent_lens, sent_max_lens)):
                     extra_losses[f'sent_len_{li}'] = l
-                    extra_losses[f'sent_max_len_{li}'] = max_l
+                    extra_losses[f'sent_len_max_{li}'] = max_l
+                extra_losses['num_word_context'] = inputs['num_word_context']
+                extra_losses['num_word_query'] = inputs['num_word_query']
+                extra_losses['num_word_doc'] = inputs['num_word_doc']
+                extra_losses['num_token_query'] = inputs['num_token_query']
+                extra_losses['num_token_doc'] = inputs['num_token_doc']
+                extra_losses['num_token_overlap'] = inputs['num_token_overlap']
+                extra_losses['num_token_union'] = inputs['num_token_union']
 
         if self.args.gradient_accumulation_steps > 1 and not self.deepspeed:
             # deepspeed handles loss scaling by gradient_accumulation_steps in its `backward`
@@ -545,6 +552,11 @@ class DenseRetrievalTrainer(Trainer):
         self._load_optimizer_and_scheduler(model_path)
 
         model = self.model_wrapped
+
+        # PyTorch 2.0
+        if False: # torch.__version__.startswith('2.'):
+            print('Using PyTorch 2.0 optimized model')
+            model = torch.compile(model)
 
         # Mixed precision training with apex (torch < 1.6)
         if self.use_apex:
@@ -675,8 +687,8 @@ class DenseRetrievalTrainer(Trainer):
                     num_warmup_stage = int(self.model.queue_size / total_train_batch_size)
                     num_step_per_stage = int(fullsize_step // num_warmup_stage)
                     warmup_steps = {num_step_per_stage * i: total_train_batch_size * (i+1) for i in range(num_warmup_stage)}
-                    if self.model.moco_config.num_warmup_stage:
-                        skip_k = len(warmup_steps) // self.model.moco_config.num_warmup_stage
+                    if self.model.model_config.num_warmup_stage:
+                        skip_k = len(warmup_steps) // self.model.model_config.num_warmup_stage
                         warmup_steps = {step: size for i, (step, size) in enumerate(warmup_steps.items()) if i % skip_k == 0}
                         warmup_steps[fullsize_step] = self.model.queue_size
                     # increase exponentially, too quick
