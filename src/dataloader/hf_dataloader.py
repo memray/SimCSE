@@ -26,6 +26,7 @@ def _interleave_map_style_datasets(
     info: Optional[DatasetInfo] = None,
     split: Optional[NamedSplit] = None,
     new_fingerprint: str = None,
+    keep_in_memory: bool = False,
     **kwargs,
 ) -> "Dataset":
     """
@@ -83,8 +84,11 @@ def interleave_datasets(
     info: Optional[DatasetInfo] = None,
     split: Optional[NamedSplit] = None,
     new_fingerprint: str = None,
+    keep_in_memory: bool = False,
 ) -> DatasetType:
     """
+    Rui:  interleave_datasets can be 2-5x slower and consumes extra memory
+    keep_in_memory=False is very slow, keep_in_memory=True results in OOM
     Modified based on interleave_datasets() in datasets.combine.py
     Interleave several datasets (sources) into a single dataset.
     The new dataset is constructed by alternating between the sources to get the examples.
@@ -98,7 +102,8 @@ def interleave_datasets(
             )
     return _interleave_map_style_datasets(datasets, num_step, probabilities, seed,
                                           info=info, split=split,
-                                          new_fingerprint=new_fingerprint)
+                                          new_fingerprint=new_fingerprint,
+                                          keep_in_memory=keep_in_memory)
 
 
 def load_datasets(tokenizer, training_args, hftraining_args, moco_args):
@@ -124,13 +129,16 @@ def load_datasets(tokenizer, training_args, hftraining_args, moco_args):
                 corpus_jsonl_path = os.path.join('/export/home/data/pretrain/pile/', f'{pile_dataset}.json')
                 # corpus_jsonl_path = os.path.join('/export/home/data/pretrain/pile/10k/', f'{pile_dataset}.json')
                 loaded_dataset = datasets.load_dataset("json", data_files=corpus_jsonl_path,
-                                                        keep_in_memory=False, cache_dir=training_args.cache_dir, streaming=streaming)
+                                                       keep_in_memory=False,
+                                                       cache_dir=training_args.cache_dir, streaming=streaming,
+                                                       num_proc=4)
                 loaded_dataset = loaded_dataset['train']
                 title_field, text_field = None, 'text'
             elif dataset_name == 'c4':
                 # https://huggingface.co/datasets/c4
                 # #en=364,868,892, #realnewslike=13,799,838, columns=['url', 'timestamp', 'text']
-                loaded_dataset = datasets.load_dataset("c4", "en", cache_dir=training_args.cache_dir,
+                loaded_dataset = datasets.load_dataset("c4", "en",
+                                                       keep_in_memory=False, cache_dir=training_args.cache_dir,
                                                        split='train',
                                                        # split='validation',
                                                        streaming=streaming,
@@ -141,14 +149,16 @@ def load_datasets(tokenizer, training_args, hftraining_args, moco_args):
                 # https://huggingface.co/datasets/wikipedia
                 # size=6,458,670, columns=['id', 'url', 'title', 'text']
                 loaded_dataset = datasets.load_dataset("wikipedia", "20220301.en",
-                                                       split='train', cache_dir=training_args.cache_dir, streaming=streaming)
+                                                       split='train',
+                                                       keep_in_memory=False, cache_dir=training_args.cache_dir, streaming=streaming)
                                                        # split=datasets.ReadInstruction('train', from_=0, to=10000, unit='abs'))
                 title_field, text_field = 'title', 'text'
             elif dataset_name == 'wiki-dpr':
                 # size=21015325, columns=['id', 'title', 'text']
                 datapath = '/export/home/data/search/dpr/downloads/data/wikipedia_split/psgs_w100.tsv'
                 loaded_dataset = datasets.load_dataset('csv', data_files=datapath, split='train',
-                                                       cache_dir=training_args.cache_dir, delimiter="\t" if "tsv" in datapath else ",")
+                                                       keep_in_memory=False, cache_dir=training_args.cache_dir,
+                                                       delimiter="\t" if "tsv" in datapath else ",")
                 title_field, text_field = 'title', 'text'
             elif dataset_name == 'pile':
                 # https://huggingface.co/datasets/the_pile
@@ -195,7 +205,6 @@ def load_datasets(tokenizer, training_args, hftraining_args, moco_args):
                 * moco_args.queue_update_steps
         )
         num_examples = total_train_batch_size * (hftraining_args.max_steps + 100)
-
         sum_len = sum([len(dset) for dset in train_datasets])
         if hftraining_args.local_rank == 0 or hftraining_args.local_rank == -1:
             # print(f"  - Fingerprint_name = {fingerprint_name}")
@@ -216,13 +225,17 @@ def load_datasets(tokenizer, training_args, hftraining_args, moco_args):
             print(f"  - Number of epochs for uniform sampling = {(num_examples // sum_len + 1)}")
 
         if not training_args.train_prob:
-            if sum_len < num_examples or len(train_datasets) > 1:
-                # if train_prob is not set, denotes naive uniform sampling, so simply concatenate them
-                train_datasets = train_datasets * (num_examples // sum_len + 1)
+            # if train_prob is not set, denotes naive uniform sampling, so simply concatenate them
+            if len(train_datasets) > 1:
+                print('Concatenate multiple datasets')
                 train_dataset = concatenate_datasets(train_datasets)
             else:
                 train_dataset = train_datasets[0]
         else:
+            probs = [float(p) for p in training_args.train_prob.split(':')] if training_args.train_prob else None
+            train_dataset = datasets.interleave_datasets(train_datasets, probabilities=probs,
+                                                         seed=hftraining_args.seed, stopping_strategy='all_exhausted')
+            '''
             # if train_prob is set, sample their indices use our interleave_datasets()
             if training_args.train_prob:
                 probs = [float(p) for p in training_args.train_prob.split(':')]
@@ -236,6 +249,7 @@ def load_datasets(tokenizer, training_args, hftraining_args, moco_args):
             prob_sum = sum(probs)
             probs = [p / prob_sum for p in probs]
             fingerprint_name = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(8))
+            print("interleave_datasets", f'\n\tdatasets={train_dataset_names}\n\tprobabilities={probs}\n\tnum_step={num_examples}')
             # fingerprint_name = '-'.join(
                 # ['data_[' + str(training_args.train_file).replace('\\', '').replace('/', '').replace('pile_', '') + ']',
                 #  'prob_' + str(probs),
@@ -243,6 +257,8 @@ def load_datasets(tokenizer, training_args, hftraining_args, moco_args):
             train_dataset = interleave_datasets(train_datasets,
                                                 num_step=num_examples, probabilities=probs,
                                                 seed=hftraining_args.seed, new_fingerprint=fingerprint_name[:64])
+            '''
+
         data_prep_config = load_dataprocess_config(training_args, local_rank=hftraining_args.local_rank)
         parse_fn = partial(hfdataset_prepare_features,
                            title_field=title_field,
@@ -250,7 +266,9 @@ def load_datasets(tokenizer, training_args, hftraining_args, moco_args):
                            num_random_chunk=moco_args.num_random_chunk,
                            **data_prep_config
                            )
-        train_dataset = train_dataset.shuffle(seed=hftraining_args.seed)
+        # shuffle will cause OOM if the dataset is huge, say concate 32x of CC
+        # print('train_dataset.shuffle')
+        # train_dataset = train_dataset.shuffle(seed=hftraining_args.seed)
         train_dataset.set_transform(parse_fn)
 
     # load a subset of wikipedia as devset

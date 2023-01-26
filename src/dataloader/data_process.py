@@ -57,13 +57,14 @@ class PassageDataCollatorWithPadding:
         # q_len/d_len specifies the max length of q: can be a range or max length only
         if self.q_len and len(self.q_len) == 2:
             max_q_len = np.random.randint(self.q_len[0], self.q_len[1])
-            max_d_len = self.max_length - max_q_len
+            max_d_len = self.max_length - max_q_len if self.max_length else None
         elif self.q_len and len(self.q_len) == 1:
             max_q_len = self.q_len[0]
         if self.d_len and len(self.d_len) == 2:
-            max_d_len = min(np.random.randint(self.d_len[0], self.d_len[1]), max_d_len)
+            random_d_len = np.random.randint(self.d_len[0], self.d_len[1])
+            max_d_len = min(random_d_len, max_d_len) if max_d_len else random_d_len
         elif self.d_len and len(self.d_len) == 1:
-            max_d_len = min(self.d_len[0], max_d_len)
+            max_d_len = min(self.d_len[0], max_d_len) if max_d_len else self.d_len[0]
 
         # print('max_q_len=', max_q_len, 'max_d_len=', max_d_len)
         q_feats = self.tokenizer(
@@ -129,6 +130,10 @@ class PassageDataCollatorWithPadding:
         #       'sent1_len=', batch['length'].float().mean(dim=0).tolist()[1],
         #       'num_overlap_tokens=', np.mean(num_overlap_tokens),
         #       'num_union_tokens=', np.mean(num_union_tokens))
+        # print('sent0_minlen=', batch['length'].float().min(dim=0).values.tolist()[0],
+        #       'sent1_minlen=', batch['length'].float().min(dim=0).values.tolist()[1],
+        #       'sent0_maxlen=', batch['length'].float().max(dim=0).values.tolist()[0],
+        #       'sent1_maxlen=', batch['length'].float().max(dim=0).values.tolist()[1])
 
         if 'neg_docs' in batch_data[0]:
             docs = [e['neg_docs'] for e in batch_data]
@@ -208,9 +213,19 @@ def hfdataset_prepare_features(examples,
         texts = examples[text_field]
         num_data = len(texts)
         for i in range(num_data):
+            # metadata
             id = examples['id'][i] if 'id' in examples else None
             text = examples['text'][i].encode('utf-8', 'ignore').decode()
             url = examples['url'][i] if 'url' in examples else None
+
+            # context
+            text_tokens = text.split()
+            if max_context_len > 0:
+                context_tokens = crop_sequence(text_tokens, max_len=max_context_len, crop_to_maxlen=True)
+            else:
+                context_tokens = copy.copy(text_tokens)
+
+            # title (candidate-Q)
             if url and 'wikipedia' in url:
                 source = 'Wikipedia'
             elif 'meta' in examples and len(examples['meta']) > 0 and examples['meta'][i] and 'pile_set_name' in examples['meta'][i]:
@@ -220,64 +235,63 @@ def hfdataset_prepare_features(examples,
                 source = None
             title = examples['title'][i].encode('utf-8', 'ignore').decode() if 'title' in examples and examples['title'][i] else _extract_title_v1(text, source)
 
+            # phrases (candidate-Q)
             if 'font_phrases' in examples and examples['font_phrases'] and examples['font_phrases'][i]:
                 ext_phrases = examples['font_phrases'][i] + examples['anchor_phrases'][i]
                 abs_phrases = examples['categories'][i] + examples['seealso'][i]
                 all_phrases = ext_phrases + abs_phrases
             else:
                 ext_phrases, abs_phrases, all_phrases = [], [], []
+            ex_dict = {'title': title, 'all_phrases': all_phrases, 'ext_phrases': ext_phrases, 'abs_phrases': abs_phrases}
+
+            # random-crop context (candidate-Q)
+            q_tokens = crop_sequence(context_tokens, max_len=max_q_len, min_len=min_q_len, min_cap=min_dq_len)
+            q_tokens = word_replace(q_tokens, replace_ratio=q_del_ratio, replace_with_mask=False)
+            ex_dict['random-crop'] = ' '.join(q_tokens)
             # special_query_keys = [k for k in examples.keys() if k.startswith('output-prompt')]
             # special_query = examples[special_query_keys[0]][0].encode('utf-8', 'ignore').decode() if len(special_query_keys) > 0 and examples[special_query_keys[0]][0] else ''
             if 'outputs'in examples and len(examples['outputs']) > 0:
                 special_queries = examples['outputs'][0]
             else:
                 special_queries = {}
-            ex_dict = {'title': title, 'all_phrases': all_phrases, 'ext_phrases': ext_phrases, 'abs_phrases': abs_phrases}
             ex_dict.update(special_queries)
 
-            # crop context
-            text_tokens = text.split()
-            if max_context_len > 0:
-                context_tokens = crop_sequence(text_tokens, max_len=max_context_len, crop_to_maxlen=True)
-            else:
-                context_tokens = copy.copy(text_tokens)
-            # prepare for D, doc after augmentation
+            # prepare D (random-crop context)
             d_tokens = crop_sequence(context_tokens, max_len=max_d_len, min_len=min_d_len, min_cap=min_dq_len)
             d_tokens = word_replace(d_tokens, replace_ratio=d_del_ratio, replace_with_mask=False)
             d = ' '.join(d_tokens)
-            # use specified data for query
-            if np.random.uniform() <= pseudo_query_ratio:
-                if isinstance(pseudo_query_names, dict) and len(pseudo_query_names) > 0:
-                    psuedo_query_name = random.choices(list(pseudo_query_names.keys()), list(pseudo_query_names.values()))
-                    psuedo_query_name = psuedo_query_name[0]
-                    # print(psuedo_query_name)
-                elif isinstance(pseudo_query_names, str):
-                    psuedo_query_name = pseudo_query_names
-                else:
-                    raise NotImplementedError('Debug!')
-                if isinstance(ex_dict[psuedo_query_name], list):
-                    cand_phrases = ex_dict[psuedo_query_name] if len(ex_dict[psuedo_query_name]) > 0 else [ex_dict['title']]
-                    num_phrase = min(max_phrase_num, len(cand_phrases))
-                    phrases = random.sample(cand_phrases, random.randint(1, num_phrase))
-                    random.shuffle(phrases)
-                    _phrases = []
-                    for p in phrases:
-                        p = p[:p.index('|')] if '|' in p else p
-                        p = p.strip('[]')
-                        _phrases.append(p)
-                    # print(len(phrases), num_phrase, len(cand_phrases))
-                    q_tokens = ', '.join(_phrases).split()
-                elif isinstance(ex_dict[psuedo_query_name], str):
-                    q_tokens = ex_dict[psuedo_query_name].split()
-                else:
-                    raise NotImplementedError(f'Not supported for type={type(ex_dict[psuedo_query_name])}: {ex_dict[psuedo_query_name]}')
-                if aug_special_query:
-                    q_tokens = crop_sequence(q_tokens, max_len=max_q_len, min_len=min_q_len, min_cap=min_dq_len)
-                    q_tokens = word_replace(q_tokens, replace_ratio=q_del_ratio, replace_with_mask=False)
-            else:  # use augmented doc
-                psuedo_query_name = 'random-crop'
-                q_tokens = crop_sequence(context_tokens, max_len=max_q_len, min_len=min_q_len, min_cap=min_dq_len)
+
+            # prepare Q (randomly select a Q from candidates)
+            if isinstance(pseudo_query_names, dict) and len(pseudo_query_names) > 0:
+                # if a dict is given (names+probs), sample a query type
+                psuedo_query_name = random.choices(list(pseudo_query_names.keys()), list(pseudo_query_names.values()))
+                psuedo_query_name = psuedo_query_name[0]
+                # print(psuedo_query_name)
+            elif isinstance(pseudo_query_names, str):
+                # single query type is given
+                psuedo_query_name = pseudo_query_names
+            else:
+                raise NotImplementedError('Debug!')
+            if isinstance(ex_dict[psuedo_query_name], list):
+                cand_phrases = ex_dict[psuedo_query_name] if len(ex_dict[psuedo_query_name]) > 0 else [ex_dict['title']]
+                num_phrase = min(max_phrase_num, len(cand_phrases))
+                phrases = random.sample(cand_phrases, random.randint(1, num_phrase))
+                random.shuffle(phrases)
+                _phrases = []
+                for p in phrases:
+                    p = p[:p.index('|')] if '|' in p else p
+                    p = p.strip('[]')
+                    _phrases.append(p)
+                # print(len(phrases), num_phrase, len(cand_phrases))
+                q_tokens = ', '.join(_phrases).split()
+            elif isinstance(ex_dict[psuedo_query_name], str):
+                q_tokens = ex_dict[psuedo_query_name].split()
+            else:
+                raise NotImplementedError(f'Not supported for type={type(ex_dict[psuedo_query_name])}: {ex_dict[psuedo_query_name]}')
+            if aug_special_query:
+                q_tokens = crop_sequence(q_tokens, max_len=max_q_len, min_len=min_q_len, min_cap=min_dq_len)
                 q_tokens = word_replace(q_tokens, replace_ratio=q_del_ratio, replace_with_mask=False)
+
             q = ' '.join(q_tokens)
 
             # random chunks

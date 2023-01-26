@@ -8,107 +8,136 @@ import pandas as pd
 '''
 
 def main():
-    exp_base_dir = '/export/home/exp/search/unsup_dr/wikipsg_v1/'
+    exp_base_dir = '/export/home/exp/search/unsup_dr/cc_v2/'
     exp_names = [
-        # 'wikipsg.seed477.inbatch.contriever256.bert-base-uncased.avg.dot.qd256.step100k.bs1024.lr5e5',
-        # 'wikipsg.seed477.moco-2e14.contriever256.bert-base-uncased.avg.dot.qd256.step100k.bs1024.lr5e5',
+        # 'cc.RC50-Topic50.moco-2e14.contriever256.bert-base-uncased.avg.dot.q128d256.step100k.bs2048.lr5e5'
+        # 'cc.RC50-Topic50.moco-2e14.contriever256-special50.bert-base-uncased.avg.dot.q128d256.step200k.bs4096.lr5e5'
 
-        # 'wikipsg.seed477.inbatch.contriever-256.bert-base-uncased.avg.dot.qd128.step200k.bs1024.lr5e5',
-        # 'wikipsg.seed477.inbatch.contriever-256-Qtitle50.bert-base-uncased.avg.dot.qd128.step200k.bs1024.lr5e5',
-        # 'wikipsg.seed477.inbatch.contriever-256-Qtitle1.bert-base-uncased.avg.dot.qd128.step200k.bs1024.lr5e5',
-        # 'wikipsg.seed477.moco-2e14.contriever-256.bert-base-uncased.avg.dot.qd128.step200k.bs1024.lr5e5',
-        # 'wikipsg.seed477.moco-2e14.contriever-256-Qtitle50.bert-base-uncased.avg.dot.qd128.step200k.bs1024.lr5e5',
-        # 'wikipsg.seed477.moco-2e14.contriever-256-Qtitle1.bert-base-uncased.avg.dot.qd128.step200k.bs1024.lr5e5',
+        # 'cc.RC50-T2Q50.moco-2e14.contriever256.bert-base-uncased.avg.dot.q128d256.step100k.bs2048.lr5e5'
+        # 'cc.RC50-T2Q50_minlen0.05.moco-2e14.contriever256.bert-base-uncased.avg.dot.q128d256.step200k.bs2048.lr5e5'
 
-        # 'wiki.extphrase3.seed477.inbatch.bert-base-uncased.avg.dot.d128d256.step100k.bs1024.lr5e5',
-        # 'wiki.extphrase3-50.seed477.inbatch.bert-base-uncased.avg.dot.d128d256.step100k.bs1024.lr5e5',
-        # 'wiki.extphrase3.seed477.moco-2e14.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
-        # 'wiki.extphrase3-50.seed477.moco-2e14.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+        # 'cc.RC20+T0gen80.seed477.moco-2e14.contriever256.bert-base-uncased.avg.dot.q128d256.step200k.bs2048.lr5e5',
+        # 'cc.RC20+T0gen80.moco-2e14.contriever256.bert-base-uncased.avg.dot.qd128.step100k.bs8192.lr5e5'
+        # 'cc.RC20+T0gen80_minlen0.05.moco-2e16.contriever256.bert-base-uncased.avg.dot.len224qd128.step100k.bs8192.lr5e5'
+        # 'cc.RC20+T0gen80.moco-2e16.contriever256.bert-base-uncased.avg.dot.len256qd128.step200k.bs4096.lr5e5'
+        # 'cc.RC20+T0gen80.noconcat.moco-2e16.contriever256.bert-base-uncased.avg.dot.len256qd128.step100k.bs8192.lr5e5'
+        # 'cc.RC20+T0gen80.interleave.moco-2e16.contriever256.bert-base-uncased.avg.dot.len256qd128.step100k.bs8192.lr5e5'
 
-        # 'wiki.extphrase3.seed477.inbatch.bert-base-uncased.avg.dot.d128d256.step100k.bs1024.lr5e5',
-        # 'wiki.extphrase3.seed477.moco-2e14.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5'
-        # 'wiki_allphrase1.seed477.inbatch.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
-        # 'wiki_allphrase1.seed477.moco-2e14.contriever-256.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
-        # 'wiki_allphrase3.seed477.inbatch.bert-base-uncased.avg.dot.d128d256.step100k.bs1024.lr5e5',
-        # 'wiki_allphrase3.seed477.moco-2e14.contriever-256.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
-        # 'wiki_allphrase5.seed77.inbatch.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
-        # 'wiki_allphrase5.seed477.moco-2e14.contriever-256.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+        # 'cc.RC20+T0gen80.moco-2e14.contriever256-special50.bert-large-uncased.avg.dot.q128d128.step100k.bs2048.lr1e5'
+        # 'cc.RC20+T0gen80.moco-2e14.contriever256.bert-large-uncased.avg.dot.q128d128.step100k.bs2048.lr3e5'
+        # 'cc.RC20+T0gen80.moco-2e14.contriever256-special50.bert-large-uncased.cls.dot.q128d128.step100k.bs2048.lr1e5'
+        # 'cc.RC20+T0gen80.moco-2e14.contriever256.bert-large-uncased.avg.dot.q128d128.step200k.warmup20k.bs2048.lr5e5'
 
-        # 'wiki.ExtQ-selfdot-chunk16.seed477.inbatch.contriever256-special.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
-        # 'wiki.ExtQ50-selfdot-chunk16.seed477.inbatch.contriever256-special.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
-        # 'wiki.ExtQ-bm25-chunk16.seed477.inbatch.contriever256-special.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
-        # 'wiki.ExtQ50-bm25-chunk16.seed477.inbatch.contriever256-special.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
-        # 'wiki.ExtQ-plm-chunk16.seed477.inbatch.contriever256-special.bert-base-uncased.avg.dot.qd128.step100k.bs1024.lr5e5',
-        # 'wiki.ExtQ50-plm-chunk16.seed477.inbatch.contriever256-special.bert-base-uncased.avg.dot.qd128.step100k.bs1024.lr5e5',
-        # 'wiki.ExtQ50-plm-chunk16.seed477.inbatch.contriever256-special.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+        # 'cc.T0gen.seed477.moco-2e14.contriever256.bert-base-uncased.avg.dot.len192q96d128.step200k.bs4096.lr5e5'
+        # 'wiki+cc.RC20+T0gen80.moco-2e14.contriever256.bert-base-uncased.avg.dot.len256qd128.step200k.bs4096.lr5e5'
 
-        # 'wiki.ExtQ-selfdot-chunk16.seed477.moco-2e14.contriever256-special.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
-        # 'wiki.ExtQ50-selfdot-chunk16.seed477.moco-2e14.contriever256-special.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
-        # 'wiki.ExtQ-bm25-chunk16.seed477.moco-2e14.contriever256-special.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
-        # 'wiki.ExtQ50-bm25-chunk16.seed477.moco-2e14.contriever256-special.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
-        # 'wiki.ExtQ-plm-chunk16.seed477.moco-2e14.contriever256-special.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
-        # 'wiki.ExtQ50-plm-chunk16.seed477.moco-2e14.contriever256-special.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
-
-        # 'paq.seed477.inbatch.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
-        # 'paq.seed477.moco-2e14.contriever-256.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5'
-
-        # 'wiki.T03b_topic.seed477.inbatch.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
-        # 'wiki.T03b_topic.seed477.moco-2e14.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
-        # 'wiki_T03b_topic50.seed477.inbatch.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
-        # 'wiki_T03b_topic50.seed477.moco-2e14.contriever-256.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
-        # 'wiki.T03b_topic50.seed477.moco-2e14.contriever256-special50.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
-        # 'wiki.T03b_topic50.seed477.moco-2e14.wikipsg256-special50.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
-        # 'wiki_T03b_topic.seed477.inbatch.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
-        # 'wiki_T03b_topic.seed477.moco-2e14.contriever-256.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
-
-        # 'wiki.T03b_title.seed477.inbatch.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
-        # 'wiki.T03b_title.seed477.moco-2e14.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
-        # 'wiki_T03b_title.seed477.inbatch.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
-        # 'wiki_T03b_title50.seed477.inbatch.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
-        # 'wiki_T03b_title.seed477.moco-2e14.contriever-256.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
-        # 'wiki_T03b_title50.seed477.moco-2e14.contriever-256.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
-
-        # 'wiki.T03b_absum.seed477.inbatch.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
-        # 'wiki.T03b_absum.seed477.moco-2e14.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
-        # 'wiki_T03b_absum.seed477.inbatch.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
-        # 'wiki_T03b_absum50.seed477.inbatch.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
-        # 'wiki_T03b_absum.seed477.moco-2e14.contriever-256.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
-        # 'wiki_T03b_absum50.seed477.moco-2e14.contriever-256.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
-
-        # 'wiki.T03b_exsum.seed477.inbatch.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
-        # 'wiki.T03b_exsum.seed477.moco-2e14.contriever256.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
-        # 'wiki_T03b_exsum50.seed477.inbatch.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
-        # 'wiki_T03b_exsum50.seed77.inbatch.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
-        # 'wiki_T03b_exsum.seed477.moco-2e14.contriever-256.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
-        # 'wiki_T03b_exsum50.seed477.moco-2e14.contriever-256.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
-
-        'wiki.doc2query-t2q.seed477.inbatch.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
-        # 'wiki_doc2query50_t2q.seed477.inbatch.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5'
-        # 'wiki.doc2query-t2q.seed477.moco-2e14.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
-        # 'wiki_doc2query50_t2q.seed477.moco-2e14.contriever-256.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
-        # 'wiki.doc2query50-t2q.seed477.moco-2e14.contriever256-special50.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
-        # 'wiki.doc2query50-t2q.seed477.moco-2e14.wikipsg256-special50.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
-
-        # 'paq-cropdoc.seed477.inbatch.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
-        # 'paq-cropdoc.seed477.moco-2e14.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
-        # 'paq50.seed477.inbatch.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
-        # 'paq50.seed477.moco-2e14.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
-        # 'paq-fulldoc.seed477.inbatch.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
-        # 'paq-fulldoc.seed477.moco-2e14.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
-        # 'paq50-fulldoc.seed477.inbatch.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
-        # 'paq50-fulldoc.seed477.moco-2e14.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
-        # 'paq.seed477.inbatch.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
-        # 'paq.seed477.moco-2e14.contriever-256.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
-
-        # 'wikipsg.seed477.moco-inbatch.contriever-256.bert-base-uncased.avg.dot.qd128.step100k.bs1024.lr5e5'
-        # 'wikipsg.seed477.moco-inbatch-2e14.contriever-256.bert-base-uncased.avg.dot.qd128.step100k.bs1024.lr5e5'
-        # 'wikipsg.seed477.moco-2e17.contriever-256.bert-base-uncased.avg.dot.qd128.step100k.bs1024.lr5e5'
-        # 'cc+wikipsg.equal.inbatch.contriever-256-Qtitle05.bert-base-uncased.avg.dot.qd128.step100k.bs1024.lr5e5'
-        # 'cc.moco-2e14.contriever-256.bert-base-uncased.avg.dot.qd128.step200k.bs1024.lr5e5'
+        # 'cc.RC20+T0gen80.moco-2e14.contriever256.roberta-large.avg.dot.q128d128.step100k.warmup10k.bs2048.lr1e5'
+        # 'cc.RC20+T0gen80.noconcat.moco-2e16.contriever256.roberta-base.avg.dot.len256qd128.step100k.bs8192.lr5e5'
         ]
 
-    if True:
-    # if False:
+    if False:
+    # if True:
+        exp_base_dir = '/export/home/exp/search/unsup_dr/wikipsg_v1/'
+        exp_names = [
+            # 'wikipsg.seed477.inbatch.contriever256.bert-base-uncased.avg.dot.qd256.step100k.bs1024.lr5e5',
+            # 'wikipsg.seed477.moco-2e14.contriever256.bert-base-uncased.avg.dot.qd256.step100k.bs1024.lr5e5',
+
+            # 'wikipsg.seed477.inbatch.contriever-256.bert-base-uncased.avg.dot.qd128.step200k.bs1024.lr5e5',
+            # 'wikipsg.seed477.inbatch.contriever-256-Qtitle50.bert-base-uncased.avg.dot.qd128.step200k.bs1024.lr5e5',
+            # 'wikipsg.seed477.inbatch.contriever-256-Qtitle1.bert-base-uncased.avg.dot.qd128.step200k.bs1024.lr5e5',
+            # 'wikipsg.seed477.moco-2e14.contriever-256.bert-base-uncased.avg.dot.qd128.step200k.bs1024.lr5e5',
+            # 'wikipsg.seed477.moco-2e14.contriever-256-Qtitle50.bert-base-uncased.avg.dot.qd128.step200k.bs1024.lr5e5',
+            # 'wikipsg.seed477.moco-2e14.contriever-256-Qtitle1.bert-base-uncased.avg.dot.qd128.step200k.bs1024.lr5e5',
+
+            # 'wiki.extphrase3.seed477.inbatch.bert-base-uncased.avg.dot.d128d256.step100k.bs1024.lr5e5',
+            # 'wiki.extphrase3-50.seed477.inbatch.bert-base-uncased.avg.dot.d128d256.step100k.bs1024.lr5e5',
+            # 'wiki.extphrase3.seed477.moco-2e14.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+            # 'wiki.extphrase3-50.seed477.moco-2e14.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+
+            # 'wiki.extphrase3.seed477.inbatch.bert-base-uncased.avg.dot.d128d256.step100k.bs1024.lr5e5',
+            # 'wiki.extphrase3.seed477.moco-2e14.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5'
+            # 'wiki_allphrase1.seed477.inbatch.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+            # 'wiki_allphrase1.seed477.moco-2e14.contriever-256.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
+            # 'wiki_allphrase3.seed477.inbatch.bert-base-uncased.avg.dot.d128d256.step100k.bs1024.lr5e5',
+            # 'wiki_allphrase3.seed477.moco-2e14.contriever-256.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
+            # 'wiki_allphrase5.seed77.inbatch.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+            # 'wiki_allphrase5.seed477.moco-2e14.contriever-256.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+
+            # 'wiki.ExtQ-selfdot-chunk16.seed477.inbatch.contriever256-special.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+            # 'wiki.ExtQ50-selfdot-chunk16.seed477.inbatch.contriever256-special.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+            # 'wiki.ExtQ-bm25-chunk16.seed477.inbatch.contriever256-special.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+            # 'wiki.ExtQ50-bm25-chunk16.seed477.inbatch.contriever256-special.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+            # 'wiki.ExtQ-plm-chunk16.seed477.inbatch.contriever256-special.bert-base-uncased.avg.dot.qd128.step100k.bs1024.lr5e5',
+            # 'wiki.ExtQ50-plm-chunk16.seed477.inbatch.contriever256-special.bert-base-uncased.avg.dot.qd128.step100k.bs1024.lr5e5',
+            # 'wiki.ExtQ50-plm-chunk16.seed477.inbatch.contriever256-special.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+
+            # 'wiki.ExtQ-selfdot-chunk16.seed477.moco-2e14.contriever256-special.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+            # 'wiki.ExtQ50-selfdot-chunk16.seed477.moco-2e14.contriever256-special.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+            # 'wiki.ExtQ-bm25-chunk16.seed477.moco-2e14.contriever256-special.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+            # 'wiki.ExtQ50-bm25-chunk16.seed477.moco-2e14.contriever256-special.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+            # 'wiki.ExtQ-plm-chunk16.seed477.moco-2e14.contriever256-special.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+            # 'wiki.ExtQ50-plm-chunk16.seed477.moco-2e14.contriever256-special.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+
+            # 'paq.seed477.inbatch.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
+            # 'paq.seed477.moco-2e14.contriever-256.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5'
+
+            # 'wiki.T03b_topic.seed477.inbatch.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+            # 'wiki.T03b_topic.seed477.moco-2e14.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+            # 'wiki_T03b_topic50.seed477.inbatch.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+            # 'wiki_T03b_topic50.seed477.moco-2e14.contriever-256.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
+            # 'wiki.T03b_topic50.seed477.moco-2e14.contriever256-special50.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+            # 'wiki.T03b_topic50.seed477.moco-2e14.wikipsg256-special50.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+            # 'wiki_T03b_topic.seed477.inbatch.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
+            # 'wiki_T03b_topic.seed477.moco-2e14.contriever-256.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
+
+            # 'wiki.T03b_title.seed477.inbatch.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+            # 'wiki.T03b_title.seed477.moco-2e14.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+            # 'wiki_T03b_title.seed477.inbatch.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
+            # 'wiki_T03b_title50.seed477.inbatch.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
+            # 'wiki_T03b_title.seed477.moco-2e14.contriever-256.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
+            # 'wiki_T03b_title50.seed477.moco-2e14.contriever-256.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
+
+            # 'wiki.T03b_absum.seed477.inbatch.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+            # 'wiki.T03b_absum.seed477.moco-2e14.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+            # 'wiki_T03b_absum.seed477.inbatch.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
+            # 'wiki_T03b_absum50.seed477.inbatch.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
+            # 'wiki_T03b_absum.seed477.moco-2e14.contriever-256.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
+            # 'wiki_T03b_absum50.seed477.moco-2e14.contriever-256.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
+
+            # 'wiki.T03b_exsum.seed477.inbatch.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+            # 'wiki.T03b_exsum.seed477.moco-2e14.contriever256.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+            # 'wiki_T03b_exsum50.seed477.inbatch.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
+            # 'wiki_T03b_exsum50.seed77.inbatch.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+            # 'wiki_T03b_exsum.seed477.moco-2e14.contriever-256.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
+            # 'wiki_T03b_exsum50.seed477.moco-2e14.contriever-256.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
+
+            # 'wiki.doc2query-t2q.seed477.inbatch.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+            # 'wiki_doc2query50_t2q.seed477.inbatch.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5'
+            # 'wiki.doc2query-t2q.seed477.moco-2e14.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+            # 'wiki_doc2query50_t2q.seed477.moco-2e14.contriever-256.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
+            # 'wiki.doc2query50-t2q.seed477.moco-2e14.contriever256-special50.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+            # 'wiki.doc2query50-t2q.seed477.moco-2e14.wikipsg256-special50.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+
+            # 'paq-cropdoc.seed477.inbatch.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+            # 'paq-cropdoc.seed477.moco-2e14.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+            # 'paq50.seed477.inbatch.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+            # 'paq50.seed477.moco-2e14.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+            # 'paq-fulldoc.seed477.inbatch.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+            # 'paq-fulldoc.seed477.moco-2e14.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+            # 'paq50-fulldoc.seed477.inbatch.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+            # 'paq50-fulldoc.seed477.moco-2e14.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
+            # 'paq.seed477.inbatch.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
+            # 'paq.seed477.moco-2e14.contriever-256.bert-base-uncased.avg.dot.maxlen256.step100k.bs1024.lr5e5',
+
+            # 'wikipsg.seed477.moco-inbatch.contriever-256.bert-base-uncased.avg.dot.qd128.step100k.bs1024.lr5e5'
+            # 'wikipsg.seed477.moco-inbatch-2e14.contriever-256.bert-base-uncased.avg.dot.qd128.step100k.bs1024.lr5e5'
+            # 'wikipsg.seed477.moco-2e17.contriever-256.bert-base-uncased.avg.dot.qd128.step100k.bs1024.lr5e5'
+            # 'cc+wikipsg.equal.inbatch.contriever-256-Qtitle05.bert-base-uncased.avg.dot.qd128.step100k.bs1024.lr5e5'
+            # 'cc.moco-2e14.contriever-256.bert-base-uncased.avg.dot.qd128.step200k.bs1024.lr5e5'
+            ]
+
+    # if True:
+    if False:
         exp_base_dir = '/export/home/exp/search/unsup_dr/cc_v1/'
         exp_names = [
             # 'cc.inbatch.contriever256.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
@@ -193,7 +222,7 @@ def main():
             # 'cc-hybrid.RC20+Qext10+title16+T0gen64.seed477.moco-2e14.contriever256-special50-titles_special.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5',
             # 'cc-hybrid.RC50+Qext10+title10+T0gen40.seed477.moco-2e14.contriever256-special50-titles_special.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5'
             # 'cc-hybrid.Qext50+title20+topic40+exsum40.seed477.moco-2e14.contriever256-special-titles_special.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5'
-            # 'cc-hybrid.RC20+T0gen80.seed477.moco-2e14.contriever256-special50.bert-base-uncased.avg.dot.q128d256.step200k.bs2048.lr5e5'
+            'cc-hybrid.RC20+T0gen80.seed477.moco-2e14.contriever256-special50.bert-base-uncased.avg.dot.q128d256.step200k.bs2048.lr5e5'
             # 'cc-hybrid.RC20+Qext10+title16+T0gen64.seed477.moco-2e14.contriever256-special50-titles_special.bert-base-uncased.avg.dot.q128d256.step200k.bs1024.lr5e5',
             # 'cc-hybrid.RC20+Qext10+title16+T0gen48+d2q16.seed477.moco-2e14.contriever256-special80-titles_special.bert-base-uncased.avg.dot.q128d256.step200k.bs1024.lr5e5',
 

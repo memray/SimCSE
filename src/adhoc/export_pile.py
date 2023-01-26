@@ -2,7 +2,7 @@ import json
 import datasets
 
 train_dataset = datasets.load_dataset("the_pile", cache_dir='/export/home/data/pretrain/.cache', split='train', streaming=True)
-export_dir = '/export/home/data/pretrain/pile/'
+export_dir = '/export/home/data/pretrain/pile_new/'
 subset2writer = {}
 
 for i, ex in enumerate(train_dataset):

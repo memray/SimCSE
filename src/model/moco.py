@@ -14,65 +14,6 @@ import torch.nn.functional as F
 logger = logging.getLogger(__name__)
 
 
-class MLPLayer(nn.Module):
-    """
-    Head for getting sentence representations over RoBERTa/BERT's CLS representation.
-    """
-    def __init__(self, hidden_size):
-        super().__init__()
-        self.dense = nn.Linear(hidden_size, hidden_size)
-        # self.dense = weight_norm(nn.Linear(hidden_size, hidden_size))
-        self.activation = nn.Tanh()
-
-    def forward(self, features, **kwargs):
-        x = self.dense(features)
-        x = self.activation(x)
-
-        return x
-
-
-class ProjectorLayer(nn.Module):
-    """
-    Advanced dense layers for getting sentence representations over pooled representation.
-    """
-    def __init__(self, hidden_size, arch):
-        super().__init__()
-        sizes = [hidden_size] + list(map(int, arch.split('-')))
-        layers = []
-        for i in range(len(sizes) - 2):
-            layers.append(nn.Linear(sizes[i], sizes[i + 1], bias=False))
-            layers.append(nn.BatchNorm1d(sizes[i + 1]))
-            layers.append(nn.ReLU(inplace=True))
-        layers.append(nn.Linear(sizes[-2], sizes[-1], bias=False))
-        self.projector = nn.Sequential(*layers)
-
-    def forward(self, features, **kwargs):
-        x = self.projector(features)
-
-        return x
-
-
-class MergerLayer(nn.Module):
-    """
-    Advanced dense layers for getting sentence representations over pooled representation.
-    """
-    def __init__(self, merger_type, hidden_size):
-        super().__init__()
-        sizes = [hidden_size] + list(map(int, merger_type.split('-')))
-        layers = []
-        for i in range(len(sizes) - 2):
-            layers.append(nn.Linear(sizes[i], sizes[i + 1], bias=False))
-            layers.append(nn.BatchNorm1d(sizes[i + 1]))
-            layers.append(nn.ReLU(inplace=True))
-        layers.append(nn.Linear(sizes[-2], sizes[-1], bias=False))
-
-        self.projector = nn.Sequential(*layers)
-
-    def forward(self, features, **kwargs):
-        x = self.projector(features)
-        return x
-
-
 class MoCo(BiEncoder):
     def __init__(self, moco_config, hf_config):
         super(MoCo, self).__init__(moco_config, hf_config)
@@ -84,7 +25,6 @@ class MoCo(BiEncoder):
         self.chunk_query_ratio = getattr(moco_config, 'chunk_query_ratio', 0.0)
         self.num_extra_pos = getattr(moco_config, 'num_extra_pos', 0)
         self.neg_indices = getattr(moco_config, 'neg_indices', None)
-        self.projection_size = moco_config.projection_size
         self.queue_size = moco_config.queue_size
         self.q_queue_size = getattr(moco_config, 'q_queue_size', 0)
         self.active_queue_size = moco_config.queue_size
@@ -122,40 +62,6 @@ class MoCo(BiEncoder):
             retriever, _ = load_retriever(moco_config.model_name_or_path, moco_config.pooling, hf_config)
             self.encoder_k = retriever
 
-        # print('q_proj=', moco_config.q_proj)
-        # print('k_proj=', moco_config.k_proj)
-        self.q_proj = getattr(moco_config, 'q_proj', 'none')
-        self.k_proj = getattr(moco_config, 'k_proj', 'none')
-        if self.q_proj and self.q_proj != "none":
-            if self.q_proj == "mlp":
-                self.q_mlp = MLPLayer(self.projection_size)
-            elif '-' in self.q_proj:
-                self.q_mlp = ProjectorLayer(self.projection_size, self.q_proj)
-            else:
-                raise NotImplementedError('Unknown q_proj ' + self.q_proj)
-            self._init_weights(self.q_mlp)
-        else:
-            self.q_mlp = None
-        if self.k_proj and self.k_proj != "none":
-            if self.k_proj == "shared":
-                self.k_mlp = self.q_mlp
-            elif self.k_proj == "mlp":
-                self.k_mlp = MLPLayer(self.projection_size)
-            elif '-' in self.q_proj:
-                self.k_mlp = ProjectorLayer(self.projection_size, self.q_proj)
-            else:
-                raise NotImplementedError('Unknown k_proj ' + self.k_proj)
-            self._init_weights(self.k_mlp)
-        else:
-            self.k_mlp = None
-
-        self.merger_type = getattr(moco_config, 'merger_type', None)
-        if self.merger_type and '-' in self.merger_type:
-            self.merger = MergerLayer(moco_config.merger_type, hf_config.hidden_size)
-            self._init_weights(self.merger)
-        else:
-            self.merger = None
-
         # create the queue
         # update_strategy = ['fifo', 'priority']
         # self.queue_strategy = moco_config.queue_strategy
@@ -180,22 +86,6 @@ class MoCo(BiEncoder):
         # l_unif. unif_weight = 1, unif_t = 2  is used in SimCSE/moco_align_uniform by default
         self.unif_weight = moco_config.unif_weight
         self.unif_t = moco_config.unif_t
-
-    def _init_weights(self, module):
-        """Initialize the weights"""
-        if isinstance(module, nn.Linear):
-            # Slightly different from the TF version which uses truncated_normal for initialization
-            # cf https://github.com/pytorch/pytorch/pull/5617
-            module.weight.data.normal_(mean=0.0, std=self.config.initializer_range)
-            if module.bias is not None:
-                module.bias.data.zero_()
-        elif isinstance(module, nn.Embedding):
-            module.weight.data.normal_(mean=0.0, std=self.config.initializer_range)
-            if module.padding_idx is not None:
-                module.weight.data[module.padding_idx].zero_()
-        elif isinstance(module, nn.LayerNorm):
-            module.bias.data.zero_()
-            module.weight.data.fill_(1.0)
 
     def _compute_loss(self, q, k, queue=None):
         bsz = q.shape[0]
@@ -354,8 +244,8 @@ class MoCo(BiEncoder):
         if self.norm_query: q = nn.functional.normalize(q, dim=-1)
 
         # 3. apply projectors
-        if self.k_mlp:  k = self.k_mlp(k)
         if self.q_mlp:  q = self.q_mlp(q)
+        if self.k_mlp:  k = self.k_mlp(k)
 
         # 4. apply predictor (q/k interaction)
         # 5. computer loss

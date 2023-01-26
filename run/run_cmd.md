@@ -1,9 +1,38 @@
 fuser -v /dev/nvidia* | awk '{ print $0 }' | xargs -n1 kill -9
 
-## GPU16
+## cc_v2
 cd /export/home/project/search/uir_best_cc
-sh run/cc_v1/basic_gpu16/cc.moco2e14.topic50.large.bs2048.gpu16.sh  # pod/sfr-pod-ruimeng.a100-16-72cpu-1
-sh run/cc_v1/basic_gpu16/cc.moco2e14.topic50.bs8192.gpu16.sh  # pod/sfr-pod-ruimeng.a100-16-72cpu-0
+sh run/cc_v2/gpu16/wiki20+cc80.moco2e14.hybrid_rc20gen80.bs2048.gpu8.sh  # pod/sfr-pod-ruimeng.a100-16-1, no OOM, 237G/1.31T
+sh run/cc_v2/gpu16/wiki20+cc80.moco2e14.hybrid_rc20gen80.bs4096.gpu16.sh  # pod/sfr-pod-ruimeng.a100-16-1, 900G/1.31T -> OOM
+sh run/cc_v2/gpu16/cc.hybrid_rc20gen80.inbatch.deberta-base.bs4096.gpu16.sh  # pod/sfr-pod-ruimeng.a100-16-0, backup
+sh run/cc_v2/gpu16/cc.hybrid_rc20gen80.inbatch+mlp.roberta-base.bs1048.gpu8.sh  # pod/sfr-pod-ruimeng.a100-8-0, backup
+sh run/cc_v2/gpu16/cc.hybrid_rc20gen80.inbatch+mlp.roberta-base.bs4096.gpu16.sh  # pod/sfr-pod-ruimeng.a100-16-1
+sh run/cc_v2/gpu16/cc.hybrid_rc20gen80.inbatch.roberta-base.bs4096.gpu16.sh  # pod/sfr-pod-ruimeng.a100-16-0
+sh run/cc_v2/gpu16/wiki+cc.moco2e14.hybrid_rc20gen80.bs4096.gpu16.sh  # pod/sfr-pod-ruimeng.a100-16-1
+sh run/cc_v2/hybrid/cc.moco.T0gen.bs4096.gpu8.sh  # pod/sfr-pod-ruimeng.a100-8-0,backup
+sh run/cc_v2/gpu16/cc.moco2e16.hybrid_rc20gen80.roberta.bs8192.gpu16.sh  # pod/sfr-pod-ruimeng.a100-16-2
+sh run/cc_v2/gpu16/cc.moco2e14.hybrid_rc20gen80.roberta-large.bs2048.gpu16.sh  # pod/sfr-pod-ruimeng.a100-16-0
+sh run/cc_v2/gpu16/cc.moco2e16.hybrid_rc20gen80.bs8192.interleave.gpu16.sh  # pod/sfr-pod-ruimeng.a100-16-0,backup
+sh run/cc_v2/gpu16/cc.moco2e16.hybrid_rc20gen80.bs8192.gpu16.sh  # pod/sfr-pod-ruimeng.a100-16-1
+
+sh run/cc_v2/basic/cc.moco.d2q-t2q50.bs2048.gpu8.sh  # pod/sfr-pod-ruimeng.a100-16-1, eval
+sh run/cc_v2/basic/cc.moco.topic50.bs4096.gpu8.sh  # pod/sfr-pod-ruimeng.a100-16-0, eval
+sh run/cc_v2/gpu16/cc.moco.RC20+T0gen.bs8192.gpu16.sh  # done
+sh run/cc_v2/gpu16/cc.moco2e17.hybrid_rc20gen80.bs4096.gpu16.sh  # pod/sfr-pod-ruimeng.a100-8-0
+sh run/cc_v2/hybrid/cc.moco.RC20+T0gen.bs2048.gpu8.sh  # pod/sfr-pod-ruimeng.a100-8-0
+sh run/cc_v2/basic/cc.moco.topic50.bs2048.gpu8.sh  # done
+
+sh run/cc_v2/gpu16/cc.moco2e14.hybrid_rc20gen80.large.bs2048.lr1e5.gpu16.sh
+
+cd /export/home/project/search/uir_best_cc
+sh run/cc_v2/gpu16/cc.moco2e14.hybrid_rc20gen80.large.bs2048.gpu16.sh  # pod/sfr-pod-ruimeng.a100-16-0, eval
+# ERROR:torch.distributed.elastic.multiprocessing.api:failed (exitcode: -9) local_rank: 8 (pid: 1125612) of binary. 
+#   it's likely to be because that we concatenate train_dataset multiple times (hf_dataloader L220) and it takes too long when batch_size is large. Now disable concatenation and check if newer version of huggingface dataset resolved this issue (NO, it didn't)
+sh run/cc_v2/gpu16/cc.moco2e14.hybrid_rc20gen80.bs4096.gpu16.sh  # pod/sfr-pod-ruimeng.a100-16-0, Mem 523G/1.31T
+sh run/cc_v2/gpu16/cc.moco2e14.hybrid_rc20gen80.bs8192.gpu16.sh  # pod/sfr-pod-ruimeng.a100-16-0
+sh run/cc_v2/gpu16/cc.moco2e14.hybrid_rc20gen80.large.cls.bs2048.gpu16.sh  # done
+sh run/cc_v2/gpu16/cc.moco2e14.topic50.large.bs2048.gpu16.sh
+sh run/cc_v2/gpu16/cc.moco2e14.topic50.bs8192.gpu16.sh
 
 
 
@@ -299,6 +328,9 @@ sh run/wikipsg_v1/cc.moco.2e14.bs2048.gpu8.sh  # A100-8-1
 sh run/wikipsg_v1/cc.inbatch.bs1024.gpu8.sh  # A100-8-2
 sh run/wikipsg_v1/wiki_T03b_exsum50.inbatch.bs1024.gpu8.sh  # A100-8-3
 
+# MTEB
+cd /export/home/project/search/uir_best_cc
+nohup bash run/mteb/run_mteb.sh > run/mteb/nohup.mteb.out 2>&1 &
 
 # eval 4-7: 225584
 cd /export/share/ruimeng/project/search/simcse

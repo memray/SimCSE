@@ -14,7 +14,6 @@ import copy
 import logging
 
 import regex
-import spacy
 
 logger = logging.getLogger(__name__)
 
@@ -208,6 +207,7 @@ class SpacyTokenizer(Tokenizer):
             nlp_kwargs['tagger'] = False
         if 'ner' not in self.annotators:
             nlp_kwargs['entity'] = False
+        import spacy
         self.nlp = spacy.load(model, **nlp_kwargs)
 
     def tokenize(self, text):

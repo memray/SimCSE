@@ -4,7 +4,81 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="370b03b9-0379-4eeb-84df-20ae42402021" name="Changes" comment="remodeling whole project&#10;implementing query extraction" />
+    <list default="true" id="370b03b9-0379-4eeb-84df-20ae42402021" name="Changes" comment="merge UQG outputs into 1 file, and refactor data pipeline">
+      <change afterPath="$PROJECT_DIR$/run/cc_v2/basic/cc.moco.absum50.bs2048.gpu8.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/run/cc_v2/basic/cc.moco.d2q-t2q50.bs2048.gpu8.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/run/cc_v2/basic/cc.moco.exsum50.bs2048.gpu8.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/run/cc_v2/basic/cc.moco.title50.bs2048.gpu8.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/run/cc_v2/basic/cc.moco.topic50.bs2048.gpu8.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/run/cc_v2/basic/cc.moco.topic50.bs4096.gpu8.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/run/cc_v2/gpu16/cc.hybrid_rc20gen80.inbatch+mlp.roberta-base.bs1048.gpu8.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/run/cc_v2/gpu16/cc.hybrid_rc20gen80.inbatch+mlp.roberta-base.bs4096.gpu16.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/run/cc_v2/gpu16/cc.hybrid_rc20gen80.inbatch.deberta-base.bs4096.gpu16.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/run/cc_v2/gpu16/cc.hybrid_rc20gen80.inbatch.roberta-base.bs4096.gpu16.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/run/cc_v2/gpu16/cc.hybrid_rc20gen80.moco2e14.roberta-base.bs8192.gpu16.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/run/cc_v2/gpu16/cc.hybrid_rc20gen80.moco2e14.roberta-large.bs2048.gpu16.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/run/cc_v2/gpu16/cc.moco.RC20+T0gen.bs8192.gpu16.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/run/cc_v2/gpu16/cc.moco2e14.hybrid_rc20gen80.bs4096.gpu16.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/run/cc_v2/gpu16/cc.moco2e14.hybrid_rc20gen80.bs8192.gpu16.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/run/cc_v2/gpu16/cc.moco2e14.hybrid_rc20gen80.large.bs2048.gpu16.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/run/cc_v2/gpu16/cc.moco2e14.hybrid_rc20gen80.large.bs2048.lr1e5.gpu16.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/run/cc_v2/gpu16/cc.moco2e14.hybrid_rc20gen80.large.cls.bs2048.gpu16.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/run/cc_v2/gpu16/cc.moco2e14.topic50.bs8192.gpu16.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/run/cc_v2/gpu16/cc.moco2e16.hybrid_rc20gen80.bs4096.gpu16.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/run/cc_v2/gpu16/cc.moco2e16.hybrid_rc20gen80.bs8192.gpu16.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/run/cc_v2/gpu16/cc.moco2e16.hybrid_rc20gen80.bs8192.interleave.gpu16.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/run/cc_v2/gpu16/cc.moco2e16.hybrid_rc20gen80.roberta.bs8192.gpu16.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/run/cc_v2/gpu16/cc.moco2e17.hybrid_rc20gen80.bs4096.gpu16.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/run/cc_v2/gpu16/wiki+cc.moco2e14.hybrid_rc20gen80.bs4096.gpu16.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/run/cc_v2/gpu16/wiki20+cc80.moco2e14.hybrid_rc20gen80.bs2048.gpu8.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/run/cc_v2/gpu16/wiki20+cc80.moco2e14.hybrid_rc20gen80.bs4096.gpu16.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/run/cc_v2/hybrid/cc.moco.RC20+T0gen.bs2048.gpu8.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/run/cc_v2/hybrid/cc.moco.RC20+T0gen.bs4096.gpu8.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/run/cc_v2/hybrid/cc.moco.T0gen.bs4096.gpu8.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/run/mteb/run_mteb.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/run/wikipsg_v1/done/contriever256-special/wiki.T03b_absum.inbatch.bs1024.gpu8.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/run/wikipsg_v1/done/contriever256-special/wiki.T03b_absum.moco.bs1024.gpu8.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/run/wikipsg_v1/done/contriever256-special/wiki.T03b_exsum.inbatch.bs1024.gpu8.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/run/wikipsg_v1/done/contriever256-special/wiki.T03b_exsum.moco.bs1024.gpu8.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/run/wikipsg_v1/done/contriever256-special/wiki.T03b_topic.inbatch.bs1024.gpu8.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/run/wikipsg_v1/done/contriever256-special/wiki.T03b_topic.moco.bs1024.gpu8.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/adhoc/reproduce_datasets_nextepochhang.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/mtebeval/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/mtebeval/mteb_augtriever.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/mtebeval/mteb_meta.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/mtebeval/mteb_test.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/uir_best_cc0.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/uir_best_cc0.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gather_score_beir.py" beforeDir="false" afterPath="$PROJECT_DIR$/gather_score_beir.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gather_score_qa.py" beforeDir="false" afterPath="$PROJECT_DIR$/gather_score_qa.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gather_score_senteval.py" beforeDir="false" afterPath="$PROJECT_DIR$/gather_score_senteval.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/run/cc_gpu16/basic/cc.moco2e14.topic50.bs8192.gpu16.sh" beforeDir="false" afterPath="$PROJECT_DIR$/run/cc_v2/basic/cc.moco.doctitle50.bs2048.gpu8.sh" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/run/cc_gpu16/basic/cc.moco2e14.topic50.large.bs2048.gpu16.sh" beforeDir="false" afterPath="$PROJECT_DIR$/run/cc_v2/gpu16/cc.moco2e14.topic50.large.bs2048.gpu16.sh" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/run/cc_v1/hybrid/cc.moco.RC20+T0gen.bs2048.gpu8.sh" beforeDir="false" afterPath="$PROJECT_DIR$/run/cc_v1/hybrid/cc.moco.RC20+T0gen.bs2048.gpu8.sh" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/run/run_cmd.md" beforeDir="false" afterPath="$PROJECT_DIR$/run/run_cmd.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/run/wikipsg_v1/done/contriever256-special/wiki_T03b_absum.inbatch.bs1024.gpu8.sh" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/run/wikipsg_v1/done/contriever256-special/wiki_T03b_exsum.inbatch.bs1024.gpu8.sh" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/run/wikipsg_v1/done/contriever256-special/wiki_T03b_exsum.moco.bs1024.gpu8.sh" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/run/wikipsg_v1/done/contriever256-special/wiki_T03b_title.moco.bs1024.gpu8.sh" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/adhoc/clean_beir_jsonl.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/adhoc/clean_beir_jsonl.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/adhoc/dedup_pile_wiki.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/adhoc/dedup_pile_wiki.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/adhoc/export_pile.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/adhoc/export_pile.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/adhoc/merge_uqg.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/adhoc/merge_uqg.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/arguments.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/arguments.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/dataloader/data_configs.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/dataloader/data_configs.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/dataloader/data_process.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/dataloader/data_process.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/dataloader/hf_dataloader.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/dataloader/hf_dataloader.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/model/biencoder.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/model/biencoder.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/model/contriever.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/model/contriever.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/model/inbatch.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/model/inbatch.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/model/moco.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/model/moco.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/qa/tokenizers.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/qa/tokenizers.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/trainer.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/trainer.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/utils/eval_utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/utils/eval_utils.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/utils/model_utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/utils/model_utils.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/train.py" beforeDir="false" afterPath="$PROJECT_DIR$/train.py" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -68,33 +142,67 @@
     <option name="showLibraryContents" value="true" />
     <option name="showMembers" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
-    &quot;WebServerToolWindowFactoryState&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/Users/ruimeng/project/search/uir_best_cc/src/dataloader&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
+    "WebServerToolWindowFactoryState": "true",
+    "last_opened_file_path": "/Users/ruimeng/project/search/uir_best_cc/src/mtebeval",
+    "node.js.detected.package.eslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
-      <recent name="$PROJECT_DIR$/src/dataloader" />
-      <recent name="$PROJECT_DIR$/src/adhoc" />
-      <recent name="$PROJECT_DIR$/run/cc_v1/basic_gpu16" />
-      <recent name="$PROJECT_DIR$/run/cc_v1/basic" />
-      <recent name="$PROJECT_DIR$/run/cc_v1/hybrid" />
+      <recent name="$PROJECT_DIR$/src/mtebeval" />
+      <recent name="$PROJECT_DIR$/run/cc_v2/gpu16" />
+      <recent name="$PROJECT_DIR$/run/cc_v2/hybrid" />
+      <recent name="$PROJECT_DIR$/run/cc_v2/basic" />
+      <recent name="$PROJECT_DIR$/run/cc_gpu16/basic" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/run/cc_v2/gpu16" />
+      <recent name="$PROJECT_DIR$/run/cc_v2/hybrid" />
+      <recent name="$PROJECT_DIR$/run/cc_v2/basic" />
       <recent name="$PROJECT_DIR$/run/cc_v2" />
       <recent name="$PROJECT_DIR$/run/cc_v1/basic_gpu16" />
-      <recent name="$PROJECT_DIR$/run/cc_v1/qext" />
-      <recent name="$PROJECT_DIR$/run/cc_v1/mixed_data" />
-      <recent name="$PROJECT_DIR$/run/cc_v1" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.moco 8gpu bs256 test">
+  <component name="RunManager" selected="Python.mteb_beir_eval">
+    <configuration name="base test 16gpu" type="PythonConfigurationType" factoryName="Python" folderName="train 16gpu">
+      <module name="uir_best_cc0" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+        <env name="CUDA_LAUNCH_BLOCKING" value="1" />
+        <env name="CUDA_VISIBLE_DEVICES" value="0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15" />
+        <env name="LD_LIBRARY_PATH" value="/usr/lib64;/usr/local/nvidia/lib:/usr/local/nvidia/lib64;/usr/local/nvidia/lib64/stubs" />
+        <env name="NCCL_DEBUG" value="INFO" />
+        <env name="OMP_NUM_THREADS" value="1" />
+        <env name="RANK" value="0" />
+        <env name="TOKENIZERS_PARALLELISM" value="false" />
+        <env name="TORCH_DISTRIBUTED_DEBUG" value="DETAIL" />
+        <env name="WANDB_API_KEY" value="c338136c195ab221b8c7cfaa446db16b2e86c6db" />
+        <env name="WANDB_DISABLED" value="true" />
+        <env name="WANDB_PROJECT" value="unsup_retrieval_v2" />
+        <env name="WORLD_SIZE" value="16" />
+      </envs>
+      <option name="SDK_HOME" value="sftp://root@127.0.0.1:2222/export/share/ruimeng/env/anaconda/envs/ir-cuda114/bin/python3.8" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="torch.distributed.launch" />
+      <option name="PARAMETERS" value="--nproc_per_node=16 --master_port=228 --max_restarts=0 train.py --model_name_or_path bert-base-uncased --arch_type moco --train_file /export/home/data/search/upr/cc/pilecc_uqg-head100k.jsonl --dev_file /export/home/data/pretrain/wiki2021_structure/wiki_psgs_w100.dev.tail2e13.tsv --data_type hf --data_pipeline_name contriever256 --pseudo_query_names &quot;{'random-crop':0.2,'T03B-topic':0.2,'T03B-title':0.2,'T03B-absum':0.2,'T03B-exsum':0.2}&quot; --remove_unused_columns False --pooling average --sim_type dot --queue_size 16384 --projection_size 768 --momentum 0.9995 --output_dir /export/home/exp/search/unsup_dr/exp_v2/test --cache_dir /export/home/data/pretrain/.cache --max_steps 1000 --warmup_steps 1000 --logging_steps 10 --eval_steps 10000 --save_steps 1000000 --per_device_train_batch_size 512 --per_device_eval_batch_size 256 --beir_batch_size 128 --qa_batch_size 64 --dataloader_num_workers 2 --lr_scheduler_type linear --learning_rate 3e-5 --max_seq_length 224 --max_q_tokens 128 --max_d_tokens 128 --evaluation_strategy steps --load_best_model_at_end --overwrite_output_dir --do_train --do_eval --run_name test --fp16 --seed 42 --report_to none" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="true" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
     <configuration name="cc-titile-bs2048 inbatch mm-mined bs1024 8gpu" type="PythonConfigurationType" factoryName="Python" folderName="finetune">
       <module name="uir_v1.2" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -227,6 +335,28 @@
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
       <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/demo/convert_nq_json2jsonl.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="dedup_pile_wiki" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="uir_best_cc0" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src/adhoc" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/adhoc/dedup_pile_wiki.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -745,6 +875,38 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+    <configuration name="export_pile" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="uir_best_cc0" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+        <env name="CUDA_LAUNCH_BLOCKING" value="1" />
+        <env name="CUDA_VISIBLE_DEVICES" value="0,1,2,3,4,5,6,7" />
+        <env name="LD_LIBRARY_PATH" value="/usr/lib64;/usr/local/nvidia/lib:/usr/local/nvidia/lib64;/usr/local/nvidia/lib64/stubs" />
+        <env name="OMP_NUM_THREADS" value="1" />
+        <env name="RANK" value="0" />
+        <env name="TOKENIZERS_PARALLELISM" value="false" />
+        <env name="WANDB_API_KEY" value="c338136c195ab221b8c7cfaa446db16b2e86c6db" />
+        <env name="WANDB_DISABLED" value="true" />
+        <env name="WANDB_PROJECT" value="unsup_retrieval_v2" />
+        <env name="WORLD_SIZE" value="8" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src/adhoc" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/adhoc/export_pile.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
     <configuration name="faiss_multigpu" type="PythonConfigurationType" factoryName="Python" folderName="eval BEIR" nameIsGenerated="true">
       <module name="uir_best_cc0" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -993,6 +1155,8 @@
         <env name="WANDB_DISABLED" value="true" />
         <env name="WANDB_PROJECT" value="unsup_retrieval_v2" />
         <env name="WORLD_SIZE" value="16" />
+        <env name="NCCL_DEBUG" value="INFO" />
+        <env name="TORCH_DISTRIBUTED_DEBUG" value="DETAIL" />
       </envs>
       <option name="SDK_HOME" value="" />
       <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
@@ -1025,6 +1189,8 @@
         <env name="WANDB_DISABLED" value="true" />
         <env name="WANDB_PROJECT" value="unsup_retrieval_v2" />
         <env name="WORLD_SIZE" value="16" />
+        <env name="NCCL_DEBUG" value="INFO" />
+        <env name="TORCH_DISTRIBUTED_DEBUG" value="DETAIL" />
       </envs>
       <option name="SDK_HOME" value="" />
       <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
@@ -1033,7 +1199,7 @@
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
       <option name="SCRIPT_NAME" value="torch.distributed.launch" />
-      <option name="PARAMETERS" value="--nproc_per_node=16 --master_port=228 --max_restarts=0 train.py --model_name_or_path roberta-large --arch_type inbatch --projection_size 1024 --train_file /export/home/data/search/upr/cc/T03B_PileCC_absum_shard100k_head10k.json --dev_file /export/share/ruimeng/data/wiki/wiki2021_structure/wiki_psgs_w100.dev.tail2e8.tsv --data_type hf --data_pipeline_name contriever256-special50% --remove_unused_columns False --output_dir /export/home/exp/search/unsup_dr/exp_v2/test --cache_dir /export/home/data/pretrain/.cache --max_steps 2000 --warmup_steps 1000 --logging_steps 10 --queue_update_steps 1 --eval_steps 100 --save_steps 50000 --per_device_train_batch_size 64 --per_device_eval_batch_size 64 --beir_batch_size 64 --dataloader_num_workers 2 --learning_rate 1e-5 --max_seq_length 192 --max_q_tokens 4 128 --max_d_tokens 128 --evaluation_strategy steps --beir_datasets trec-covid --load_best_model_at_end --overwrite_output_dir --do_train --do_eval --fp16 --seed 42 --run_name test" />
+      <option name="PARAMETERS" value="--nproc_per_node=16 --master_port=228 --max_restarts=0 train.py --model_name_or_path roberta-large --arch_type inbatch --projection_size 1024 --train_file /export/home/data/search/upr/cc/pilecc_uqg-head100k.jsonl --dev_file /export/share/ruimeng/data/wiki/wiki2021_structure/wiki_psgs_w100.dev.tail2e8.tsv --data_type hf --data_pipeline_name contriever256 --pseudo_query_names &quot;{'random-crop':0.2,'T03B-topic':0.2,'T03B-title':0.2,'T03B-absum':0.2,'T03B-exsum':0.2}&quot; --remove_unused_columns False --output_dir /export/home/exp/search/unsup_dr/exp_v2/test --cache_dir /export/home/data/pretrain/.cache --max_steps 2000 --warmup_steps 1000 --logging_steps 10 --queue_update_steps 1 --eval_steps 100 --save_steps 50000 --per_device_train_batch_size 64 --per_device_eval_batch_size 64 --beir_batch_size 64 --dataloader_num_workers 2 --learning_rate 1e-5 --max_seq_length 192 --max_q_tokens 4 128 --max_d_tokens 128 --evaluation_strategy steps --beir_datasets trec-covid --load_best_model_at_end --overwrite_output_dir --do_train --do_eval --fp16 --seed 42 --run_name test" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
       <option name="MODULE_MODE" value="true" />
@@ -1521,6 +1687,40 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+    <configuration name="large test 16gpu" type="PythonConfigurationType" factoryName="Python" folderName="train 16gpu">
+      <module name="uir_best_cc0" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+        <env name="CUDA_LAUNCH_BLOCKING" value="1" />
+        <env name="CUDA_VISIBLE_DEVICES" value="0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15" />
+        <env name="LD_LIBRARY_PATH" value="/usr/lib64;/usr/local/nvidia/lib:/usr/local/nvidia/lib64;/usr/local/nvidia/lib64/stubs" />
+        <env name="NCCL_DEBUG" value="INFO" />
+        <env name="OMP_NUM_THREADS" value="1" />
+        <env name="RANK" value="0" />
+        <env name="TOKENIZERS_PARALLELISM" value="false" />
+        <env name="TORCH_DISTRIBUTED_DEBUG" value="DETAIL" />
+        <env name="WANDB_API_KEY" value="c338136c195ab221b8c7cfaa446db16b2e86c6db" />
+        <env name="WANDB_DISABLED" value="true" />
+        <env name="WANDB_PROJECT" value="unsup_retrieval_v2" />
+        <env name="WORLD_SIZE" value="16" />
+      </envs>
+      <option name="SDK_HOME" value="sftp://root@127.0.0.1:2222/export/share/ruimeng/env/anaconda/envs/ir-cuda114/bin/python3.8" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="torch.distributed.launch" />
+      <option name="PARAMETERS" value="--nproc_per_node=16 --master_port=228 --max_restarts=0 train.py --model_name_or_path bert-large-uncased --arch_type moco --train_file /export/home/data/search/upr/cc/pilecc_uqg-head100k.jsonl --dev_file /export/home/data/pretrain/wiki2021_structure/wiki_psgs_w100.dev.tail2e13.tsv --data_type hf --data_pipeline_name contriever256 --pseudo_query_names &quot;{'random-crop':0.2,'T03B-topic':0.2,'T03B-title':0.2,'T03B-absum':0.2,'T03B-exsum':0.2}&quot; --remove_unused_columns False --pooling average --sim_type dot --queue_size 16384 --projection_size 1024 --momentum 0.9995 --output_dir /export/home/exp/search/unsup_dr/exp_v2/test --cache_dir /export/home/data/pretrain/.cache --max_steps 1000 --warmup_steps 1000 --logging_steps 10 --eval_steps 10000 --save_steps 1000000 --per_device_train_batch_size 128 --per_device_eval_batch_size 128 --beir_batch_size 128 --qa_batch_size 64 --dataloader_num_workers 4 --lr_scheduler_type linear --learning_rate 3e-5 --max_seq_length 256 --max_q_tokens 128 --max_d_tokens 128 --evaluation_strategy steps --load_best_model_at_end --overwrite_output_dir --do_train --do_eval --run_name test --fp16 --seed 42 --report_to none" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="true" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
     <configuration name="merge_uqg" type="PythonConfigurationType" factoryName="Python" folderName="adhoc" singleton="false" nameIsGenerated="true">
       <module name="uir_best_cc0" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -1776,6 +1976,8 @@
         <env name="WANDB_DISABLED" value="true" />
         <env name="WANDB_PROJECT" value="unsup_retrieval_v2" />
         <env name="WORLD_SIZE" value="8" />
+        <env name="NCCL_DEBUG" value="INFO" />
+        <env name="TORCH_DISTRIBUTED_DEBUG" value="DETAIL" />
       </envs>
       <option name="SDK_HOME" value="sftp://root@127.0.0.1:2222/export/share/ruimeng/env/anaconda/envs/ir-cuda114/bin/python3.8" />
       <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
@@ -1784,7 +1986,7 @@
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
       <option name="SCRIPT_NAME" value="torch.distributed.launch" />
-      <option name="PARAMETERS" value="--nproc_per_node=8 --master_port=22778 --max_restarts=0 train.py --model_name_or_path bert-base-uncased --arch_type moco --queue_size 2048 --projection_size 768 --train_file /export/home/data/search/upr/cc/pilecc_uqg-head100k.jsonl --dev_file /export/share/ruimeng/data/wiki/wiki2021_structure/wiki_psgs_w100.dev.tail2e8.tsv --data_type hf --data_pipeline_name contriever256-rc50%aug50% --pseudo_query_names {'title':0.2,'T03B-topic':0.8} --remove_unused_columns False --output_dir /export/home/exp/search/unsup_dr/exp_v2/test --cache_dir /export/home/data/pretrain/.cache --max_steps 2000 --warmup_steps 1000 --logging_steps 1 --eval_steps 20 --qa_eval_steps 20000 --save_steps 50000 --per_device_train_batch_size 8 --per_device_eval_batch_size 8 --dataloader_num_workers 0 --learning_rate 1e-5 --max_seq_length 64 --evaluation_strategy steps --beir_datasets fiqa --load_best_model_at_end --overwrite_output_dir --do_train --do_eval --run_name test --wiki_passage_path /export/home/data/search/nq/psgs_w100-100k.tsv --qa_datasets_path /export/home/data/search/nq/qas/webq-test.csv" />
+      <option name="PARAMETERS" value="--nproc_per_node=8 --master_port=22778 --max_restarts=0 train.py --model_name_or_path roberta-base --arch_type moco --queue_size 2048 --projection_size 768 --train_file /export/home/data/search/upr/cc/pilecc_uqg-head100k.jsonl --dev_file /export/share/ruimeng/data/wiki/wiki2021_structure/wiki_psgs_w100.dev.tail2e8.tsv --dataloader_num_workers 4 --data_type hf --data_pipeline_name contriever256 --pseudo_query_names &quot;{'random-crop':0.2,'T03B-topic':0.2,'T03B-title':0.2,'T03B-absum':0.2,'T03B-exsum':0.2}&quot; --remove_unused_columns False --output_dir /export/home/exp/search/unsup_dr/exp_v2/test --cache_dir /export/home/data/pretrain/.cache --max_steps 2000 --warmup_steps 1000 --logging_steps 1 --eval_steps 200 --qa_eval_steps 20000 --save_steps 50000 --per_device_train_batch_size 128 --per_device_eval_batch_size 128 --learning_rate 1e-5 --max_seq_length 256 --max_q_tokens 128 --max_d_tokens 128 --evaluation_strategy steps --beir_datasets fiqa --load_best_model_at_end --overwrite_output_dir --do_train --do_eval --run_name test --wiki_passage_path /export/home/data/search/nq/psgs_w100-100k.tsv --qa_datasets_path /export/home/data/search/nq/qas/webq-test.csv" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
       <option name="MODULE_MODE" value="true" />
@@ -2334,7 +2536,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="moco cc-absum BERT-base bs8192 16gpu test " type="PythonConfigurationType" factoryName="Python" folderName="train 16gpu">
+    <configuration name="moco cc-hybrid BERT-base bs8192 16gpu test " type="PythonConfigurationType" factoryName="Python" folderName="train 16gpu">
       <module name="uir_best_cc0" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -2343,22 +2545,24 @@
         <env name="CUDA_LAUNCH_BLOCKING" value="1" />
         <env name="CUDA_VISIBLE_DEVICES" value="0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15" />
         <env name="LD_LIBRARY_PATH" value="/usr/lib64;/usr/local/nvidia/lib:/usr/local/nvidia/lib64;/usr/local/nvidia/lib64/stubs" />
+        <env name="NCCL_DEBUG" value="INFO" />
         <env name="OMP_NUM_THREADS" value="1" />
         <env name="RANK" value="0" />
-        <env name="TOKENIZERS_PARALLELISM" value="true" />
+        <env name="TOKENIZERS_PARALLELISM" value="false" />
+        <env name="TORCH_DISTRIBUTED_DEBUG" value="DETAIL" />
         <env name="WANDB_API_KEY" value="c338136c195ab221b8c7cfaa446db16b2e86c6db" />
         <env name="WANDB_DISABLED" value="true" />
         <env name="WANDB_PROJECT" value="unsup_retrieval_v2" />
         <env name="WORLD_SIZE" value="16" />
       </envs>
-      <option name="SDK_HOME" value="" />
+      <option name="SDK_HOME" value="sftp://root@127.0.0.1:2222/export/share/ruimeng/env/anaconda/envs/ir-cuda114/bin/python3.8" />
       <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
-      <option name="IS_MODULE_SDK" value="true" />
+      <option name="IS_MODULE_SDK" value="false" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
       <option name="SCRIPT_NAME" value="torch.distributed.launch" />
-      <option name="PARAMETERS" value="--nproc_per_node=16 --master_port=228 --max_restarts=0 train.py --model_name_or_path bert-base-uncased --arch_type moco --queue_size 32768 --projection_size 768 --train_file /export/home/data/search/upr/cc/T03B_PileCC_absum_shard100k_head10k.json --dev_file /export/share/ruimeng/data/wiki/wiki2021_structure/wiki_psgs_w100.dev.tail2e8.tsv --data_type hf --data_pipeline_name contriever256-special50% --remove_unused_columns False --output_dir /export/home/exp/search/unsup_dr/exp_v2/test --cache_dir /export/home/data/pretrain/.cache --max_steps 2000 --warmup_steps 1000 --logging_steps 10 --queue_update_steps 1 --eval_steps 100 --save_steps 50000 --per_device_train_batch_size 512 --per_device_eval_batch_size 128 --beir_batch_size 128 --dataloader_num_workers 4 --learning_rate 1e-5 --max_seq_length 192 --max_q_tokens 4 112 --max_d_tokens 128 --evaluation_strategy steps --beir_datasets trec-covid --load_best_model_at_end --overwrite_output_dir --do_train --do_eval --fp16 --seed 42 --run_name test" />
+      <option name="PARAMETERS" value="--nproc_per_node=16 --master_port=228 --max_restarts=0 train.py --model_name_or_path bert-base-uncased --arch_type moco --queue_size 32768 --projection_size 768 --train_file /export/home/data/search/upr/cc/pilecc_uqg-head100k.jsonl --dev_file /export/share/ruimeng/data/wiki/wiki2021_structure/wiki_psgs_w100.dev.tail2e8.tsv --data_type hf --data_pipeline_name contriever256 --pseudo_query_names &quot;{'random-crop':0.2,'T03B-topic':0.2,'T03B-title':0.2,'T03B-absum':0.2,'T03B-exsum':0.2}&quot; --remove_unused_columns False --output_dir /export/home/exp/search/unsup_dr/exp_v2/test --cache_dir /export/home/data/pretrain/.cache --max_steps 2000 --warmup_steps 1000 --logging_steps 10 --queue_update_steps 1 --eval_steps 100 --save_steps 50000 --per_device_train_batch_size 256 --per_device_eval_batch_size 512 --beir_batch_size 128 --dataloader_num_workers 4 --learning_rate 1e-5 --max_seq_length 224 --max_q_tokens 128 --max_d_tokens 128 --evaluation_strategy steps --beir_datasets trec-covid --load_best_model_at_end --overwrite_output_dir --do_train --do_eval --fp16 --seed 42 --run_name test" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
       <option name="MODULE_MODE" value="true" />
@@ -2366,7 +2570,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="moco cc-absum BERT-large bs2048 16gpu test" type="PythonConfigurationType" factoryName="Python" folderName="train 16gpu">
+    <configuration name="moco cc-hybrid BERT-base bs8192-interleave 16gpu test" type="PythonConfigurationType" factoryName="Python" folderName="train 16gpu">
       <module name="uir_best_cc0" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -2375,9 +2579,45 @@
         <env name="CUDA_LAUNCH_BLOCKING" value="1" />
         <env name="CUDA_VISIBLE_DEVICES" value="0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15" />
         <env name="LD_LIBRARY_PATH" value="/usr/lib64;/usr/local/nvidia/lib:/usr/local/nvidia/lib64;/usr/local/nvidia/lib64/stubs" />
+        <env name="NCCL_DEBUG" value="INFO" />
         <env name="OMP_NUM_THREADS" value="1" />
         <env name="RANK" value="0" />
         <env name="TOKENIZERS_PARALLELISM" value="false" />
+        <env name="TORCH_DISTRIBUTED_DEBUG" value="DETAIL" />
+        <env name="WANDB_API_KEY" value="c338136c195ab221b8c7cfaa446db16b2e86c6db" />
+        <env name="WANDB_DISABLED" value="true" />
+        <env name="WANDB_PROJECT" value="unsup_retrieval_v2" />
+        <env name="WORLD_SIZE" value="16" />
+      </envs>
+      <option name="SDK_HOME" value="sftp://root@127.0.0.1:2222/export/share/ruimeng/env/anaconda/envs/ir-cuda114/bin/python3.8" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="torch.distributed.launch" />
+      <option name="PARAMETERS" value="--nproc_per_node=16 --master_port=228 --max_restarts=0 train.py --model_name_or_path bert-base-uncased --arch_type moco --queue_size 32768 --projection_size 768 --train_file /export/home/data/search/upr/cc/pilecc_uqg.jsonl --train_prob 1.0 --dev_file /export/share/ruimeng/data/wiki/wiki2021_structure/wiki_psgs_w100.dev.tail2e8.tsv --data_type hf --data_pipeline_name contriever256 --pseudo_query_names &quot;{'random-crop':0.2,'T03B-topic':0.2,'T03B-title':0.2,'T03B-absum':0.2,'T03B-exsum':0.2}&quot; --remove_unused_columns False --output_dir /export/home/exp/search/unsup_dr/exp_v2/test --cache_dir /export/home/data/pretrain/.cache --max_steps 200000 --warmup_steps 1000 --logging_steps 10 --queue_update_steps 1 --eval_steps 10 --save_steps 50000 --per_device_train_batch_size 512 --per_device_eval_batch_size 512 --beir_batch_size 128 --dataloader_num_workers 4 --learning_rate 1e-5 --max_seq_length 256 --max_q_tokens 128 --max_d_tokens 128 --evaluation_strategy steps --beir_datasets trec-covid --load_best_model_at_end --overwrite_output_dir --do_train --do_eval --fp16 --seed 42 --run_name test" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="true" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="moco cc-hybrid BERT-large CLS bs2048 16gpu" type="PythonConfigurationType" factoryName="Python" folderName="train 16gpu">
+      <module name="uir_best_cc0" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+        <env name="CUDA_LAUNCH_BLOCKING" value="1" />
+        <env name="CUDA_VISIBLE_DEVICES" value="0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15" />
+        <env name="LD_LIBRARY_PATH" value="/usr/lib64;/usr/local/nvidia/lib:/usr/local/nvidia/lib64;/usr/local/nvidia/lib64/stubs" />
+        <env name="NCCL_DEBUG" value="INFO" />
+        <env name="OMP_NUM_THREADS" value="1" />
+        <env name="RANK" value="0" />
+        <env name="TOKENIZERS_PARALLELISM" value="false" />
+        <env name="TORCH_DISTRIBUTED_DEBUG" value="DETAIL" />
         <env name="WANDB_API_KEY" value="c338136c195ab221b8c7cfaa446db16b2e86c6db" />
         <env name="WANDB_DISABLED" value="true" />
         <env name="WANDB_PROJECT" value="unsup_retrieval_v2" />
@@ -2390,7 +2630,143 @@
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
       <option name="SCRIPT_NAME" value="torch.distributed.launch" />
-      <option name="PARAMETERS" value="--nproc_per_node=16 --master_port=228 --max_restarts=0 train.py --model_name_or_path bert-large-uncased --arch_type moco --queue_size 32768 --projection_size 1024 --train_file /export/home/data/search/upr/cc/T03B_PileCC_absum_shard100k_head10k.json --dev_file /export/share/ruimeng/data/wiki/wiki2021_structure/wiki_psgs_w100.dev.tail2e8.tsv --data_type hf --data_pipeline_name contriever256-special50% --remove_unused_columns False --output_dir /export/home/exp/search/unsup_dr/exp_v2/test --cache_dir /export/home/data/pretrain/.cache --max_steps 2000 --warmup_steps 1000 --logging_steps 10 --queue_update_steps 1 --eval_steps 100 --save_steps 50000 --per_device_train_batch_size 128 --per_device_eval_batch_size 128 --beir_batch_size 128 --dataloader_num_workers 2 --learning_rate 1e-5 --max_seq_length 192 --max_q_tokens 4 128 --max_d_tokens 128 --evaluation_strategy steps --beir_datasets trec-covid --load_best_model_at_end --overwrite_output_dir --do_train --do_eval --fp16 --seed 42 --run_name test" />
+      <option name="PARAMETERS" value="--nproc_per_node=16 --master_port=228 --max_restarts=0 train.py --model_name_or_path bert-large-uncased --arch_type moco --queue_size 32768 --projection_size 1024 --pooling CLS --train_file /export/home/data/search/upr/cc/pilecc_uqg-head100k.jsonl --dev_file /export/share/ruimeng/data/wiki/wiki2021_structure/wiki_psgs_w100.dev.tail2e8.tsv --data_type hf --data_pipeline_name contriever256 --pseudo_query_names &quot;{'random-crop':0.2,'T03B-topic':0.2,'T03B-title':0.2,'T03B-absum':0.2,'T03B-exsum':0.2}&quot; --remove_unused_columns False --output_dir /export/home/exp/search/unsup_dr/exp_v2/test --cache_dir /export/home/data/pretrain/.cache --max_steps 2000 --warmup_steps 1000 --logging_steps 10 --queue_update_steps 1 --eval_steps 1000 --save_steps 50000 --per_device_train_batch_size 128 --per_device_eval_batch_size 128 --beir_batch_size 128 --dataloader_num_workers 0 --learning_rate 1e-5 --max_seq_length 256 --max_q_tokens 128 --max_d_tokens 128 --evaluation_strategy steps --beir_datasets trec-covid --load_best_model_at_end --overwrite_output_dir --do_train --do_eval --fp16 --seed 42 --run_name test" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="true" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="moco cc-hybrid BERT-large bs2048 16gpu test" type="PythonConfigurationType" factoryName="Python" folderName="train 16gpu">
+      <module name="uir_best_cc0" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+        <env name="CUDA_LAUNCH_BLOCKING" value="1" />
+        <env name="CUDA_VISIBLE_DEVICES" value="0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15" />
+        <env name="LD_LIBRARY_PATH" value="/usr/lib64;/usr/local/nvidia/lib:/usr/local/nvidia/lib64;/usr/local/nvidia/lib64/stubs" />
+        <env name="NCCL_DEBUG" value="INFO" />
+        <env name="OMP_NUM_THREADS" value="1" />
+        <env name="RANK" value="0" />
+        <env name="TOKENIZERS_PARALLELISM" value="false" />
+        <env name="TORCH_DISTRIBUTED_DEBUG" value="DETAIL" />
+        <env name="WANDB_API_KEY" value="c338136c195ab221b8c7cfaa446db16b2e86c6db" />
+        <env name="WANDB_DISABLED" value="true" />
+        <env name="WANDB_PROJECT" value="unsup_retrieval_v2" />
+        <env name="WORLD_SIZE" value="16" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="torch.distributed.launch" />
+      <option name="PARAMETERS" value="--nproc_per_node=16 --master_port=228 --max_restarts=0 train.py --model_name_or_path bert-large-uncased --arch_type moco --queue_size 32768 --projection_size 1024 --train_file /export/home/data/search/upr/cc/pilecc_uqg-head100k.jsonl --dev_file /export/share/ruimeng/data/wiki/wiki2021_structure/wiki_psgs_w100.dev.tail2e8.tsv --data_type hf --data_pipeline_name contriever256 --pseudo_query_names &quot;{'random-crop':0.2,'T03B-topic':0.2,'T03B-title':0.2,'T03B-absum':0.2,'T03B-exsum':0.2}&quot; --remove_unused_columns False --output_dir /export/home/exp/search/unsup_dr/exp_v2/test --cache_dir /export/home/data/pretrain/.cache --max_steps 2000 --warmup_steps 1000 --logging_steps 10 --queue_update_steps 1 --eval_steps 1000 --save_steps 50000 --per_device_train_batch_size 128 --per_device_eval_batch_size 128 --beir_batch_size 128 --dataloader_num_workers 4 --learning_rate 1e-5 --max_seq_length 256 --max_q_tokens 128 --max_d_tokens 128 --evaluation_strategy steps --beir_datasets trec-covid --load_best_model_at_end --overwrite_output_dir --do_train --do_eval --fp16 --seed 42 --run_name test" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="true" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="moco cc-topic BERT-base bs2048 2gpu" type="PythonConfigurationType" factoryName="Python" folderName="train 16gpu">
+      <module name="uir_best_cc0" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+        <env name="CUDA_LAUNCH_BLOCKING" value="1" />
+        <env name="CUDA_VISIBLE_DEVICES" value="0,1" />
+        <env name="LD_LIBRARY_PATH" value="/usr/lib64;/usr/local/nvidia/lib:/usr/local/nvidia/lib64;/usr/local/nvidia/lib64/stubs" />
+        <env name="NCCL_DEBUG" value="INFO" />
+        <env name="OMP_NUM_THREADS" value="1" />
+        <env name="RANK" value="0" />
+        <env name="TOKENIZERS_PARALLELISM" value="true" />
+        <env name="TORCH_DISTRIBUTED_DEBUG" value="DETAIL" />
+        <env name="WANDB_API_KEY" value="c338136c195ab221b8c7cfaa446db16b2e86c6db" />
+        <env name="WANDB_DISABLED" value="true" />
+        <env name="WANDB_PROJECT" value="unsup_retrieval_v2" />
+        <env name="WORLD_SIZE" value="2" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="torch.distributed.launch" />
+      <option name="PARAMETERS" value="--nproc_per_node=2 --master_port=228 --max_restarts=0 train.py --model_name_or_path bert-base-uncased --arch_type moco --queue_size 32768 --projection_size 768 --train_file /export/home/data/search/upr/cc/pilecc_uqg-head100k.jsonl --dev_file /export/share/ruimeng/data/wiki/wiki2021_structure/wiki_psgs_w100.dev.tail2e8.tsv --data_type hf --data_pipeline_name contriever256 --pseudo_query_names {'random-crop':0.5,'T03B-topic':0.5} --remove_unused_columns False --output_dir /export/home/exp/search/unsup_dr/exp_v2/test --cache_dir /export/home/data/pretrain/.cache --max_steps 2000 --warmup_steps 1000 --logging_steps 10 --queue_update_steps 1 --eval_steps 1000 --save_steps 50000 --per_device_train_batch_size 256 --per_device_eval_batch_size 256 --beir_batch_size 256 --dataloader_num_workers 4 --learning_rate 1e-5 --max_seq_length 384 --max_q_tokens 128 --max_d_tokens 256 --evaluation_strategy steps --beir_datasets trec-covid --load_best_model_at_end --overwrite_output_dir --do_train --do_eval --fp16 --seed 42 --run_name test" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="true" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="moco cc-topic BERT-base bs2048 8gpu test" type="PythonConfigurationType" factoryName="Python" folderName="train 16gpu">
+      <module name="uir_best_cc0" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+        <env name="CUDA_LAUNCH_BLOCKING" value="1" />
+        <env name="CUDA_VISIBLE_DEVICES" value="0,1,2,3,4,5,6,7" />
+        <env name="LD_LIBRARY_PATH" value="/usr/lib64;/usr/local/nvidia/lib:/usr/local/nvidia/lib64;/usr/local/nvidia/lib64/stubs" />
+        <env name="NCCL_DEBUG" value="INFO" />
+        <env name="OMP_NUM_THREADS" value="1" />
+        <env name="RANK" value="0" />
+        <env name="TOKENIZERS_PARALLELISM" value="true" />
+        <env name="TORCH_DISTRIBUTED_DEBUG" value="DETAIL" />
+        <env name="WANDB_API_KEY" value="c338136c195ab221b8c7cfaa446db16b2e86c6db" />
+        <env name="WANDB_DISABLED" value="true" />
+        <env name="WANDB_PROJECT" value="unsup_retrieval_v2" />
+        <env name="WORLD_SIZE" value="8" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="torch.distributed.launch" />
+      <option name="PARAMETERS" value="--nproc_per_node=8 --master_port=228 --max_restarts=0 train.py --model_name_or_path bert-base-uncased --arch_type moco --queue_size 32768 --projection_size 768 --train_file /export/home/data/search/upr/cc/pilecc_uqg-head100k.jsonl --dev_file /export/share/ruimeng/data/wiki/wiki2021_structure/wiki_psgs_w100.dev.tail2e8.tsv --data_type hf --data_pipeline_name contriever256 --pseudo_query_names {'random-crop':0.5,'T03B-topic':0.5} --remove_unused_columns False --output_dir /export/home/exp/search/unsup_dr/exp_v2/test --cache_dir /export/home/data/pretrain/.cache --max_steps 2000 --warmup_steps 1000 --logging_steps 10 --queue_update_steps 1 --eval_steps 1000 --save_steps 50000 --per_device_train_batch_size 256 --per_device_eval_batch_size 256 --beir_batch_size 256 --dataloader_num_workers 4 --learning_rate 1e-5 --max_seq_length 384 --max_q_tokens 128 --max_d_tokens 256 --evaluation_strategy steps --beir_datasets trec-covid --load_best_model_at_end --overwrite_output_dir --do_train --do_eval --fp16 --seed 42 --run_name test" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="true" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="moco cc-topic BERT-base bs512 8gpu 1k data" type="PythonConfigurationType" factoryName="Python" folderName="debug data pipeline">
+      <module name="uir_best_cc0" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+        <env name="CUDA_LAUNCH_BLOCKING" value="1" />
+        <env name="CUDA_VISIBLE_DEVICES" value="0,1,2,3,4,5,6,7" />
+        <env name="LD_LIBRARY_PATH" value="/usr/lib64;/usr/local/nvidia/lib:/usr/local/nvidia/lib64;/usr/local/nvidia/lib64/stubs" />
+        <env name="NCCL_DEBUG" value="INFO" />
+        <env name="OMP_NUM_THREADS" value="1" />
+        <env name="RANK" value="0" />
+        <env name="TOKENIZERS_PARALLELISM" value="true" />
+        <env name="TORCH_DISTRIBUTED_DEBUG" value="DETAIL" />
+        <env name="WANDB_API_KEY" value="c338136c195ab221b8c7cfaa446db16b2e86c6db" />
+        <env name="WANDB_DISABLED" value="true" />
+        <env name="WANDB_PROJECT" value="unsup_retrieval_v2" />
+        <env name="WORLD_SIZE" value="8" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="torch.distributed.launch" />
+      <option name="PARAMETERS" value="--nproc_per_node=8 --master_port=228 --max_restarts=0 train.py --model_name_or_path bert-base-uncased --arch_type moco --queue_size 32768 --projection_size 768 --train_file /export/home/data/search/upr/cc/pilecc_uqg-head1k.jsonl --dataloader_drop_last --dev_file /export/share/ruimeng/data/wiki/wiki2021_structure/wiki_psgs_w100.dev.tail2e8.tsv --data_type hf --data_pipeline_name contriever256 --pseudo_query_names {'random-crop':0.5,'T03B-topic':0.5} --remove_unused_columns False --output_dir /export/home/exp/search/unsup_dr/exp_v2/test --cache_dir /export/home/data/pretrain/.cache --max_steps 2000 --warmup_steps 1000 --logging_steps 10 --queue_update_steps 1 --eval_steps 1000 --save_steps 50000 --per_device_train_batch_size 64 --per_device_eval_batch_size 64 --beir_batch_size 64 --dataloader_num_workers 2 --learning_rate 1e-5 --max_seq_length 384 --max_q_tokens 128 --max_d_tokens 256 --evaluation_strategy steps --beir_datasets trec-covid --load_best_model_at_end --overwrite_output_dir --do_train --do_eval --fp16 --seed 42 --run_name test" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
       <option name="MODULE_MODE" value="true" />
@@ -3167,7 +3543,7 @@
       <method v="2" />
     </configuration>
     <configuration name="moco wiki 8gpu qa-eval full" type="PythonConfigurationType" factoryName="Python">
-      <module name="uir_v1.2" />
+      <module name="uir_best_cc0" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
       <envs>
@@ -3678,6 +4054,110 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+    <configuration name="mteb_augtriever" type="PythonConfigurationType" factoryName="Python" folderName="mteb" nameIsGenerated="true">
+      <module name="uir_best_cc0" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="CUDA_LAUNCH_BLOCKING" value="1" />
+        <env name="CUDA_VISIBLE_DEVICES" value="0,1,2,3,4,5,6,7" />
+        <env name="LD_LIBRARY_PATH" value="/usr/lib64;/usr/local/nvidia/lib:/usr/local/nvidia/lib64;/usr/local/nvidia/lib64/stubs" />
+        <env name="OMP_NUM_THREADS" value="1" />
+        <env name="PYTHONUNBUFFERED" value="1" />
+        <env name="RANK" value="0" />
+        <env name="TOKENIZERS_PARALLELISM" value="true" />
+        <env name="WANDB_DISABLED" value="true" />
+        <env name="WORLD_SIZE" value="8" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src/mtebeval" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/mtebeval/mteb_augtriever.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="mteb_beir_eval" type="PythonConfigurationType" factoryName="Python" folderName="mteb" nameIsGenerated="true">
+      <module name="uir_best_cc0" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="CUDA_LAUNCH_BLOCKING" value="1" />
+        <env name="CUDA_VISIBLE_DEVICES" value="0,1,2,3,4,5,6,7" />
+        <env name="LD_LIBRARY_PATH" value="/usr/lib64;/usr/local/nvidia/lib:/usr/local/nvidia/lib64;/usr/local/nvidia/lib64/stubs" />
+        <env name="OMP_NUM_THREADS" value="1" />
+        <env name="PYTHONUNBUFFERED" value="1" />
+        <env name="RANK" value="0" />
+        <env name="TOKENIZERS_PARALLELISM" value="true" />
+        <env name="WANDB_DISABLED" value="true" />
+        <env name="WORLD_SIZE" value="8" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src/mtebeval" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/mtebeval/mteb_beir_eval.py" />
+      <option name="PARAMETERS" value="--model-name-or-path intfloat/e5-small --pool-type avg --output-dir  /export/home/exp/search/mteb/e5-small" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="mteb_meta" type="PythonConfigurationType" factoryName="Python" folderName="mteb" nameIsGenerated="true">
+      <module name="uir_best_cc0" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src/mtebeval" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/mtebeval/mteb_meta.py" />
+      <option name="PARAMETERS" value="/export/home/project/search/uir_best_cc/src/mtebeval/results/average_word_embeddings_komninos" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="mteb_test" type="PythonConfigurationType" factoryName="Python" folderName="mteb">
+      <module name="uir_best_cc0" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src/mtebeval" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/mtebeval/mteb_test.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
     <configuration name="ours inbatch mm bs512 8gpu" type="PythonConfigurationType" factoryName="Python" folderName="finetune">
       <module name="uir_best_cc0" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -3944,7 +4424,29 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="shards2jsonl" type="PythonConfigurationType" factoryName="Python" folderName="data4pretrain" temporary="true" nameIsGenerated="true">
+    <configuration name="reproduce_datasets_nextepochhang" type="PythonConfigurationType" factoryName="Python" nameIsGenerated="true">
+      <module name="uir_best_cc0" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src/adhoc" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/adhoc/reproduce_datasets_nextepochhang.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="shards2jsonl" type="PythonConfigurationType" factoryName="Python" folderName="data4pretrain" nameIsGenerated="true">
       <module name="uir_v1.2" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -3966,6 +4468,191 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+    <configuration name="test DeBERTa-v2-xxlarge 2gpu" type="PythonConfigurationType" factoryName="Python" folderName="train 16gpu">
+      <module name="uir_best_cc0" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="CUDA_LAUNCH_BLOCKING" value="1" />
+        <env name="CUDA_VISIBLE_DEVICES" value="0,1,2,3,4,5,6,7" />
+        <env name="LD_LIBRARY_PATH" value="/usr/lib64;/usr/local/nvidia/lib:/usr/local/nvidia/lib64;/usr/local/nvidia/lib64/stubs" />
+        <env name="NCCL_DEBUG" value="INFO" />
+        <env name="OMP_NUM_THREADS" value="1" />
+        <env name="PYTHONUNBUFFERED" value="1" />
+        <env name="RANK" value="0" />
+        <env name="TOKENIZERS_PARALLELISM" value="false" />
+        <env name="TORCH_DISTRIBUTED_DEBUG" value="DETAIL" />
+        <env name="WANDB_API_KEY" value="c338136c195ab221b8c7cfaa446db16b2e86c6db" />
+        <env name="WANDB_DISABLED" value="true" />
+        <env name="WANDB_PROJECT" value="unsup_retrieval_v2" />
+        <env name="WORLD_SIZE" value="2" />
+      </envs>
+      <option name="SDK_HOME" value="sftp://root@127.0.0.1:2222/export/share/ruimeng/env/anaconda/envs/ir-cuda114/bin/python3.8" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="torch.distributed.launch" />
+      <option name="PARAMETERS" value="--nproc_per_node=2 --master_port=228 --max_restarts=0 train.py --model_name_or_path microsoft/deberta-v2-xxlarge --projection_size 1536 --pooling cls --q_proj mlpact --k_proj 1536-1536 --arch_type moco --train_file /export/home/data/search/upr/cc/pilecc_uqg-head10k.jsonl --dev_file /export/home/data/pretrain/wiki2021_structure/wiki_psgs_w100.dev.tail2e13.tsv --data_type hf --data_pipeline_name contriever256 --pseudo_query_names &quot;{'random-crop':0.2,'T03B-topic':0.2,'T03B-title':0.2,'T03B-absum':0.2,'T03B-exsum':0.2}&quot; --remove_unused_columns False --sim_type dot --queue_size 16384 --momentum 0.9995 --output_dir /export/home/exp/search/unsup_dr/exp_v2/test --cache_dir /export/home/data/pretrain/.cache --max_steps 1000 --warmup_steps 1000 --logging_steps 10 --eval_steps 10000 --save_steps 1000000 --per_device_train_batch_size 8 --per_device_eval_batch_size 8 --beir_batch_size 8 --qa_batch_size 8 --dataloader_num_workers 2 --lr_scheduler_type linear --learning_rate 3e-5 --max_seq_length 256 --max_q_tokens 128 --max_d_tokens 128 --evaluation_strategy steps --load_best_model_at_end --overwrite_output_dir --do_train --do_eval --run_name test --fp16 --seed 42 --report_to none" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="true" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="test DeBERTa-v2-xxlarge 8gpu" type="PythonConfigurationType" factoryName="Python" folderName="train 16gpu">
+      <module name="uir_best_cc0" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="CUDA_LAUNCH_BLOCKING" value="1" />
+        <env name="CUDA_VISIBLE_DEVICES" value="0,1,2,3,4,5,6,7" />
+        <env name="LD_LIBRARY_PATH" value="/usr/lib64;/usr/local/nvidia/lib:/usr/local/nvidia/lib64;/usr/local/nvidia/lib64/stubs" />
+        <env name="NCCL_DEBUG" value="INFO" />
+        <env name="OMP_NUM_THREADS" value="1" />
+        <env name="PYTHONUNBUFFERED" value="1" />
+        <env name="RANK" value="0" />
+        <env name="TOKENIZERS_PARALLELISM" value="false" />
+        <env name="TORCH_DISTRIBUTED_DEBUG" value="DETAIL" />
+        <env name="WANDB_API_KEY" value="c338136c195ab221b8c7cfaa446db16b2e86c6db" />
+        <env name="WANDB_DISABLED" value="true" />
+        <env name="WANDB_PROJECT" value="unsup_retrieval_v2" />
+        <env name="WORLD_SIZE" value="8" />
+      </envs>
+      <option name="SDK_HOME" value="sftp://root@127.0.0.1:2222/export/share/ruimeng/env/anaconda/envs/ir-cuda114/bin/python3.8" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="torch.distributed.launch" />
+      <option name="PARAMETERS" value="--nproc_per_node=8 --master_port=228 --max_restarts=0 train.py --model_name_or_path microsoft/deberta-v2-xxlarge --projection_size 1536 --pooling cls --q_proj 1536-1536 --k_proj shared --arch_type moco --train_file /export/home/data/search/upr/cc/pilecc_uqg-head10k.jsonl --dev_file /export/home/data/pretrain/wiki2021_structure/wiki_psgs_w100.dev.tail2e13.tsv --data_type hf --data_pipeline_name contriever256 --pseudo_query_names &quot;{'random-crop':0.2,'T03B-topic':0.2,'T03B-title':0.2,'T03B-absum':0.2,'T03B-exsum':0.2}&quot; --remove_unused_columns False --sim_type dot --queue_size 16384 --momentum 0.9995 --output_dir /export/home/exp/search/unsup_dr/exp_v2/test --cache_dir /export/home/data/pretrain/.cache --max_steps 1000 --warmup_steps 1000 --logging_steps 10 --eval_steps 10000 --save_steps 1000000 --per_device_train_batch_size 1 --per_device_eval_batch_size 1 --beir_batch_size 2 --qa_batch_size 2 --dataloader_num_workers 2 --lr_scheduler_type linear --learning_rate 3e-5 --max_seq_length 256 --max_q_tokens 64 --max_d_tokens 128 --evaluation_strategy steps --load_best_model_at_end --overwrite_output_dir --do_train --do_eval --run_name test --fp16 --seed 42 --report_to none" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="true" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="test DeBERTa-v3 2gpu" type="PythonConfigurationType" factoryName="Python" folderName="train 16gpu">
+      <module name="uir_best_cc0" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+        <env name="CUDA_LAUNCH_BLOCKING" value="1" />
+        <env name="CUDA_VISIBLE_DEVICES" value="0,1" />
+        <env name="LD_LIBRARY_PATH" value="/usr/lib64;/usr/local/nvidia/lib:/usr/local/nvidia/lib64;/usr/local/nvidia/lib64/stubs" />
+        <env name="NCCL_DEBUG" value="INFO" />
+        <env name="OMP_NUM_THREADS" value="1" />
+        <env name="RANK" value="0" />
+        <env name="TOKENIZERS_PARALLELISM" value="false" />
+        <env name="TORCH_DISTRIBUTED_DEBUG" value="DETAIL" />
+        <env name="WANDB_API_KEY" value="c338136c195ab221b8c7cfaa446db16b2e86c6db" />
+        <env name="WANDB_DISABLED" value="true" />
+        <env name="WANDB_PROJECT" value="unsup_retrieval_v2" />
+        <env name="WORLD_SIZE" value="2" />
+      </envs>
+      <option name="SDK_HOME" value="sftp://root@127.0.0.1:2222/export/share/ruimeng/env/anaconda/envs/ir-cuda114/bin/python3.8" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="torch.distributed.launch" />
+      <option name="PARAMETERS" value="--nproc_per_node=2 --master_port=228 --max_restarts=0 train.py --model_name_or_path microsoft/deberta-v3-large --projection_size 1024 --arch_type moco --train_file /export/home/data/search/upr/cc/pilecc_uqg-head10k.jsonl --dev_file /export/home/data/pretrain/wiki2021_structure/wiki_psgs_w100.dev.tail2e13.tsv --data_type hf --data_pipeline_name contriever256 --pseudo_query_names &quot;{'random-crop':0.2,'T03B-topic':0.2,'T03B-title':0.2,'T03B-absum':0.2,'T03B-exsum':0.2}&quot; --remove_unused_columns False --pooling average --sim_type dot --queue_size 16384 --momentum 0.9995 --output_dir /export/home/exp/search/unsup_dr/exp_v2/test --cache_dir /export/home/data/pretrain/.cache --max_steps 1000 --warmup_steps 1000 --logging_steps 10 --eval_steps 10000 --save_steps 1000000 --per_device_train_batch_size 128 --per_device_eval_batch_size 128 --beir_batch_size 128 --qa_batch_size 64 --dataloader_num_workers 2 --lr_scheduler_type linear --learning_rate 3e-5 --max_seq_length 256 --max_q_tokens 128 --max_d_tokens 128 --evaluation_strategy steps --load_best_model_at_end --overwrite_output_dir --do_train --do_eval --run_name test --fp16 --seed 42 --report_to none" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="true" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="test DeBERTa-v3 inbatch+mlp 2gpu" type="PythonConfigurationType" factoryName="Python" folderName="train 16gpu">
+      <module name="uir_best_cc0" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+        <env name="CUDA_LAUNCH_BLOCKING" value="1" />
+        <env name="CUDA_VISIBLE_DEVICES" value="0,1" />
+        <env name="LD_LIBRARY_PATH" value="/usr/lib64;/usr/local/nvidia/lib:/usr/local/nvidia/lib64;/usr/local/nvidia/lib64/stubs" />
+        <env name="NCCL_DEBUG" value="INFO" />
+        <env name="OMP_NUM_THREADS" value="1" />
+        <env name="RANK" value="0" />
+        <env name="TOKENIZERS_PARALLELISM" value="false" />
+        <env name="TORCH_DISTRIBUTED_DEBUG" value="DETAIL" />
+        <env name="WANDB_API_KEY" value="c338136c195ab221b8c7cfaa446db16b2e86c6db" />
+        <env name="WANDB_DISABLED" value="true" />
+        <env name="WANDB_PROJECT" value="unsup_retrieval_v2" />
+        <env name="WORLD_SIZE" value="2" />
+      </envs>
+      <option name="SDK_HOME" value="sftp://root@127.0.0.1:2222/export/share/ruimeng/env/anaconda/envs/ir-cuda114/bin/python3.8" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="torch.distributed.launch" />
+      <option name="PARAMETERS" value="--nproc_per_node=2 --master_port=228 --max_restarts=0 train.py --model_name_or_path microsoft/deberta-v3-large --projection_size 1024 --arch_type inbatch --pooling cls --q_proj mlp --k_proj shared --train_file /export/home/data/search/upr/cc/pilecc_uqg-head10k.jsonl --dev_file /export/home/data/pretrain/wiki2021_structure/wiki_psgs_w100.dev.tail2e13.tsv --data_type hf --data_pipeline_name contriever256 --pseudo_query_names &quot;{'random-crop':0.2,'T03B-topic':0.2,'T03B-title':0.2,'T03B-absum':0.2,'T03B-exsum':0.2}&quot; --remove_unused_columns False --pooling average --sim_type dot --queue_size 16384 --momentum 0.9995 --output_dir /export/home/exp/search/unsup_dr/exp_v2/test --cache_dir /export/home/data/pretrain/.cache --max_steps 1000 --warmup_steps 1000 --logging_steps 10 --eval_steps 10 --save_steps 1000000 --per_device_train_batch_size 32 --per_device_eval_batch_size 32 --beir_batch_size 32 --qa_batch_size 32 --dataloader_num_workers 2 --lr_scheduler_type linear --learning_rate 3e-5 --max_seq_length 256 --max_q_tokens 128 --max_d_tokens 128 --evaluation_strategy steps --load_best_model_at_end --overwrite_output_dir --do_train --do_eval --run_name test --fp16 --seed 42 --report_to none" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="true" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="wiki+cc 2gpu" type="PythonConfigurationType" factoryName="Python" folderName="train 16gpu">
+      <module name="uir_best_cc0" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+        <env name="CUDA_LAUNCH_BLOCKING" value="1" />
+        <env name="CUDA_VISIBLE_DEVICES" value="0,1" />
+        <env name="LD_LIBRARY_PATH" value="/usr/lib64;/usr/local/nvidia/lib:/usr/local/nvidia/lib64;/usr/local/nvidia/lib64/stubs" />
+        <env name="NCCL_DEBUG" value="INFO" />
+        <env name="OMP_NUM_THREADS" value="1" />
+        <env name="RANK" value="0" />
+        <env name="TOKENIZERS_PARALLELISM" value="false" />
+        <env name="TORCH_DISTRIBUTED_DEBUG" value="DETAIL" />
+        <env name="WANDB_API_KEY" value="c338136c195ab221b8c7cfaa446db16b2e86c6db" />
+        <env name="WANDB_DISABLED" value="true" />
+        <env name="WANDB_PROJECT" value="unsup_retrieval_v2" />
+        <env name="WORLD_SIZE" value="2" />
+      </envs>
+      <option name="SDK_HOME" value="sftp://root@127.0.0.1:2222/export/share/ruimeng/env/anaconda/envs/ir-cuda114/bin/python3.8" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="torch.distributed.launch" />
+      <option name="PARAMETERS" value="--nproc_per_node=2 --master_port=228 --max_restarts=0 train.py --model_name_or_path roberta-large --arch_type moco --pooling cls --q_proj 1024 --k_proj shared --train_file /export/home/data/search/upr/cc/pilecc_uqg-head100k.jsonl:/export/home/data/search/upr/wikipsg/wiki_uqg-head100k.jsonl --train_prob 0.8:0.2 --dev_file /export/home/data/pretrain/wiki2021_structure/wiki_psgs_w100.dev.tail2e13.tsv --data_type hf --data_pipeline_name contriever256 --pseudo_query_names &quot;{'random-crop':0.2,'T03B-topic':0.2,'T03B-title':0.2,'T03B-absum':0.2,'T03B-exsum':0.2}&quot; --remove_unused_columns False --sim_type dot --queue_size 16384 --projection_size 1024 --momentum 0.9995 --output_dir /export/home/exp/search/unsup_dr/exp_v2/test --cache_dir /export/home/data/pretrain/.cache --max_steps 1000 --warmup_steps 1000 --logging_steps 10 --eval_steps 10000 --save_steps 1000000 --per_device_train_batch_size 128 --per_device_eval_batch_size 128 --beir_batch_size 128 --qa_batch_size 64 --dataloader_num_workers 2 --lr_scheduler_type linear --learning_rate 3e-5 --max_seq_length 256 --max_q_tokens 128 --max_d_tokens 128 --evaluation_strategy steps --load_best_model_at_end --overwrite_output_dir --do_train --do_eval --run_name test --fp16 --seed 42 --report_to none" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="true" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="cc.moco2e14.hybrid_rc20gen80.large.bs2048.gpu16.sh" type="ShConfigurationType" temporary="true">
+      <option name="SCRIPT_TEXT" value="" />
+      <option name="INDEPENDENT_SCRIPT_PATH" value="true" />
+      <option name="SCRIPT_PATH" value="$PROJECT_DIR$/run/cc_v2/gpu16/cc.moco2e14.hybrid_rc20gen80.large.bs2048.gpu16.sh" />
+      <option name="SCRIPT_OPTIONS" value="" />
+      <option name="INDEPENDENT_SCRIPT_WORKING_DIRECTORY" value="true" />
+      <option name="SCRIPT_WORKING_DIRECTORY" value="$PROJECT_DIR$/run/cc_v2/gpu16" />
+      <option name="INDEPENDENT_INTERPRETER_PATH" value="true" />
+      <option name="INTERPRETER_PATH" value="/bin/bash" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="EXECUTE_IN_TERMINAL" value="true" />
+      <option name="EXECUTE_SCRIPT_FILE" value="true" />
+      <envs />
+      <method v="2" />
+    </configuration>
     <list>
       <item itemvalue="Python.clean_beir_jsonl" />
       <item itemvalue="Python.querygen_cherrypick" />
@@ -3979,6 +4666,7 @@
       <item itemvalue="Python.mine_negatives random" />
       <item itemvalue="Python.convert_nq_json2jsonl" />
       <item itemvalue="Python.shards2jsonl" />
+      <item itemvalue="Python.moco cc-topic BERT-base bs512 8gpu 1k data" />
       <item itemvalue="Python.inbatch Qext-plm arguana 8gpu" />
       <item itemvalue="Python.inbatch Qext-plm mm 8gpu" />
       <item itemvalue="Python.faiss_multigpu" />
@@ -4017,6 +4705,10 @@
       <item itemvalue="Python.cc-titile-bs2048 inbatch mm-mined bs1024 8gpu" />
       <item itemvalue="Python.cc-titile-bs2048 inbatch nq-bm25 bs1024 8gpu" />
       <item itemvalue="Python.inbatch contriever mm-bm25 inbatch+bm25 8gpu" />
+      <item itemvalue="Python.mteb_meta" />
+      <item itemvalue="Python.mteb_test" />
+      <item itemvalue="Python.mteb_augtriever" />
+      <item itemvalue="Python.mteb_beir_eval" />
       <item itemvalue="Python.moco cc 8gpu test" />
       <item itemvalue="Python.moco pile3" />
       <item itemvalue="Python.moco hybrid" />
@@ -4078,8 +4770,19 @@
       <item itemvalue="Python.moco wiki 8gpu bs64 inbatch+queue" />
       <item itemvalue="Python.moco wiki-[title,doc2query]" />
       <item itemvalue="Python.moco 8gpu bs256 test" />
-      <item itemvalue="Python.moco cc-absum BERT-base bs8192 16gpu test " />
-      <item itemvalue="Python.moco cc-absum BERT-large bs2048 16gpu test" />
+      <item itemvalue="Python.moco cc-topic BERT-base bs2048 2gpu" />
+      <item itemvalue="Python.moco cc-topic BERT-base bs2048 8gpu test" />
+      <item itemvalue="Python.base test 16gpu" />
+      <item itemvalue="Python.large test 16gpu" />
+      <item itemvalue="Python.wiki+cc 2gpu" />
+      <item itemvalue="Python.test DeBERTa-v3 2gpu" />
+      <item itemvalue="Python.test DeBERTa-v3 inbatch+mlp 2gpu" />
+      <item itemvalue="Python.test DeBERTa-v2-xxlarge 2gpu" />
+      <item itemvalue="Python.test DeBERTa-v2-xxlarge 8gpu" />
+      <item itemvalue="Python.moco cc-hybrid BERT-base bs8192 16gpu test " />
+      <item itemvalue="Python.moco cc-hybrid BERT-base bs8192-interleave 16gpu test" />
+      <item itemvalue="Python.moco cc-hybrid BERT-large bs2048 16gpu test" />
+      <item itemvalue="Python.moco cc-hybrid BERT-large CLS bs2048 16gpu" />
       <item itemvalue="Python.inbatch cc-absum BERT-large bs1024 16gpu test" />
       <item itemvalue="Python.inbatch cc-absum RoBERTa-large bs1024 16gpu test" />
       <item itemvalue="Python.moco cc-absum 1gpu bs32 test" />
@@ -4092,11 +4795,16 @@
       <item itemvalue="Python.moco wiki 8gpu qa-eval full" />
       <item itemvalue="Python.mine_negatives.py 8gpu faiss" />
       <item itemvalue="Python.gather_score_senteval" />
+      <item itemvalue="Python.reproduce_datasets_nextepochhang" />
+      <item itemvalue="Python.dedup_pile_wiki" />
+      <item itemvalue="Python.export_pile" />
+      <item itemvalue="Shell Script.cc.moco2e14.hybrid_rc20gen80.large.bs2048.gpu16.sh" />
     </list>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.shards2jsonl" />
-        <item itemvalue="Python.shards2jsonl" />
+        <item itemvalue="Python.dedup_pile_wiki" />
+        <item itemvalue="Python.export_pile" />
+        <item itemvalue="Shell Script.cc.moco2e14.hybrid_rc20gen80.large.bs2048.gpu16.sh" />
       </list>
     </recent_temporary>
   </component>
@@ -4143,6 +4851,9 @@
       <workItem from="1671130602112" duration="3553000" />
       <workItem from="1671439178128" duration="523000" />
       <workItem from="1671793056866" duration="67991000" />
+      <workItem from="1672383411326" duration="119484000" />
+      <workItem from="1674149512280" duration="2806000" />
+      <workItem from="1674493077949" duration="34127000" />
     </task>
     <task id="LOCAL-00001" summary="gradually add new code (v1.2-amend v10) to best-cc&#10;what has been updated and reproducible&#10;1. moco&#10;2. trainer&#10;3. train&#10;what hasn't:&#10;1. data">
       <created>1662481484664</created>
@@ -4193,7 +4904,14 @@
       <option name="project" value="LOCAL" />
       <updated>1667514894939</updated>
     </task>
-    <option name="localTasksCounter" value="8" />
+    <task id="LOCAL-00008" summary="merge UQG outputs into 1 file, and refactor data pipeline">
+      <created>1672383539264</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1672383539264</updated>
+    </task>
+    <option name="localTasksCounter" value="9" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -4252,7 +4970,8 @@
     <MESSAGE value="Updates:&#10;Model: refactored model, now Contriever is no longer inherited from BertModel, but a wrapper of HF encoder. &#10;Eval: in beir exact_search.py, the self.results updating part is changed to retain only top-K results, to resolve the OOM issue when evaluating large datasets.&#10;trainers.py: removed ModelArguments since it overlaps greatly with MoCoArguments" />
     <MESSAGE value="remodeled v2&#10;1. reorganized the whole project, removed unused files&#10;2. fixed the OOM issue of beir eval&#10;3. add mine_negatives.py for MSMARCO, both exact_search and faiss way" />
     <MESSAGE value="remodeling whole project&#10;implementing query extraction" />
-    <option name="LAST_COMMIT_MESSAGE" value="remodeling whole project&#10;implementing query extraction" />
+    <MESSAGE value="merge UQG outputs into 1 file, and refactor data pipeline" />
+    <option name="LAST_COMMIT_MESSAGE" value="merge UQG outputs into 1 file, and refactor data pipeline" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
@@ -4394,7 +5113,7 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/train.py</url>
-          <line>240</line>
+          <line>245</line>
           <option name="timeStamp" value="942" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
@@ -4404,24 +5123,85 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/src/dataloader/data_process.py</url>
-          <line>516</line>
+          <line>530</line>
           <option name="timeStamp" value="962" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$USER_HOME$/Library/Caches/JetBrains/PyCharm2022.2/remote_sources/471602934/-1221359512/datasets/arrow_dataset.py</url>
+          <line>2175</line>
+          <option name="timeStamp" value="980" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/src/adhoc/merge_uqg.py</url>
+          <line>36</line>
+          <option name="timeStamp" value="981" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$USER_HOME$/Library/Caches/JetBrains/PyCharm2022.2/remote_sources/471602934/-1221359512/torch/utils/data/dataloader.py</url>
+          <line>406</line>
+          <option name="timeStamp" value="986" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$USER_HOME$/Library/Caches/JetBrains/PyCharm2022.2/remote_sources/471602934/-1221359512/torch/utils/data/dataloader.py</url>
+          <line>403</line>
+          <option name="timeStamp" value="987" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$USER_HOME$/Library/Caches/JetBrains/PyCharm2022.2/remote_sources/471602934/-1221359512/transformers/trainer.py</url>
+          <line>756</line>
+          <option name="timeStamp" value="1000" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/src/qa/tokenizers.py</url>
+          <line>202</line>
+          <option name="timeStamp" value="1032" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/src/qa/qa_validation.py</url>
+          <line>53</line>
+          <option name="timeStamp" value="1033" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/src/model/moco.py</url>
+          <line>247</line>
+          <option name="timeStamp" value="1053" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$USER_HOME$/Library/Caches/JetBrains/PyCharm2022.2/remote_sources/471602934/-1221359512/datasets/arrow_dataset.py</url>
+          <line>3537</line>
+          <option name="timeStamp" value="1065" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$USER_HOME$/Library/Caches/JetBrains/PyCharm2022.2/remote_sources/471602934/-1221359512/datasets/arrow_dataset.py</url>
+          <line>3684</line>
+          <option name="timeStamp" value="1066" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/src/mtebeval/mteb_beir_eval.py</url>
+          <line>109</line>
+          <option name="timeStamp" value="1086" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/src/mtebeval/mteb_beir_eval.py</url>
+          <line>47</line>
+          <option name="timeStamp" value="1087" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
     <watches-manager>
       <configuration name="PythonConfigurationType">
-        <watch expression="examples.keys()" language="Python" />
-        <watch expression="examples['outputs']" language="Python" />
-        <watch expression="examples['outputs'][0]" language="Python" />
-        <watch expression="ex_dict[psuedo_query_name]" language="Python" />
-        <watch expression="psuedo_query_name" language="Python" />
-        <watch expression="ex_dict" language="Python" />
+        <watch expression="passage_embs" language="Python" />
+        <watch expression="batch_weights" language="Python" />
+        <watch expression="len(sentences)" language="Python" />
+        <watch expression="len(passage_embs)" language="Python" />
+        <watch expression="batch_weights.tolist()" language="Python" />
+        <watch expression="X_train.shape" language="Python" />
       </configuration>
     </watches-manager>
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/uir_best_cc$passage_embeddings_contriever_msmarco_gpu.coverage" NAME="psg_embed contriever-msmarco Coverage Results" MODIFIED="1668126761447" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/uir_best_cc$test_DeBERTa_v3_inbatch_mlp_2gpu.coverage" NAME="test DeBERTa-v3 inbatch+mlp 2gpu Coverage Results" MODIFIED="1674682995522" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$inbatch_google_t5_small_lm_adapt_wiki_8gpu.coverage" NAME="inbatch google/t5-small-lm-adapt wiki 8gpu Coverage Results" MODIFIED="1668739312149" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$inbatch_spar_wiki_context_inbatch_random.coverage" NAME="inbatch spar-wiki-context inbatch+random Coverage Results" MODIFIED="1669525680896" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$inbatch_Qext_plm_mm_8gpu.coverage" NAME="inbatch Qext-plm mm 8gpu Coverage Results" MODIFIED="1669706095998" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
@@ -4439,21 +5219,24 @@
     <SUITE FILE_PATH="coverage/uir_best_cc$moco_cc_absum_BERT_large_bs2048_16gpu_test.coverage" NAME="moco cc-absum BERT-large bs2048 16gpu test Coverage Results" MODIFIED="1672218655613" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$eval_qa.coverage" NAME="eval_qa all Coverage Results" MODIFIED="1665443655302" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$moco_cc_1gpu_bs32_test_dropout0.coverage" NAME="moco cc 1gpu bs32 test dropout0 Coverage Results" MODIFIED="1663017182953" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/uir_best_cc$eval_example.coverage" NAME="mteb_test Coverage Results" MODIFIED="1674699613427" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/mtebeval" />
     <SUITE FILE_PATH="coverage/uir_best_cc$eval_qa_contriever.coverage" NAME="eval_qa contriever Coverage Results" MODIFIED="1668069698580" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$moco_paq50__8gpu_bs256.coverage" NAME="moco paq50% 8gpu bs256 Coverage Results" MODIFIED="1667778853272" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$moco_wiki_large_8gpu_bs1024_test.coverage" NAME="moco wiki large 8gpu bs1024 test Coverage Results" MODIFIED="1663309053833" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$moco_cc_wiki_8gpu_bs256_test.coverage" NAME="moco cc+wiki 8gpu bs256 test Coverage Results" MODIFIED="1666251075391" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/uir_best_cc$gather_score_senteval.coverage" NAME="gather_score_senteval Coverage Results" MODIFIED="1667004409692" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/uir_best_cc$moco_cc_hybrid_BERT_large_bs2048_16gpu_test.coverage" NAME="moco cc-hybrid BERT-large bs2048 16gpu test Coverage Results" MODIFIED="1672473427129" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/uir_best_cc$gather_score_senteval.coverage" NAME="gather_score_senteval Coverage Results" MODIFIED="1673982708536" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$moco_wiki_8gpu_qa_eval.coverage" NAME="moco wiki 8gpu qa-eval Coverage Results" MODIFIED="1665468231527" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$eval_qa_our_ckpt.coverage" NAME="eval_qa our_ckpt Coverage Results" MODIFIED="1665610110909" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$moco_wiki_8gpu_bs2048_test.coverage" NAME="moco wiki cosine bs2048 8gpu Coverage Results" MODIFIED="1662603463561" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/uir_best_cc$moco_cc_topic_BERT_base_bs2048_8gpu_test.coverage" NAME="moco cc-topic BERT-base bs2048 8gpu test Coverage Results" MODIFIED="1673838042403" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$moco_cc_8gpu_test.coverage" NAME="moco cc 8gpu test Coverage Results" MODIFIED="1666075961400" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_v1_2$train.coverage" NAME="moco cc 8gpu test Coverage Results" MODIFIED="1661967189336" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$mine_negatives_py_8gpu_non_faiss.coverage" NAME="mine_negatives.py 8gpu non-faiss Coverage Results" MODIFIED="1663733108425" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/" />
     <SUITE FILE_PATH="coverage/uir_best_cc$moco_wiki_8gpu_bs64_inbatch_queue.coverage" NAME="moco wiki 8gpu bs64 inbatch+queue Coverage Results" MODIFIED="1666253357823" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$inbatch_contriever_mm_random_inbatch_random_8gpu.coverage" NAME="inbatch contriever mm-random inbatch+random 8gpu Coverage Results" MODIFIED="1668750508264" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$cc_titile_bs2048_inbatch_nq_bm25_bs1024_8gpu.coverage" NAME="cc-titile-bs2048 inbatch nq-bm25 bs1024 8gpu Coverage Results" MODIFIED="1664703553116" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/uir_best_cc$gather_score_qa.coverage" NAME="gather_score_qa Coverage Results" MODIFIED="1672297989224" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/uir_best_cc$gather_score_qa.coverage" NAME="gather_score_qa Coverage Results" MODIFIED="1674583145907" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$train_eval_only_our_ckpt.coverage" NAME="eval-only our_ckpt Coverage Results" MODIFIED="1666149491172" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$generate_passage_embeddings.coverage" NAME="nq passage_embeddings 8gpu Coverage Results" MODIFIED="1664995906202" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$moco_wiki_T0topic50_8gpu_bs256.coverage" NAME="moco wiki-T0topic50 contriever50 8gpu Coverage Results" MODIFIED="1667292439475" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
@@ -4463,8 +5246,10 @@
     <SUITE FILE_PATH="coverage/uir_best_cc$moco_wiki_8gpu_bs256_cls_inbatch_sameQD50_.coverage" NAME="moco wiki 8gpu bs256 cls inbatch sameQD50% Coverage Results" MODIFIED="1663742376758" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$moco_wiki_1gpu_bs32_test.coverage" NAME="moco wiki 1gpu bs32 test Coverage Results" MODIFIED="1663390950839" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$moco_hybrid_qgen.coverage" NAME="moco hybrid qgen Coverage Results" MODIFIED="1668562710647" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/uir_best_cc$merge_uqg.coverage" NAME="merge_uqg Coverage Results" MODIFIED="1672353628745" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/adhoc" />
+    <SUITE FILE_PATH="coverage/uir_best_cc$test_2gpu.coverage" NAME="wiki+cc 2gpu Coverage Results" MODIFIED="1674696924442" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/uir_best_cc$merge_uqg.coverage" NAME="merge_uqg Coverage Results" MODIFIED="1673241118302" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/adhoc" />
     <SUITE FILE_PATH="coverage/uir_best_cc$moco_wiki_8gpu_bs256_contriever_256.coverage" NAME="moco wiki 8gpu bs256 contriever-256 Coverage Results" MODIFIED="1664769723698" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/uir_best_cc$moco_cc_topic_BERT_base_bs2048_1gpu.coverage" NAME="moco cc-topic BERT-base bs2048 2gpu Coverage Results" MODIFIED="1672467307871" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$moco_wiki_psg_8gpu.coverage" NAME="moco wiki-psg 8gpu Coverage Results" MODIFIED="1665473298975" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$eval_beir_contriever.coverage" NAME="eval_beir contriever Coverage Results" MODIFIED="1668115494973" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$inbatch_selfdot_wiki_8gpu.coverage" NAME="inbatch selfdot wiki 8gpu Coverage Results" MODIFIED="1668249630720" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
@@ -4479,6 +5264,7 @@
     <SUITE FILE_PATH="coverage/uir_best_cc$passage_embeddings_spar_paq_bm25.coverage" NAME="passage_embeddings spar-paq-bm25 Coverage Results" MODIFIED="1668147874111" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$moco_cc_8gpu_bs512_mlp.coverage" NAME="moco cc 8gpu bs512 mlp Coverage Results" MODIFIED="1663911723085" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$moco_wiki_T0topic_8gpu_bs256.coverage" NAME="moco wiki-phrase 8gpu bs256 Coverage Results" MODIFIED="1665912333404" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/uir_best_cc$test_DeBERTa_v3_2gpu.coverage" NAME="test DeBERTa-v3 2gpu Coverage Results" MODIFIED="1674619179317" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$inbatch_contriever_mm_random_inbatch_only_8gpu_no_dropout.coverage" NAME="inbatch contriever mm-random inbatch+only 8gpu no-dropout Coverage Results" MODIFIED="1665394375635" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$cc_titile_bs2048_inbatch_mm_mined_bs1024_8gpu.coverage" NAME="cc-titile-bs2048 inbatch mm-mined bs1024 8gpu Coverage Results" MODIFIED="1664775071647" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$psg_embed_contriever_debug.coverage" NAME="psg_embed contriever debug Coverage Results" MODIFIED="1668040421421" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
@@ -4488,7 +5274,7 @@
     <SUITE FILE_PATH="coverage/uir_best_cc$moco_cc_8gpu_bs2048_test.coverage" NAME="moco cc 8gpu bs2048 test Coverage Results" MODIFIED="1663431768713" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$eval_beir_spar_wiki_bm25_fiqa.coverage" NAME="eval_beir spar-wiki-bm25 small Coverage Results" MODIFIED="1668129314461" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$psg_embed_contriever___no_fp16.coverage" NAME="psg_embed contriever --no_fp16 Coverage Results" MODIFIED="1668071314132" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/uir_best_cc$inbatch_cc_absum_RoBERTa_large_bs1024_16gpu_test.coverage" NAME="inbatch cc-absum RoBERTa-large bs1024 16gpu test Coverage Results" MODIFIED="1672358193449" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/uir_best_cc$inbatch_cc_absum_RoBERTa_large_bs1024_16gpu_test.coverage" NAME="inbatch cc-absum RoBERTa-large bs1024 16gpu test Coverage Results" MODIFIED="1674592083206" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$moco_wiki_dot_bs2048_8gpu.coverage" NAME="moco wiki dot bs2048 8gpu Coverage Results" MODIFIED="1663388625242" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$eval_only_test.coverage" NAME="eval-only test Coverage Results" MODIFIED="1666430950535" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$inbatch_cc_8gpu_test.coverage" NAME="inbatch cc 8gpu test Coverage Results" MODIFIED="1668132570589" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
@@ -4516,27 +5302,38 @@
     <SUITE FILE_PATH="coverage/uir_best_cc$eval_beir_spider.coverage" NAME="eval_beir spider small Coverage Results" MODIFIED="1668138545680" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$moco_bm25_wiki_8gpu.coverage" NAME="moco bm25 wiki 8gpu Coverage Results" MODIFIED="1669185010423" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$inbatch_contriever_inbatch_random.coverage" NAME="inbatch contriever inbatch+random Coverage Results" MODIFIED="1669218618142" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/uir_best_cc$test_16gpu.coverage" NAME="test 16gpu Coverage Results" MODIFIED="1673893514829" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/uir_best_cc$moco_cc_hybrid_BERT_large_CLS_bs2048_16gpu.coverage" NAME="moco cc-hybrid BERT-large CLS bs2048 16gpu Coverage Results" MODIFIED="1672950678754" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$moco_bm25_wiki_1gpu.coverage" NAME="moco bm25 wiki 1gpu Coverage Results" MODIFIED="1667365075933" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/uir_best_cc$gather_score_beir.coverage" NAME="gather_score_beir Coverage Results" MODIFIED="1672297329155" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/uir_best_cc$gather_score_beir.coverage" NAME="gather_score_beir Coverage Results" MODIFIED="1674582727716" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/uir_best_cc$large_test_16gpu.coverage" NAME="large test 16gpu Coverage Results" MODIFIED="1673893935475" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$moco_cc_8gpu_test_topic.coverage" NAME="moco cc 8gpu test topic Coverage Results" MODIFIED="1662696598090" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/uir_best_cc$mteb_meta.coverage" NAME="mteb_meta Coverage Results" MODIFIED="1674700427032" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/mtebeval" />
     <SUITE FILE_PATH="coverage/uir_best_cc$mine_negatives_faiss_py_8gpu.coverage" NAME="mine_negatives_faiss.py 8gpu Coverage Results" MODIFIED="1665048388037" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/" />
     <SUITE FILE_PATH="coverage/uir_best_cc$moco_paq_10k_8gpu.coverage" NAME="moco paq-10k 8gpu Coverage Results" MODIFIED="1664053371571" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$moco_wiki__title_doc2query_.coverage" NAME="moco wiki-[title,doc2query] Coverage Results" MODIFIED="1668038408944" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/uir_best_cc$test_DeBERTa_v2_xxlarge_2gpu.coverage" NAME="test DeBERTa-v2-xxlarge 2gpu Coverage Results" MODIFIED="1674620824784" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$moco_wiki_8gpu_bs512_alignloss.coverage" NAME="moco wiki 8gpu bs512 alignloss Coverage Results" MODIFIED="1664762128883" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$inbatch_paq_10k_8gpu.coverage" NAME="inbatch paq-10k 8gpu Coverage Results" MODIFIED="1664056359554" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/uir_best_cc$export_pile.coverage" NAME="export_pile Coverage Results" MODIFIED="1673627306063" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/adhoc" />
     <SUITE FILE_PATH="coverage/uir_best_cc$inbatch_bm25_wiki_8gpu.coverage" NAME="inbatch bm25 wiki 8gpu Coverage Results" MODIFIED="1668249392009" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$moco_cc_8gpu_bs256_test.coverage" NAME="moco cc 8gpu bs256 test Coverage Results" MODIFIED="1663188835748" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/uir_best_cc$moco_cc_topic_BERT_base_bs512_8gpu_1k_data.coverage" NAME="moco cc-topic BERT-base bs512 8gpu 1k data Coverage Results" MODIFIED="1673850548526" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$moco_wiki_8gpu_bs256_alignloss.coverage" NAME="moco wiki 8gpu bs512 alignloss Coverage Results" MODIFIED="1663904799796" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$moco_pile2.coverage" NAME="moco pile3 Coverage Results" MODIFIED="1668382859494" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$moco_google_t5_small_lm_adapt_wiki_8gpu.coverage" NAME="moco google/t5-small-lm-adapt wiki 8gpu Coverage Results" MODIFIED="1667357337868" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$eval_qa_spar_wiki_bm25.coverage" NAME="eval_qa spar-wiki-bm25 Coverage Results" MODIFIED="1668154630960" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$inbatch_cc_absum_BERT_large_bs2048_16gpu_test.coverage" NAME="inbatch cc-absum BERT-large bs2048 16gpu test Coverage Results" MODIFIED="1672357717536" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$clean_beir_jsonl.coverage" NAME="clean_beir_jsonl Coverage Results" MODIFIED="1670642599469" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/demo" />
+    <SUITE FILE_PATH="coverage/uir_best_cc$mteb_beir_eval.coverage" NAME="mteb_beir_eval Coverage Results" MODIFIED="1674761586851" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/mtebeval" />
     <SUITE FILE_PATH="coverage/uir_best_cc$eval_beir_contriever_fiqa.coverage" NAME="eval_beir contriever cqadupstack Coverage Results" MODIFIED="1668421018830" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/uir_best_cc$dedup_pile_wiki.coverage" NAME="dedup_pile_wiki Coverage Results" MODIFIED="1673838014002" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/adhoc" />
+    <SUITE FILE_PATH="coverage/uir_best_cc$moco_cc_absum_BERT_base_bs8192_16gpu_test_.coverage" NAME="moco cc-hybrid BERT-base bs8192 16gpu test  Coverage Results" MODIFIED="1673892614200" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/uir_best_cc$test_DeBERTa_v2_xxlarge_8gpu.coverage" NAME="test DeBERTa-v2-xxlarge 8gpu Coverage Results" MODIFIED="1674621938326" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$moco_Qext_wiki_8gpu.coverage" NAME="moco Qext wiki 8gpu Coverage Results" MODIFIED="1667170393415" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$moco_cc_large_8gpu_bs1024_test.coverage" NAME="moco cc large 8gpu bs1024 test Coverage Results" MODIFIED="1663304823452" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$eval_qa_contriever_msmarco_gpu.coverage" NAME="eval_qa contriever-msmarco gpu Coverage Results" MODIFIED="1668582728719" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/uir_best_cc$moco_8gpu_bs256_test.coverage" NAME="moco 8gpu bs256 test Coverage Results" MODIFIED="1672382653164" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/uir_best_cc$moco_8gpu_bs256_test.coverage" NAME="moco 8gpu bs256 test Coverage Results" MODIFIED="1673982593130" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$eval_qa_contriever_gpu.coverage" NAME="eval_qa contriever gpu Coverage Results" MODIFIED="1667534437158" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$moco_cc_8gpu_test_absum.coverage" NAME="moco cc 8gpu test absum Coverage Results" MODIFIED="1672205812882" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$mine_negatives_py_faiss_cpu.coverage" NAME="mine_negatives.py faiss cpu Coverage Results" MODIFIED="1665043355419" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/" />
@@ -4546,6 +5343,7 @@
     <SUITE FILE_PATH="coverage/uir_best_cc$passage_embeddings_contriever.coverage" NAME="psg_embed contriever Coverage Results" MODIFIED="1668056706651" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$eval_beir_naacl_spider_small.coverage" NAME="eval_beir tau/spider Coverage Results" MODIFIED="1668243063499" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$eval_qa_spar_paq_bm25.coverage" NAME="eval_qa spar-paq-bm25 Coverage Results" MODIFIED="1668202661613" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/uir_best_cc$mteb_augtriever.coverage" NAME="mteb_augtriever Coverage Results" MODIFIED="1674707919096" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/mtebeval" />
     <SUITE FILE_PATH="coverage/uir_best_cc$moco_cc_cc_8gpu_test.coverage" NAME="moco cc+cc 8gpu test Coverage Results" MODIFIED="1662272552374" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$moco_paq_8gpu_bs256.coverage" NAME="moco paq 8gpu bs256 Coverage Results" MODIFIED="1667896828331" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$mine_negatives_py_8gpu_faiss.coverage" NAME="mine_negatives.py 8gpu faiss Coverage Results" MODIFIED="1665463328139" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/" />
@@ -4568,6 +5366,7 @@
     <SUITE FILE_PATH="coverage/uir_best_cc$moco_hybrid.coverage" NAME="moco hybrid Coverage Results" MODIFIED="1668298619385" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$eval_only_inbatch.coverage" NAME="eval-only inbatch Coverage Results" MODIFIED="1667247080880" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/uir_best_cc$querygen_cherrypick.coverage" NAME="querygen_cherrypick Coverage Results" MODIFIED="1669796885682" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/demo" />
+    <SUITE FILE_PATH="coverage/uir_best_cc$reproduce_datasets_nextepochhang.coverage" NAME="reproduce_datasets_nextepochhang Coverage Results" MODIFIED="1673845650205" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/adhoc" />
     <SUITE FILE_PATH="coverage/uir_best_cc$mine_negatives_py_8gpu.coverage" NAME="mine_negatives.py 8gpu faiss Coverage Results" MODIFIED="1663778105883" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/" />
     <SUITE FILE_PATH="coverage/uir_best_cc$moco_wiki_8gpu_bs256_cls_warmup_queue_size.coverage" NAME="moco wiki 8gpu bs256 cls warmup-queue-size Coverage Results" MODIFIED="1664663706482" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>

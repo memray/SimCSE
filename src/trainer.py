@@ -8,7 +8,7 @@ import warnings
 
 from numpy import float64
 from packaging import version
-from torch.utils.data import SequentialSampler
+from torch.utils.data import SequentialSampler, RandomSampler
 from transformers import Trainer
 from transformers.integrations import hp_params
 from transformers.modeling_utils import PreTrainedModel
@@ -21,7 +21,7 @@ from transformers.trainer_utils import (
     PREFIX_CHECKPOINT_DIR,
     TrainOutput,
     set_seed,
-    speed_metrics, EvalLoopOutput,
+    speed_metrics, EvalLoopOutput, seed_worker,
 )
 from transformers.file_utils import (
     WEIGHTS_NAME,
@@ -200,6 +200,52 @@ class DenseRetrievalTrainer(Trainer):
             drop_last=self.args.dataloader_drop_last,
             num_workers=0, # self.args.dataloader_num_workers, # it causes collapse with multiple workers
             pin_memory=self.args.dataloader_pin_memory,
+        )
+
+    def _get_train_sampler(self) -> Optional[torch.utils.data.Sampler]:
+        generator = None
+        if self.args.world_size <= 1:
+            generator = torch.Generator()
+            seed = self.args.data_seed
+            generator.manual_seed(seed)
+
+        seed = self.args.data_seed if self.args.data_seed is not None else self.args.seed
+
+        # Build the sampler.
+        if self.args.world_size <= 1:
+            return RandomSampler(self.train_dataset, generator=generator)
+        else:
+            return DistributedSampler(
+                self.train_dataset,
+                num_replicas=self.args.world_size,
+                rank=self.args.process_index,
+                seed=seed,
+                drop_last=self.args.dataloader_drop_last
+            )
+
+    def get_train_dataloader(self) -> DataLoader:
+        if self.train_dataset is None:
+            raise ValueError("Trainer: training requires a train_dataset.")
+
+        train_dataset = self.train_dataset
+        data_collator = self.data_collator
+        if is_datasets_available() and isinstance(train_dataset, datasets.Dataset):
+            train_dataset = self._remove_unused_columns(train_dataset, description="training")
+        else:
+            data_collator = self._get_collator_with_removed_columns(data_collator, description="training")
+        train_sampler = self._get_train_sampler()
+
+        return DataLoader(
+            train_dataset,
+            batch_size=self._train_batch_size,
+            sampler=train_sampler,
+            collate_fn=data_collator,
+            drop_last=self.args.dataloader_drop_last,
+            num_workers=self.args.dataloader_num_workers,
+            pin_memory=self.args.dataloader_pin_memory,
+            worker_init_fn=seed_worker,
+            persistent_workers=True
+            # persistent_workers=False
         )
 
     def _maybe_log_save_evaluate(self, tr_loss, model, trial, extra_logs=None):
@@ -516,7 +562,7 @@ class DenseRetrievalTrainer(Trainer):
             # Reinitializes optimizer and scheduler
             self.optimizer, self.lr_scheduler = None, None
 
-        # Keeping track whether we can can len() on the dataset or not
+        # Keeping track whether we can len() on the dataset or not
         train_dataset_is_sized = isinstance(self.train_dataset, collections.abc.Sized)
         
         # Data loader and number of training steps
@@ -724,9 +770,6 @@ class DenseRetrievalTrainer(Trainer):
                 if self.moco_args.arch_type == 'moco' and (step + 1) % self.model.queue_update_steps != 0:
                     # only feedforward the model to update the queue
                     _, _ = self.training_step(model, inputs, forward_only=True)
-                    # self.state.global_step += 1
-                    # self.state.epoch = epoch + (step + 1) / steps_in_epoch
-                    # steps_trained_progress_bar.update(1)
                     continue
                 if (step + 1) % self.args.gradient_accumulation_steps == 0:
                     self.control = self.callback_handler.on_step_begin(self.args, self.state, self.control)

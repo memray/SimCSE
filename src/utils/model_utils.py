@@ -49,10 +49,18 @@ def load_retriever(model_id, pooling=None, hf_config=None):
     if not hf_config:
         hf_config = load_hf(transformers.AutoConfig, model_id)
     tokenizer = transformers.AutoTokenizer.from_pretrained(model_id)
-    if model_id.startswith('bert'):
+    if model_id.startswith('bert') or model_id.startswith('roberta'):
+        # BERT/RoBERTa has default add_pooling_layer=True, a dense layer+tanh activation
         model = transformers.AutoModel.from_pretrained(pretrained_model_name_or_path=model_id, config=hf_config,
                                                        add_pooling_layer=False)
+    elif model_id.startswith('microsoft/deberta-'):
+        # microsoft/deberta-v2-xxlarge, 48 layers, 1536 hidden size, 1.5B parameters
+        # microsoft/deberta-v2-xlarge, 24 layers, 1536 hidden size, parameters 900M
+        # microsoft/deberta-v3-large, 24 layers, 1024 hidden size, 304M parameters
+        # microsoft/deberta-v3-base, 12 layers, 768 hidden size, 86M parameters
+        model = transformers.AutoModel.from_pretrained(pretrained_model_name_or_path=model_id, config=hf_config)
     else:
+
         model = transformers.AutoModel.from_pretrained(pretrained_model_name_or_path=model_id, config=hf_config)
     retriever = contriever.Contriever(tokenizer, model, hf_config, pooling)
 

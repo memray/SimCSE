@@ -2,25 +2,15 @@ import logging
 import sys
 
 data_pipelines = {
-    'contriever256-aug100%': {
-        'max_context_len': 256,
-        'min_dq_len': 4,
-        'min_d_len': 0.05,
-        'max_d_len': 0.5,
-        'd_del_ratio': 0.1,
-        'pseudo_query_ratio': 1.0,
-        'aug_special_query': False,
-    },
-    'contriever256-rc50%aug50%': {
+    'contriever256': {
         'max_context_len': 256,
         'min_dq_len': 4,
         'min_q_len': 0.05,
         'max_q_len': 0.5,
         'min_d_len': 0.05,
         'max_d_len': 0.5,
-        'q_del_ratio': 0.1,
         'd_del_ratio': 0.1,
-        'pseudo_query_ratio': 0.5,
+        'pseudo_query_ratio': 1.0,
         'aug_special_query': False,
     },
 }

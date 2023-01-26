@@ -176,6 +176,9 @@ def main():
         """""""""""""""""""""
         Set up trainer
         """""""""""""""""""""
+        if hftraining_args.local_rank == 0 or hftraining_args.local_rank == -1:
+            print(f"Initializing trainer")
+
         trainer = DenseRetrievalTrainer(
             model=model,
             args=hftraining_args,
@@ -212,6 +215,8 @@ def main():
                                           moco_args=moco_args, resume=False)
             wandb_callback.setup = types.MethodType(new_setup, wandb_callback)
 
+        if hftraining_args.local_rank == 0 or hftraining_args.local_rank == -1:
+            print(f"Start training")
         train_result = trainer.train()
         trainer.save_model()  # Saves the tokenizer too for easy upload
 
@@ -244,7 +249,9 @@ def main():
             else:
                 final_beir_datasets = ['msmarco', 'dbpedia-entity', 'fever', 'climate-fever', 'nq', 'hotpotqa',
                                        'quora', 'cqadupstack', 'trec-covid', 'arguana', 'webis-touche2020',
-                                       'scidocs', 'scifact', 'nfcorpus', 'fiqa']
+                                       'scidocs', 'scifact', 'nfcorpus', 'fiqa',
+                                       'bioasq', 'signal1m', 'trec-news', 'robust04'
+                                       ]
             if hftraining_args.process_index == 0:
                 try:
                     prev_eval_dir = os.path.join(hftraining_args.output_dir, 'eval_output', 'checkpoint-%d' % (hftraining_args.max_steps))
@@ -295,7 +302,8 @@ def main():
             embed_dir = os.path.join(hftraining_args.output_dir, 'wiki_emb')
             passages = eval_utils.generate_passage_embeddings(model, tokenizer,
                                                               passage_path=training_args.wiki_passage_path,
-                                                              save_dir=embed_dir)
+                                                              save_dir=embed_dir,
+                                                              per_gpu_batch_size=training_args.qa_batch_size)
             if hftraining_args.process_index == 0:
                 results_qa = eval_utils.evaluate_qa(model, tokenizer,
                                                     passages=passages,

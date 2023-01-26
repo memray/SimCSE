@@ -52,14 +52,17 @@ class Contriever(nn.Module):
             # output_attentions=output_attentions,
             # output_hidden_states=output_hidden_states,
         )
-        last_hidden = model_output['last_hidden_state']
+        last_hidden = model_output['last_hidden_state']  # [B,L,H]
         last_hidden = last_hidden.masked_fill(~attention_mask[..., None].bool(), 0.)
 
-        if self.pooling == "average":
+        if self.pooling.lower() == "average" or self.pooling.lower() == "avg":
             emb = last_hidden.sum(dim=1) / attention_mask.sum(dim=1)[..., None]  # [B,L,H] -> [B,H]
-        elif self.pooling == "cls":
+        elif self.pooling.lower() == "cls":
             emb = last_hidden[:, 0]  # [B,L,H] -> [B,H]
-        elif self.pooling == "multiview":
+        elif self.pooling.lower() == "multiview":
             emb = last_hidden[:, :self.num_view]  # shape=[B,V,H]
+        else:
+            raise NotImplementedError('Unknown pooling type:', self.pooling)
+
         return emb
 

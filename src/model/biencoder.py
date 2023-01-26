@@ -8,6 +8,111 @@ from src.utils import dist_utils
 from src.utils.model_utils import gather_norm, load_retriever
 
 
+class MLPLayer(nn.Module):
+    """
+    Dense layer without bias
+    """
+    def __init__(self, hidden_size):
+        super().__init__()
+        self.dense = nn.Linear(hidden_size, hidden_size, bias=False)
+
+    def forward(self, features, **kwargs):
+        x = self.dense(features)
+        return x
+
+
+class MLPBiasLayer(nn.Module):
+    """
+    Dense layer with bias
+    """
+    def __init__(self, hidden_size):
+        super().__init__()
+        self.dense = nn.Linear(hidden_size, hidden_size, bias=True)
+
+    def forward(self, features, **kwargs):
+        x = self.dense(features)
+        return x
+
+
+class MLPBiasNormLayer(nn.Module):
+    """
+    Head for getting sentence representations over RoBERTa/BERT's CLS representation.
+    """
+    def __init__(self, hidden_size):
+        super().__init__()
+        self.dense = nn.Linear(hidden_size, hidden_size, bias=True)
+        self.norm = nn.LayerNorm(hidden_size)
+
+    def forward(self, features, **kwargs):
+        x = self.dense(features)
+        x = self.norm(x)
+        return x
+
+
+class MLPActiveLayer(nn.Module):
+    """
+    Head for getting sentence representations over RoBERTa/BERT's CLS representation.
+    """
+    def __init__(self, hidden_size):
+        super().__init__()
+        self.dense = nn.Linear(hidden_size, hidden_size, bias=True)
+        # self.dense = weight_norm(nn.Linear(hidden_size, hidden_size, bias=True))
+        self.norm = nn.LayerNorm(hidden_size)
+        self.activation = nn.Tanh()
+
+    def forward(self, features, **kwargs):
+        x = self.dense(features)
+        x = self.norm(x)
+        x = self.activation(x)
+        return x
+
+
+class ProjectorLayer(nn.Module):
+    """
+    Advanced dense layers for getting sentence representations over pooled representation.
+    Modified based on BarlowTwins but uses LayerNorm
+    https://github.com/facebookresearch/barlowtwins/blob/main/main.py
+    No bias term in each dense layer. First n-1 layers have layer-norm and ReLU.
+    """
+    def __init__(self, hidden_size, arch):
+        super().__init__()
+        sizes = [hidden_size] + list(map(int, arch.split('-')))
+        layers = []
+        for i in range(len(sizes) - 2):
+            layers.append(nn.Linear(sizes[i], sizes[i + 1], bias=False))
+            # layers.append(nn.BatchNorm1d(sizes[i + 1]))
+            layers.append(nn.LayerNorm(sizes[i + 1]))
+            layers.append(nn.ReLU(inplace=True))
+        layers.append(nn.Linear(sizes[-2], sizes[-1], bias=False))
+        self.projector = nn.Sequential(*layers)
+
+    def forward(self, features, **kwargs):
+        x = self.projector(features)
+
+        return x
+
+
+class MergerLayer(nn.Module):
+    """
+    Advanced dense layers for getting sentence representations over pooled representation.
+    """
+    def __init__(self, merger_type, hidden_size):
+        super().__init__()
+        sizes = [hidden_size] + list(map(int, merger_type.split('-')))
+        layers = []
+        for i in range(len(sizes) - 2):
+            layers.append(nn.Linear(sizes[i], sizes[i + 1], bias=False))
+            layers.append(nn.BatchNorm1d(sizes[i + 1]))
+            layers.append(nn.ReLU(inplace=True))
+        layers.append(nn.Linear(sizes[-2], sizes[-1], bias=False))
+
+        self.projector = nn.Sequential(*layers)
+
+    def forward(self, features, **kwargs):
+        x = self.projector(features)
+        return x
+
+
 class BiEncoder(nn.Module):
     def __init__(self, moco_config, hf_config):
         super(BiEncoder, self).__init__()
@@ -28,6 +133,69 @@ class BiEncoder(nn.Module):
             self.q_extract_model = AutoModelForSeq2SeqLM.from_pretrained(moco_config.q_extract)
             self.q_extract_model.half()
 
+        # print('q_proj=', moco_config.q_proj)
+        # print('k_proj=', moco_config.k_proj)
+        self.projection_size = moco_config.projection_size
+        self.q_proj = getattr(moco_config, 'q_proj', 'none')
+        self.k_proj = getattr(moco_config, 'k_proj', 'none')
+        if self.q_proj and self.q_proj != "none":
+            if self.q_proj == "mlp":
+                self.q_mlp = MLPLayer(self.projection_size)
+            if self.q_proj == "mlpbias":
+                self.q_mlp = MLPBiasLayer(self.projection_size)
+            elif self.q_proj == "mlpnorm":
+                self.q_mlp = MLPBiasNormLayer(self.projection_size)
+            elif self.q_proj == "mlpact":
+                self.q_mlp = MLPActiveLayer(self.projection_size)
+            elif '-' in self.q_proj or self.q_proj.isdigit():
+                self.q_mlp = ProjectorLayer(self.projection_size, self.q_proj)
+            else:
+                raise NotImplementedError('Unknown q_proj ' + self.q_proj)
+            self._init_weights(self.q_mlp)
+        else:
+            self.q_mlp = None
+        if self.k_proj and self.k_proj != "none":
+            if self.k_proj == "shared":
+                self.k_mlp = self.q_mlp
+            elif self.k_proj == "mlp":
+                self.k_mlp = MLPLayer(self.projection_size)
+            elif self.k_proj == "mlpbias":
+                self.k_mlp = MLPBiasLayer(self.projection_size)
+            elif self.k_proj == "mlpnorm":
+                self.k_mlp = MLPBiasNormLayer(self.projection_size)
+            elif self.k_proj == "mlpact":
+                self.k_mlp = MLPActiveLayer(self.projection_size)
+            elif '-' in self.k_proj or self.q_proj.isdigit():
+                self.k_mlp = ProjectorLayer(self.projection_size, self.k_proj)
+            else:
+                raise NotImplementedError('Unknown k_proj ' + self.k_proj)
+            self._init_weights(self.k_mlp)
+        else:
+            self.k_mlp = None
+
+        self.merger_type = getattr(moco_config, 'merger_type', None)
+        if self.merger_type and '-' in self.merger_type:
+            self.merger = MergerLayer(moco_config.merger_type, hf_config.hidden_size)
+            self._init_weights(self.merger)
+        else:
+            self.merger = None
+
+    def _init_weights(self, module):
+        """Initialize the weights"""
+        if isinstance(module, nn.Linear):
+            # Slightly different from the TF version which uses truncated_normal for initialization
+            # cf https://github.com/pytorch/pytorch/pull/5617
+            module.weight.data.normal_(mean=0.0, std=self.config.initializer_range)
+            if module.bias is not None:
+                module.bias.data.zero_()
+        elif isinstance(module, nn.Embedding):
+            module.weight.data.normal_(mean=0.0, std=self.config.initializer_range)
+            if module.padding_idx is not None:
+                module.weight.data[module.padding_idx].zero_()
+        elif isinstance(module, nn.LayerNorm):
+            module.bias.data.zero_()
+            module.weight.data.fill_(1.0)
+
     def state_dict(self):
         state_dict = super(BiEncoder, self).state_dict()
         if 'queue_k' in state_dict: del state_dict['queue_k']
@@ -35,8 +203,6 @@ class BiEncoder(nn.Module):
         if 'q_extract_model' in state_dict: del state_dict['q_extract_model']
         if 'q_extract_tokenizer' in state_dict: del state_dict['q_extract_tokenizer']
         return state_dict
-
-
 
     def get_encoder(self, return_encoder_k=False):
         if return_encoder_k:

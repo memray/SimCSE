@@ -3,6 +3,8 @@
 import torch
 import torch.nn as nn
 import logging
+
+from tqdm import trange
 from transformers.modeling_outputs import BaseModelOutputWithPoolingAndCrossAttentions
 
 from src.model.biencoder import BiEncoder
@@ -148,6 +150,9 @@ class InBatch(BiEncoder):
             qemb = nn.functional.normalize(qemb, dim=-1)
 
         # 3. apply projectors
+        if self.q_mlp:  qemb = self.q_mlp(qemb)
+        if self.k_mlp:  kemb = self.k_mlp(kemb)
+
         # 4. apply predictor (q/k interaction)
         # 5. computer loss
         gather_fn = dist_utils.gather
@@ -214,7 +219,6 @@ class InBatch(BiEncoder):
             specific_losses=iter_stats
         )
 
-
     def infer_forward(
         self,
         is_query,
@@ -225,6 +229,10 @@ class InBatch(BiEncoder):
         if self.indep_encoder_k and not is_query:
             encoder = self.encoder_k
         pooler_output = encoder(input_ids, attention_mask=attention_mask)
+        if is_query and self.q_mlp:
+            pooler_output = self.q_mlp(pooler_output)
+        if not is_query and self.k_mlp:
+            pooler_output = self.k_mlp(pooler_output)
         if is_query and self.norm_query:
             pooler_output = nn.functional.normalize(pooler_output, dim=-1)
         elif not is_query and self.norm_doc:
@@ -233,3 +241,26 @@ class InBatch(BiEncoder):
         return BaseModelOutputWithPoolingAndCrossAttentions(
             pooler_output=pooler_output,
         )
+
+    def encode(self, sentences, batch_size=32, max_length=512):
+        '''
+        for MTEB evaluation
+        :return:
+        '''
+        passage_embs = []
+        non_zero_tokens = 0
+        for start_idx in trange(0, len(sentences), batch_size, desc="docs"):
+            documents = sentences[start_idx: start_idx + batch_size]
+            inputs = self.tokenizer(documents, max_length=max_length, padding='longest',
+                                       truncation=True, add_special_tokens=True,
+                                       return_tensors='pt').to(self.encoder_k.model.device)
+            input_ids, attention_mask = inputs.input_ids, inputs.attention_mask
+            with torch.no_grad():
+                batch_weights = self.encoder_k(input_ids, attention_mask)
+                if batch_weights.is_cuda:
+                    batch_weights = batch_weights.cpu().detach().numpy()
+                else:
+                    batch_weights = batch_weights.detach().numpy()
+                passage_embs.extend(batch_weights.tolist())
+
+        return passage_embs

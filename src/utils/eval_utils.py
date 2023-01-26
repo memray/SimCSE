@@ -147,7 +147,7 @@ def embed_queries(queries, model, tokenizer,
     return query_tensor.numpy()
 
 
-def generate_passage_embeddings(model, tokenizer, passage_path, save_dir):
+def generate_passage_embeddings(model, tokenizer, passage_path, save_dir, per_gpu_batch_size):
     os.makedirs(save_dir, exist_ok=True)
     model.eval()
     model = model.cuda()
@@ -167,7 +167,7 @@ def generate_passage_embeddings(model, tokenizer, passage_path, save_dir):
 
     logger.info(f"device={shard_id}, embedding generation for {len(passages)} passages, shard-{shard_id} from idx {start_idx} to {end_idx}.")
     passage_shard = passages[start_idx:end_idx]
-    allids, allembeddings = embed_passages(passage_shard, model, tokenizer)
+    allids, allembeddings = embed_passages(passage_shard, model, tokenizer, per_gpu_batch_size=per_gpu_batch_size)
     logger.info(f"device={shard_id}, saving {len(allids)} passage embeddings to {save_path}.")
     with open(save_path, mode="wb") as f:
         pickle.dump((allids, allembeddings), f)

@@ -1,3 +1,6 @@
+'''
+Process UQG output, assign new doc ID
+'''
 import json
 import os
 

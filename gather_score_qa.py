@@ -122,13 +122,16 @@ if __name__ == '__main__':
     # exp_name = 'fb-contriever.msmarco.dot'  # bm25, fb-contriever.dot, fb-contriever.msmarco.dot, spar-wiki-bm25, spar-paq-bm25
     # args.data = f'/export/home/exp/search/unsup_dr/baselines/{exp_name}/qa_output/**/*.csv'
 
-    # exp_name = 'wiki.extphrase3-50.seed477.inbatch.bert-base-uncased.avg.dot.d128d256.step100k.bs1024.lr5e5'
+    # exp_name = 'wiki.extphrase3-50.seed477.moco-2e14.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5'
     # args.data = f'/export/home/exp/search/unsup_dr/wikipsg_v1/{exp_name}/qa_output/**/*.csv'
 
-    exp_name = 'cc.T03b_exsum50.moco-2e14.contriever256-special50.bert-base-uncased.avg.dot.q128d256.step200k.bs2048.lr5e5'
-    args.data = f'/export/home/exp/search/unsup_dr/cc_v1/{exp_name}/qa_output/**/*.csv'
+    # exp_name = 'cc-hybrid.RC20+T0gen80.seed477.moco-2e14.contriever256-special50.bert-base-uncased.avg.dot.q128d256.step200k.bs2048.lr5e5'
+    # args.data = f'/export/home/exp/search/unsup_dr/cc_v1/{exp_name}/qa_output/**/*.csv'
 
-    # exp_name = 'FT-inbatch-random-neg1023+1024.cc.moco-2e14.contriever256.bert-base-uncased.avg.dot.q128d256.step100k.bs1024.lr5e5'
+    # exp_name = 'FT-inbatch-random-neg1023+1024.cc-hybrid.RC20+T0gen80.seed477.moco-2e14.contriever256-special50.bert-base-uncased.avg.dot.q128d256.step200k.bs2048.lr5e5'
     # args.data = f'/export/home/exp/search/unsup_dr/wikipsg_v1-FT/{exp_name}/qa_output/**/*.csv'
+
+    exp_name = 'cc.RC20+T0gen80.noconcat.moco-2e16.contriever256.roberta-base.avg.dot.len256qd128.step100k.bs8192.lr5e5'
+    args.data = f'/export/home/exp/search/unsup_dr/cc_v2/{exp_name}/qa_output/**/*.csv'
 
     main(args)

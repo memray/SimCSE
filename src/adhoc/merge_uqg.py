@@ -2,16 +2,16 @@ import json
 
 def export_cc():
     name2path = {
-        'T03B-topic': '/export/home/data/search/upr/cc/T03B_PileCC_topic.json',
-        'T03B-title': '/export/home/data/search/upr/cc/T03B_PileCC_title.json',
-        'T03B-absum': '/export/home/data/search/upr/cc/T03B_PileCC_absum.json',
-        'T03B-exsum': '/export/home/data/search/upr/cc/T03B_PileCC_exsum.json',
+        'T03B-topic': '/export/home/data/search/upr/cc/T03B_PileCC_topic.jsonl',
+        'T03B-title': '/export/home/data/search/upr/cc/T03B_PileCC_title.jsonl',
+        'T03B-absum': '/export/home/data/search/upr/cc/T03B_PileCC_absum.jsonl',
+        'T03B-exsum': '/export/home/data/search/upr/cc/T03B_PileCC_exsum.jsonl',
         'D2Q-t2q':    '/export/home/data/search/upr/cc/PileCC-doc2query-t2q.jsonl',
         'D2Q-a2t':    '/export/home/data/search/upr/cc/PileCC-doc2query-a2t.jsonl',
         'D2Q-r2t':    '/export/home/data/search/upr/cc/PileCC-doc2query-r2t.jsonl',
     }
-    base_reader = open('/export/home/data/search/upr/cc/T03B_PileCC_topic.json', 'r')
-    writer = open('/export/home/data/search/upr/cc/pilecc_uqg.jsonl', 'w')
+    base_reader = open('/export/home/data/search/upr/cc/T03B_PileCC_topic.jsonl', 'r')
+    # writer = open('/export/home/data/search/upr/cc/pilecc_uqg.jsonl', 'w')
 
     name2reader = {}
     for k,p in name2path.items():
@@ -29,16 +29,16 @@ def export_cc():
             assert docid == _docid
             outputs[k] = uqg_dict['output-prompt0']
         base_dict['outputs'] = outputs
-        writer.write(json.dumps(base_dict)+'\n')
-        # if lid % 10000 == 0:
-        #     print(lid)
-        #     print(json.dumps(base_dict, indent=4))
-        if lid % 100000 == 0:
+        # writer.write(json.dumps(base_dict)+'\n')
+        if lid % 1 == 0:
+            print(lid)
+            print(json.dumps(base_dict, indent=4))
+        if lid % 100 == 0:
             print(lid)
             print(json.dumps(base_dict, indent=4))
             # break
     print('Export done, #line=', lid)
-    writer.close()
+    # writer.close()
 
 
 def export_wiki():
