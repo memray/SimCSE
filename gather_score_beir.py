@@ -13,26 +13,48 @@ def main():
         # 'cc.RC50-Topic50.moco-2e14.contriever256.bert-base-uncased.avg.dot.q128d256.step100k.bs2048.lr5e5'
         # 'cc.RC50-Topic50.moco-2e14.contriever256-special50.bert-base-uncased.avg.dot.q128d256.step200k.bs4096.lr5e5'
 
+        # T2Q
         # 'cc.RC50-T2Q50.moco-2e14.contriever256.bert-base-uncased.avg.dot.q128d256.step100k.bs2048.lr5e5'
         # 'cc.RC50-T2Q50_minlen0.05.moco-2e14.contriever256.bert-base-uncased.avg.dot.q128d256.step200k.bs2048.lr5e5'
 
+        # T0gen
         # 'cc.RC20+T0gen80.seed477.moco-2e14.contriever256.bert-base-uncased.avg.dot.q128d256.step200k.bs2048.lr5e5',
         # 'cc.RC20+T0gen80.moco-2e14.contriever256.bert-base-uncased.avg.dot.qd128.step100k.bs8192.lr5e5'
         # 'cc.RC20+T0gen80_minlen0.05.moco-2e16.contriever256.bert-base-uncased.avg.dot.len224qd128.step100k.bs8192.lr5e5'
         # 'cc.RC20+T0gen80.moco-2e16.contriever256.bert-base-uncased.avg.dot.len256qd128.step200k.bs4096.lr5e5'
         # 'cc.RC20+T0gen80.noconcat.moco-2e16.contriever256.bert-base-uncased.avg.dot.len256qd128.step100k.bs8192.lr5e5'
         # 'cc.RC20+T0gen80.interleave.moco-2e16.contriever256.bert-base-uncased.avg.dot.len256qd128.step100k.bs8192.lr5e5'
+        # 'cc.RC20+T0gen80.moco-2e16.momentum995.contriever256.bert-base-uncased.avg.dot.len256qd128.step200k.bs4096.lr5e5'
 
+        # 'cc.RC20+T0gen80.moco-2e15.contriever256.bert-base-uncased.avg.dot.len256qd128.step100k.bs4096.lr5e5'
+        # 'cc.RC20+T0gen80.moco-2e16.contriever256.bert-base-uncased.avg.dot.len256qd128.step100k.bs4096.lr5e5'
+        # 'cc.RC20+T0gen80.moco-2e17.contriever256.bert-base-uncased.avg.dot.len256qd128.step100k.bs4096.lr5e5'
+        # 'cc.RC20+T0gen80.moco-2e17.contriever256.bert-base-uncased.avg.dot.len256qd128.step100k.bs2048.lr5e5'
+
+
+        # large
         # 'cc.RC20+T0gen80.moco-2e14.contriever256-special50.bert-large-uncased.avg.dot.q128d128.step100k.bs2048.lr1e5'
         # 'cc.RC20+T0gen80.moco-2e14.contriever256.bert-large-uncased.avg.dot.q128d128.step100k.bs2048.lr3e5'
         # 'cc.RC20+T0gen80.moco-2e14.contriever256-special50.bert-large-uncased.cls.dot.q128d128.step100k.bs2048.lr1e5'
         # 'cc.RC20+T0gen80.moco-2e14.contriever256.bert-large-uncased.avg.dot.q128d128.step200k.warmup20k.bs2048.lr5e5'
+        # 'cc.RC20+T0gen80.moco-2e16.contriever256.bert-large-uncased.avg.dot.q128d128.step300k.warmup30k.bs2048.lr5e5'
+        # 'cc.T0gen.inbatch.contriever256.bert-large-uncased.cls.mlp+none.dot.q128d128.step100k.bs1024.lr5e5'
 
+        # Data mixing
         # 'cc.T0gen.seed477.moco-2e14.contriever256.bert-base-uncased.avg.dot.len192q96d128.step200k.bs4096.lr5e5'
-        # 'wiki+cc.RC20+T0gen80.moco-2e14.contriever256.bert-base-uncased.avg.dot.len256qd128.step200k.bs4096.lr5e5'
+        # 'medi.inbatch+neg.inbatch.bert-base-uncased.avg.dot.q128d128.step100k.bs2048.lr5e5'
+        'wiki+cc.RC20+T0gen80.moco-2e14.contriever256.bert-base-uncased.avg.dot.len256qd128.step200k.bs4096.lr5e5'
+        # 'pile8-uniform.moco-2e14.contriever256.title50.bert-base-uncased.avg.dot.qd128.step100k.bs4096.lr5e5'
 
+        # Other backbones
         # 'cc.RC20+T0gen80.moco-2e14.contriever256.roberta-large.avg.dot.q128d128.step100k.warmup10k.bs2048.lr1e5'
         # 'cc.RC20+T0gen80.noconcat.moco-2e16.contriever256.roberta-base.avg.dot.len256qd128.step100k.bs8192.lr5e5'
+        # 'cc.RC20+T0gen80.inbatch.contriever256.deberta-v3-base.cls.dot.len256qd128.step100k.bs2048.lr1e5',
+        # 'cc.RC20+T0gen80.inbatch.contriever256.roberta-base.cls+mlp.dot.len256qd128.step100k.bs1024.lr1e5',
+        # 'cc.RC20+T0gen80.inbatch.contriever256.roberta-base.cls.dot.len256qd128.step100k.bs4096.lr1e5',
+        # 'wiki20+cc80.RC20+T0gen80.moco-2e14.contriever256.bert-base-uncased.avg.dot.len256qd128.step100k.bs2048.lr5e5',
+        # 'cc.RC20+T0gen80.inbatch.contriever256.deberta-v3-base.cls.dot.len256qd128.step100k.bs2048.lr5e5'
+        # 'cc.RC20+T0gen80.inbatch.contriever256.roberta-base.cls.dot.len256qd128.step100k.bs4096.lr5e5'
         ]
 
     if False:

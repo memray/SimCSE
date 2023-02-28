@@ -2,12 +2,29 @@ fuser -v /dev/nvidia* | awk '{ print $0 }' | xargs -n1 kill -9
 
 ## cc_v2
 cd /export/home/project/search/uir_best_cc
-sh run/cc_v2/gpu16/wiki20+cc80.moco2e14.hybrid_rc20gen80.bs2048.gpu8.sh  # pod/sfr-pod-ruimeng.a100-16-1, no OOM, 237G/1.31T
-sh run/cc_v2/gpu16/wiki20+cc80.moco2e14.hybrid_rc20gen80.bs4096.gpu16.sh  # pod/sfr-pod-ruimeng.a100-16-1, 900G/1.31T -> OOM
-sh run/cc_v2/gpu16/cc.hybrid_rc20gen80.inbatch.deberta-base.bs4096.gpu16.sh  # pod/sfr-pod-ruimeng.a100-16-0, backup
+sh run/cc_v2/gpu16/cc.moco2e18.hybrid_rc20gen80.bs8192.gpu16.sh  # pod/sfr-pod-ruimeng.a100-16-1
+sh run/cc_v2/medi/medi.inbatch.base.bs2048.gpu16.sh  # pod/sfr-pod-ruimeng.a100-16-0
+sh run/cc_v2/gpu16/cc.moco2e17.hybrid_rc20gen80.bs8192.gpu16.sh  # pod/sfr-pod-ruimeng.a100-16-0 (backup)
+sh run/cc_v2/mixed_data/pile8.moco.2e14.title05.bs4096.gpu16.sh  # pod/sfr-pod-ruimeng.a100-16-0
+sh run/cc_v2/gpu16/cc.moco2e17.hybrid_rc20gen80.bs2048.gpu16.sh  # pod/sfr-pod-ruimeng.a100-16-1
+sh run/cc_v2/medi/medi.inbatch+neg.base.bs2048.gpu16.sh  # pod/sfr-pod-ruimeng.a100-16-0 (backup)
+sh run/cc_v2/gpu16/cc.moco2e17.hybrid_rc20gen80.bs4096.gpu16.sh  # pod/sfr-pod-ruimeng.a100-16-1
+
+
+sh run/cc_v2/gpu16/cc.moco2e16.hybrid_rc20gen80.bs4096.gpu16.sh  # pod/sfr-pod-ruimeng.a100-16-1
+sh run/cc_v2/gpu16/cc.moco2e15.hybrid_rc20gen80.bs4096.gpu16.sh  # pod/sfr-pod-ruimeng.a100-16-0
+
+sh run/cc_v2/gpu16/cc.moco2e16.hybrid_rc20gen80.large.bs2048.gpu16.sh  # pod/sfr-pod-ruimeng.a100-16-1
+sh run/cc_v2/gpu16/cc.moco2e16.hybrid_rc20gen80.mom995.bs4096.gpu16.sh  # pod/sfr-pod-ruimeng.a100-16-2
+
+
+sh run/cc_v2/gpu16/cc.inbatch.hybrid_tqgen.large.cls.bs1024.gpu16.sh  # pod/sfr-pod-ruimeng.a100-16-0
+sh run/cc_v2/gpu16/cc.hybrid_rc20gen80.inbatch+mlp.roberta-base.bs4096.gpu16.sh  # pod/sfr-pod-ruimeng.a100-16-0
+sh run/cc_v2/gpu16/cc.hybrid_rc20gen80.inbatch.deberta-base.bs4096.gpu16.sh  # pod/sfr-pod-ruimeng.a100-16-1
+sh run/cc_v2/gpu16/cc.hybrid_rc20gen80.inbatch.roberta-base.bs4096.gpu16.sh  # pod/sfr-pod-ruimeng.a100-16-2
 sh run/cc_v2/gpu16/cc.hybrid_rc20gen80.inbatch+mlp.roberta-base.bs1048.gpu8.sh  # pod/sfr-pod-ruimeng.a100-8-0, backup
-sh run/cc_v2/gpu16/cc.hybrid_rc20gen80.inbatch+mlp.roberta-base.bs4096.gpu16.sh  # pod/sfr-pod-ruimeng.a100-16-1
-sh run/cc_v2/gpu16/cc.hybrid_rc20gen80.inbatch.roberta-base.bs4096.gpu16.sh  # pod/sfr-pod-ruimeng.a100-16-0
+sh run/cc_v2/gpu16/wiki20+cc80.moco2e14.hybrid_rc20gen80.bs4096.gpu16.sh  # pod/sfr-pod-ruimeng.a100-16-1, 900G/1.31T -> OOM
+sh run/cc_v2/gpu16/wiki20+cc80.moco2e14.hybrid_rc20gen80.bs2048.gpu8.sh  # pod/sfr-pod-ruimeng.a100-16-1, no OOM, 237G/1.31T
 sh run/cc_v2/gpu16/wiki+cc.moco2e14.hybrid_rc20gen80.bs4096.gpu16.sh  # pod/sfr-pod-ruimeng.a100-16-1
 sh run/cc_v2/hybrid/cc.moco.T0gen.bs4096.gpu8.sh  # pod/sfr-pod-ruimeng.a100-8-0,backup
 sh run/cc_v2/gpu16/cc.moco2e16.hybrid_rc20gen80.roberta.bs8192.gpu16.sh  # pod/sfr-pod-ruimeng.a100-16-2
@@ -34,7 +51,9 @@ sh run/cc_v2/gpu16/cc.moco2e14.hybrid_rc20gen80.large.cls.bs2048.gpu16.sh  # don
 sh run/cc_v2/gpu16/cc.moco2e14.topic50.large.bs2048.gpu16.sh
 sh run/cc_v2/gpu16/cc.moco2e14.topic50.bs8192.gpu16.sh
 
-
+## Data processing
+cd /export/home/project/search/uir_best_cc
+nohup python src/adhoc/dedup_pile_wiki.py > nohup.dedup_pile_removeemptylines.output 2>&1 &
 
 ## CC&wiki DA
 cd /export/home/project/search/uir_best_cc

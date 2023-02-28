@@ -130,6 +130,7 @@ dmypy.json
 .pyre/
 .DS_Store
 .vscode
-data
+/data
 result
 .venv-cu11
+!/src/adhoc/data/

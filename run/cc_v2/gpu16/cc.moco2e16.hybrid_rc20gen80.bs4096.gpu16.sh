@@ -9,17 +9,19 @@ export WORLD_SIZE=16
 
 export TOKENIZERS_PARALLELISM=false
 export NUM_WORKER=4
-export MAX_STEPS=200000
+export MAX_STEPS=100000
 
 export CUDA_LAUNCH_BLOCKING=1
 export NCCL_DEBUG=INFO
 
-export EXP_NAME=cc.RC20+T0gen80.moco-2e16.contriever256.bert-base-uncased.avg.dot.len256qd128.step200k.bs4096.lr5e5
+export EXP_NAME=cc.RC20+T0gen80.moco-2e16.contriever256.bert-base-uncased.avg.dot.len256qd128.step100k.bs4096.lr5e5
 export PROJECT_DIR=/export/home/exp/search/unsup_dr/cc_v2/$EXP_NAME
 mkdir -p $PROJECT_DIR
 cp "$0" $PROJECT_DIR  # copy bash to project dir
 echo $PROJECT_DIR
 
+export HF_DATASETS_CACHE=/export/home/data/pretrain/.cache
+export TRANSFORMERS_CACHE=/export/home/cache/hf
 export WANDB_NAME=$EXP_NAME
 export WANDB_API_KEY=e276a36a5641a49d67b9bf4e9b48b849deffaa76
 export WANDB_PROJECT=unsup_retrieval_cc

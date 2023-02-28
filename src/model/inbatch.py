@@ -241,26 +241,3 @@ class InBatch(BiEncoder):
         return BaseModelOutputWithPoolingAndCrossAttentions(
             pooler_output=pooler_output,
         )
-
-    def encode(self, sentences, batch_size=32, max_length=512):
-        '''
-        for MTEB evaluation
-        :return:
-        '''
-        passage_embs = []
-        non_zero_tokens = 0
-        for start_idx in trange(0, len(sentences), batch_size, desc="docs"):
-            documents = sentences[start_idx: start_idx + batch_size]
-            inputs = self.tokenizer(documents, max_length=max_length, padding='longest',
-                                       truncation=True, add_special_tokens=True,
-                                       return_tensors='pt').to(self.encoder_k.model.device)
-            input_ids, attention_mask = inputs.input_ids, inputs.attention_mask
-            with torch.no_grad():
-                batch_weights = self.encoder_k(input_ids, attention_mask)
-                if batch_weights.is_cuda:
-                    batch_weights = batch_weights.cpu().detach().numpy()
-                else:
-                    batch_weights = batch_weights.detach().numpy()
-                passage_embs.extend(batch_weights.tolist())
-
-        return passage_embs

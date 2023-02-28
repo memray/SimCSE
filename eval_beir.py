@@ -10,10 +10,8 @@ import json
 import os
 
 import numpy as np
-import transformers
 
 import src.beireval.slurm as slurm
-import src.model.contriever
 import src.beireval.beir_utils as beir_utils
 import src.utils.training_utils as utils
 import src.utils.dist_utils as dist_utils
@@ -41,7 +39,8 @@ def main(args):
 
     os.makedirs(args.output_dir, exist_ok=True)
 
-    logger = utils.init_logger(args)
+    logger = utils.init_logger(args, stdout_only=True)
+    logger.setLevel(logging.DEBUG)
     logger.info(f"Loading model from [{args.model_name_or_path}]")
 
     q_model, tokenizer = training_utils.load_model(args.model_name_or_path)
@@ -121,6 +120,7 @@ def main(args):
                 }
             }
             logger.info(f"Dump results of {dataset} to {args.output_dir}/{dataset}.json")
+            print(result_dict)
             with open(f"{args.output_dir}/{dataset}.json", 'w') as writer:
                 writer.write(json.dumps(result_dict, indent=4) + "\n")
             rows = ['metric,@1,@3,@5,@10,@20,@50,@100,@200,@1000']
@@ -135,6 +135,7 @@ def main(args):
     metrics['eval_beir-avg_recall@10'] = np.mean(avg_recall_10)
     metrics['eval_beir-avg_recall@20'] = np.mean(avg_recall_20)
     metrics['eval_beir-avg_recall@100'] = np.mean(avg_recall_100)
+    print(metrics)
 
 
 if __name__ == '__main__':

@@ -27,8 +27,8 @@ def clean_wiki():
 
 
 def clean_pile():
-    input_pile_folder = '/export/home/data/pretrain/pile_new'
-    output_pile_folder = '/export/home/data/pretrain/pile_new_dedup'
+    input_pile_folder = '/export/home/data/pretrain/pile_new_dedup'
+    output_pile_folder = '/export/home/data/pretrain/pile_new'
     os.makedirs(output_pile_folder, exist_ok=True)
 
     for filename in os.listdir(input_pile_folder):
@@ -41,6 +41,7 @@ def clean_pile():
         num_rows = 0
         with open(input_file, 'r') as input:
             for r in input:
+                if not r.strip(): continue # empty lines
                 ex = json.loads(r)
                 lines = [l.strip() for l in ex['text'].split('\n') if len(l.strip()) > 0]
                 key = '!'.join(lines[:3])[:200]
@@ -52,7 +53,7 @@ def clean_pile():
 
         with open(output_file, 'w') as output:
             for r in url2row.values():
-                output.write(r + '\n')
+                output.write(r.strip() + '\n')
 
 
 if __name__ == '__main__':

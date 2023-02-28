@@ -131,7 +131,7 @@ if __name__ == '__main__':
     # exp_name = 'FT-inbatch-random-neg1023+1024.cc-hybrid.RC20+T0gen80.seed477.moco-2e14.contriever256-special50.bert-base-uncased.avg.dot.q128d256.step200k.bs2048.lr5e5'
     # args.data = f'/export/home/exp/search/unsup_dr/wikipsg_v1-FT/{exp_name}/qa_output/**/*.csv'
 
-    exp_name = 'cc.RC20+T0gen80.noconcat.moco-2e16.contriever256.roberta-base.avg.dot.len256qd128.step100k.bs8192.lr5e5'
+    exp_name = 'wiki+cc.RC20+T0gen80.moco-2e14.contriever256.bert-base-uncased.avg.dot.len256qd128.step200k.bs4096.lr5e5'
     args.data = f'/export/home/exp/search/unsup_dr/cc_v2/{exp_name}/qa_output/**/*.csv'
 
     main(args)

@@ -22,10 +22,12 @@ from src.utils import eval_utils
 from src.dataloader.hf_dataloader import load_datasets
 from src.dataloader.dpr_dataloader import load_dpr_dataset
 from src.dataloader.finetune_dataloader import load_finetune_dataset
+from src.dataloader.sbert_dataloader import load_sbert_dataset
+from src.dataloader.medi_dataloader import load_medi_dataset
 
 from src.trainer import DenseRetrievalTrainer
 
-from src.utils.training_utils import wandb_setup, wandb_setup_eval, reload_model_from_ckpt, reload_model_from_pretrained
+from src.utils.training_utils import wandb_setup, wandb_setup_eval, reload_model_from_ckpt
 from src.dataloader.data_process import PassageDataCollatorWithPadding
 from src.arguments import CustomTrainingArguments, HFTrainingArguments, MoCoArguments
 from src.model.moco import MoCo
@@ -162,6 +164,26 @@ def main():
             )
         elif training_args.data_type == 'hf':
             train_dataset, dev_dataset = load_datasets(tokenizer, training_args, hftraining_args, moco_args)
+            train_collator = PassageDataCollatorWithPadding(
+                tokenizer,
+                batch_size=hftraining_args.train_batch_size,
+                padding_strategy='max_length' if training_args.pad_to_max_length else 'longest',
+                max_length=training_args.max_seq_length,
+                q_len=training_args.max_q_tokens,
+                d_len=training_args.max_d_tokens
+            )
+        elif training_args.data_type == 'sbert':
+            train_dataset, dev_dataset = load_sbert_dataset(tokenizer, training_args, hftraining_args)
+            train_collator = PassageDataCollatorWithPadding(
+                tokenizer,
+                batch_size=hftraining_args.train_batch_size,
+                padding_strategy='max_length' if training_args.pad_to_max_length else 'longest',
+                max_length=training_args.max_seq_length,
+                q_len=training_args.max_q_tokens,
+                d_len=training_args.max_d_tokens
+            )
+        elif training_args.data_type == 'medi':
+            train_dataset, dev_dataset = load_medi_dataset(tokenizer, training_args, hftraining_args)
             train_collator = PassageDataCollatorWithPadding(
                 tokenizer,
                 batch_size=hftraining_args.train_batch_size,

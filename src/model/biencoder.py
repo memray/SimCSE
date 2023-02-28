@@ -1,6 +1,8 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
+import numpy as np
 import torch
 from torch import nn
+from tqdm import trange
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
 from src.model.bm25 import BM25Okapi
@@ -141,7 +143,7 @@ class BiEncoder(nn.Module):
         if self.q_proj and self.q_proj != "none":
             if self.q_proj == "mlp":
                 self.q_mlp = MLPLayer(self.projection_size)
-            if self.q_proj == "mlpbias":
+            elif self.q_proj == "mlpbias":
                 self.q_mlp = MLPBiasLayer(self.projection_size)
             elif self.q_proj == "mlpnorm":
                 self.q_mlp = MLPBiasNormLayer(self.projection_size)
@@ -276,3 +278,36 @@ class BiEncoder(nn.Module):
             chunk_scores = sorted(chunk_scores, key=lambda k:k['score'])
             for item in chunk_scores:
                 print('\t[%.2f] %d. %s' % (item['score'], item['id'], item['chunk']))
+
+
+    def encode(self, sentences, batch_size=32, max_length=512,
+               convert_to_numpy: bool = True, convert_to_tensor: bool = False, **kwargs):
+        '''
+        for MTEB evaluation
+        :return:
+        '''
+        all_embeddings = []
+        if convert_to_tensor:
+            convert_to_numpy = False
+
+        for start_idx in trange(0, len(sentences), batch_size, desc="docs"):
+            documents = sentences[start_idx: start_idx + batch_size]
+            inputs = self.tokenizer(documents, max_length=max_length, padding='longest',
+                                       truncation=True, add_special_tokens=True,
+                                       return_tensors='pt').to(self.encoder_k.model.device)
+            input_ids, attention_mask = inputs.input_ids, inputs.attention_mask
+            with torch.no_grad():
+                batch_weights = self.encoder_k(input_ids, attention_mask)
+                if batch_weights.is_cuda:
+                    batch_weights = batch_weights.cpu().detach()
+                else:
+                    batch_weights = batch_weights.detach()
+                all_embeddings.extend(batch_weights)
+
+        if convert_to_tensor:
+            all_embeddings = torch.stack(all_embeddings)
+        elif convert_to_numpy:
+            all_embeddings = np.asarray([emb.numpy() for emb in all_embeddings])
+
+        return all_embeddings
+

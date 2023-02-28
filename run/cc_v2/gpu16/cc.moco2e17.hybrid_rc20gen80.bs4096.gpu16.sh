@@ -9,12 +9,12 @@ export WORLD_SIZE=16
 
 export TOKENIZERS_PARALLELISM=false
 export NUM_WORKER=4
-export MAX_STEPS=200000
+export MAX_STEPS=100000
 
 export CUDA_LAUNCH_BLOCKING=1
 export NCCL_DEBUG=INFO
 
-export EXP_NAME=cc.RC20+T0gen80.moco-2e17.contriever256.bert-base-uncased.avg.dot.len256qd128.step200k.bs4096.lr5e5
+export EXP_NAME=cc.RC20+T0gen80.moco-2e17.contriever256.bert-base-uncased.avg.dot.len256qd128.step100k.bs4096.lr5e5
 export PROJECT_DIR=/export/home/exp/search/unsup_dr/cc_v2/$EXP_NAME
 mkdir -p $PROJECT_DIR
 cp "$0" $PROJECT_DIR  # copy bash to project dir
